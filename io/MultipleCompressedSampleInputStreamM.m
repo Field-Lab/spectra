@@ -10,7 +10,7 @@ classdef MultipleCompressedSampleInputStreamM
     end
     
     methods
-        % Basic constructor0 implemented - Note there are 3 java constructors with added complexity
+        % Basic constructor implemented - Note there are 3 java constructors with added complexity
         function obj = MultipleCompressedSampleInputStreamM(rawDataSource)
             import edu.ucsc.neurobiology.vision.io.*
             % TODO implement path validity check
