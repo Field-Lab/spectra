@@ -40,7 +40,7 @@ classdef SpikeSaverM
             end
             
             % Getting header from input stream
-            header = sampleInputStream.getHeader();
+            header = sampleInputStream.getJavaHeader();
             
             % Create spikeFile object. outputPath should be corrected for
             % the argument should be a folder path and is used here as a file path
