@@ -45,6 +45,54 @@ classdef MultipleCompressedSampleInputStreamM
             header = obj.multipleCompressedSampleInputStream.getHeader();
         end % getJavaHeader
         
+        function finishSampleProcessing(obj)
+            obj.multipleCompressedSampleInputStream.finishSampleProcessing();
+        end % finishSampleProcessing
+        
+        function n = getCumulativeNSamples(obj)
+            n = obj.multipleCompressedSampleInputStream.getCumulativeNSamples();
+        end % getCumulativeNSamples
+        
+        function out = isFinished(obj)
+           out = obj.multipleCompressedSampleInputStream.isFinished(); 
+        end % getSamplesRead
+        
+        function n = getBufferUsage(obj)
+            n = obj.multipleCompressedSampleInputStream.getBufferUsage();
+        end % getNelectrodes
+        
+        function initialize(obj, buffer)
+            % Need to map buffer into a java array for reference passing... buuuuuuut no
+        end % initialize
+        
+        function processSample(obj, sample)
+            % Need to map buffer into a java array for reference passing... buuuuuuut no
+        end % processSample
+        
+        function start(obj)
+            obj.multipleCompressedSampleInputStream.start();
+        end % start
+        
+        function setInitializationListener(obj)
+            % TODO Need to set up SampleInitializationListener interface for given matlab objects
+        end
+        
+        function addSampleListener(obj)
+            % TODO Need to set up SampleListener interface for given matlab objects
+        end
+        
+        function removeSampleListener(obj)
+            % TODO Need to set up SampleListener interface for given matlab objects
+        end
+        
+        function n = getSamplesRead(obj)
+            n = obj.multipleCompressedSampleInputStream.getSamplesRead();
+        end
+        
+        function el = getNElectrodes(obj)
+            el = obj.multipleCompressedSampleInputStream.getNElectrodes();
+        end
+        
     end % Methods
     
 end % Class
