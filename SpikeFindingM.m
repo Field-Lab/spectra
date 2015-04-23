@@ -26,16 +26,30 @@ bufferSizeInBytes = round(bufferSizeInBytes/770)*770; % One sample in buffer tak
 
 nBuffers = str2double(p.get('Buffers Count')); % id line above
 
-% nSamplesToBuffer = floor(bufferSizeInBytes / 770); % Magic 770: due to 1.5 byte for a max of 513 electrodes.
-% bufferSizeinBytes = nSamplesToBuffer * 770;
-
 % Note : no option waitForData accepted for now. Input can't be a live feed or a being-written file.
 
 % Instantiate data feed
-sampleInputStream = MultipleCompressedSampleInputStreamM(rawDataSource, bufferSizeInBytes, nBuffers);
+% sampleInputStream = MultipleCompressedSampleInputStreamM(rawDataSource, bufferSizeInBytes, nBuffers);
+
 % Extracting header
-header = sampleInputStream.getJavaHeader();
-nSamples = header.getNumberOfSamples();
+% header = sampleInputStream.getJavaHeader();
+% nSamples = header.getNumberOfSamples();
+
+%% New version: trying to get around using a MultipleCompressedSampleInputStream
+% Going to acquire samples through RawDataFile.getData()
+% Should allow to import larger number of samples and use array-based spikeFinding
+% TODO move that to a matlab file IO
+parser = DataFileStringParser(dataPath);
+datasets = parser.getDatasets();
+rawDataFile = RawDataFile(File(char(datasets(1))));
+startTimes = parser.getStartTimes();
+startTime = startTimes(1);
+stopTimes = parser.getStopTimes();
+stopTime = stopTimes(1);
+
+header = rawDataFile.getHeader();
+samplingRate = 20000;
+totalSamples = (stopTime - startTime) * samplingRate;
 
 %% Java electrodemap setup if setElectrode is activated. Skipping this as set electrode is FALSE in vision config
 % if setElectrodes, array params from parameter HashMap
@@ -73,15 +87,18 @@ sigma = sigma * spikeThreshold;
 % Skipped - this version meant to work on already recorded data
 
 %% Create the Spiker Finder and heirs
-
+spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant);
 
 %% Analysis
 % Skipped - this version meant to do spike saving
 
 %% Diagnostic - None
 %% GUI Stuff - None
-
 %% Get the machine ready
-e
+%% Spike Finding
+% Covers the SpikeFinder and SpikeBuffer in Matlab.
+% Then passes spikes down the SpikeSaver
+
+
 end
 
