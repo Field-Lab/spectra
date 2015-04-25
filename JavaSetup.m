@@ -7,6 +7,7 @@ import edu.ucsc.neurobiology.vision.*
 import edu.ucsc.neurobiology.vision.anf.*
 import edu.ucsc.neurobiology.vision.calculations.*
 import edu.ucsc.neurobiology.vision.io.*
+import edu.ucsc.neurobiology.vision.electrodeMap.*
 import java.io.*
 import java.util.*
 
@@ -20,4 +21,4 @@ config = edu.ucsc.neurobiology.vision.Config('C:\Users\Vincent\Documents\EJGroup
 %% Set up a HashMap of parameters for SpikeFinding
 sigmaFileName = [saveFolder,'\data002.noise'];
 
-p = spikeFindingSetup([dataPath,'(0-10)'],saveFolder,sigmaFileName,config);
+parameters = spikeFindingSetup([dataPath,'(0-10)'],saveFolder,sigmaFileName,config);

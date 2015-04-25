@@ -17,6 +17,7 @@ classdef SpikeFinderM < handle
     end
     properties (SetAccess = protected, GetAccess = public)
         buildingSpike @logical
+        initialized = false
         maxTime
         maxAmplitude
         previousSpikeTime
@@ -57,16 +58,18 @@ classdef SpikeFinderM < handle
         
         function spikes = processSample(obj, sample)
             validateattributes(sample,{'numeric'},{'column','nrows',obj.nElectrodes},'','sample');
-            
+            if ~obj.initialized
+                throw(MException('SpikeFinderM.processSample: not initialized'));
+            end
             % updating current sample
             obj.currentSample = obj.currentSample + 1;
             
             % processing of TTL sample
-            ttlSpike = [];
+            ttlSpike = zeros(0,3);
             if sample(1) < -obj.ttlThreshold
                 if ~obj.buildingSpike(1)
                     obj.buildingSpike(1) = true;
-                    ttlSpike = SpikeM(obj.currentSample,1,1500); %% Hardcoded 1500 amplitude for ttl spikes
+                    ttlSpike = [obj.currentSample,1,1500]; %% Hardcoded 1500 amplitude for ttl spikes
                     if obj.previousSpikeTime(1) > 0
                         obj.ttlAverage = obj.ttlAverage + obj.currentSample - obj.previousSpikeTime(1);
                         obj.ttlCount = obj.ttlCount + 1;
@@ -82,6 +85,8 @@ classdef SpikeFinderM < handle
             % filtering
             obj.filterState(2:end) = (1-obj.alpha) * obj.filterState(2:end) + obj.alpha * sample(2:end);
             amplitude = obj.filterState - sample;
+            % % Non filtered
+            % amplitude = -sample;
             
             % Identifying behaviors and removing disconnected electrodes
             % Spikes starting at this sample
@@ -126,126 +131,119 @@ classdef SpikeFinderM < handle
                 obj.previousSpikeTime(terminateSpike) = obj.maxTime(terminateSpike);
                 obj.buildingSpike(terminateSpike) = false;
                 
-                if any(closeSpike)                
-                electrode = (1:obj.nElectrodes)';
-                spikes = [ttlSpike;SpikeM(obj.maxTime(closeSpike),electrode(closeSpike),obj.maxAmplitude(closeSpike))];
+                if any(closeSpike)
+                    electrode = (1:obj.nElectrodes)';
+                    spikes = [ttlSpike;[obj.maxTime(closeSpike),electrode(closeSpike),obj.maxAmplitude(closeSpike)]];
                 end
             end
-%             spikes
-%             numel(spikes)
+            %             spikes
+            %             numel(spikes)
             obj.totalSpikes = obj.totalSpikes + numel(spikes);
             
         end % processSample
         
-        function spikes = processSampleBuffer(obj,sampleBuffer)
-            
-            validateattributes(sampleBuffer,{'numeric'},{'2d','nrows',obj.nElectrodes},'','sampleBuffer');
-            
-            spikes{obj.nElectrodes,1} = [];
-            spikes{1} = obj.processTtlBuffer(sampleBuffer(1,:));
-            
-            for el = 2:obj.nElectrodes
-                if (~obj.disconnected(el))
-                    spikes{el} = obj.processElectrodeBuffer(el,:);
-                end
-            end
-            
-            obj.currentSample = obj.currentSample + size(sampleBuffer,2); % Increase currentSample by the length of the processed buffer.
-            
-        end % processSampleBuffer
-        
         function initialize(obj,varargin)
             narginchk(1,2);
+            if obj.initialized
+                throw(MException('SpikeFinderM_initialize:InitializationError','Multiple Initialization'));
+            end
+            if obj.currentSample ~= 0
+                throw(MException('SpikeFinderM_initialize:InitializationError','Sample counter already > 0'));
+            end
             if nargin == 1
-                sampleBuffer = 0;%%%
+                obj.initialize([]);
+                obj.initialized = true;
             else
                 sampleBuffer = varargin{1};
-                validateattributes(sampleBuffer,0);%%%
+                validateattributes(sampleBuffer,{'numeric'},{'2d','nrows',obj.nElectrodes},'','sampleBuffer');
+                obj.filterState = mean(sampleBuffer,2);
+                obj.initialized = true;
             end % nargin test
-            
         end % initialize
         
         function rate = getRefreshRate(obj)
-            
+            rate = obj.ttlAverage/obj.ttlCount;
         end % getRefreshRate
         
         function samples = getSamplesProcessed(obj)
-            
+            samples = obj.currentSample;
         end % getSamplesProcessed
         
         function spikes = getSpikesFound(obj)
-            
+            spikes = obj.totalSpikes;
         end % getSpikesFound
         
     end
     
-    methods %(Access = protected)
-        function spikeArray = processTtlBuffer(obj, sampleBuffer)
-            % Detecting TTL thresholds
-            if ~obj.buildingSpike(1) && sampleBuffer(1) < -obj.ttlThreshold % first sample of buffer is a new spike
-                upFronts = [1,strfind(sampleBuffer < -obj.ttlThreshold,[0 1])+1];
-            else
-                upFronts = strfind(sampleBuffer < -obj.ttlThreshold,[0 1])+1; % strfind yields index of [0 1] pattern, we want the index of the 1.
-            end
-            
-            % Creating TTL spikes
-            nSpikes = size(upFronts,2);
-            for n = nSpikes:-1:1
-                spikeArray(1,n) = SpikeM(obj.currentSample+upFronts(n),1,1500);
-            end
-            
-            % Updating finder parameters for next buffer
-            obj.buildingSpike(1) = sampleBuffer(end) < -obj.ttlThreshold;
-            if obj.previousSpikeTime(1) > 0
-                obj.ttlAverage = obj.ttlAverage + spikeArray(1,n).time - obj.previousSpikeTime(1);
-                obj.ttlCount = obj.ttlCount + nSpikes;
-            end
-            obj.previousSpikeTime = spikeArray(1,n).time;
-            obj.totalSpikes = obj.totalSpikes + nSpikes;
-            
-        end % processTtlBuffer
-        
-        function spikeArray = processElectrodeBuffer(obj, el, sampleBuffer)
-            % Filter data
-            dataFilt = filter(obj.alpha,[1,obj.alpha-1],sampleBuffer,obj.filterState(el));
-            % Memorizing new filter state
-            obj.filterState(el) = dataFilt(end);
-            % Substracting filtered central value - invert sign
-            data = dataFilt - sampleBuffer;
-            
-            % Finding up and down fronts along the buffer
-            % adding an up front at position 1 if a spike appears at this very sample
-            % upFront values correspond to the first 1 of the spike
-            % downFront values correspond to the first 0 after the spike
-            aboveThreshold = data > obj.spikeThresholds(el);
-            if ~obj.buildingSpike(el) && aboveThreshold(1)
-                upFronts = [1,strfind(aboveThreshold,[0 1])+1];
-            else
-                upFronts = strfind(aboveThreshold,[0 1])+1;
-            end
-            if obj.buildingSpike(el) && ~aboveThreshold(1)
-                downFronts = [1,strfind(aboveThreshold,[1 0])+1];
-            else
-                downFronts = strfind(aboveThreshold,[1 0])+1;
-            end
-            
-            % Creating all finished spikes EXCEPT the first one
-            nSpikes = size(downFronts,2);
-            for n = nSpikes:-1:2
-                maxSpikeTime(1,n) = 0;
-                
-                spikeArray(1,n) = SpikeM(obj.currentSample+maxSpikeTime(n),el,maxAmplitude);
-            end
-            
-            
-            if obj.buildingSpike(el) % Case: we need to finish building a running spike
-                if isempty(downFronts) % No downfronts - spike runs across the whole buffer
-                    
-                else % Current spike runs up to the first down front
-                    
-                end
-            end
-        end % processElectrodeBuffer
-        
-    end
+    % % Draft tentative methods - goal is to process multiple samples at the same time over
+    % % several/multiple electrodes.
+    %     methods %(Access = protected)
+    %         function spikeArray = processTtlBuffer(obj, sampleBuffer)
+    %             % Detecting TTL thresholds
+    %             if ~obj.buildingSpike(1) && sampleBuffer(1) < -obj.ttlThreshold % first sample of buffer is a new spike
+    %                 upFronts = [1,strfind(sampleBuffer < -obj.ttlThreshold,[0 1])+1];
+    %             else
+    %                 upFronts = strfind(sampleBuffer < -obj.ttlThreshold,[0 1])+1; % strfind yields index of [0 1] pattern, we want the index of the 1.
+    %             end
+    %
+    %             % Creating TTL spikes
+    %             nSpikes = size(upFronts,2);
+    %             for n = nSpikes:-1:1
+    %                 spikeArray(1,n) = SpikeM(obj.currentSample+upFronts(n),1,1500);
+    %             end
+    %
+    %             % Updating finder parameters for next buffer
+    %             obj.buildingSpike(1) = sampleBuffer(end) < -obj.ttlThreshold;
+    %             if obj.previousSpikeTime(1) > 0
+    %                 obj.ttlAverage = obj.ttlAverage + spikeArray(1,n).time - obj.previousSpikeTime(1);
+    %                 obj.ttlCount = obj.ttlCount + nSpikes;
+    %             end
+    %             obj.previousSpikeTime = spikeArray(1,n).time;
+    %             obj.totalSpikes = obj.totalSpikes + nSpikes;
+    %
+    %         end % processTtlBuffer
+    %
+    %         function spikeArray = processElectrodeBuffer(obj, el, sampleBuffer)
+    %             % Filter data
+    %             dataFilt = filter(obj.alpha,[1,obj.alpha-1],sampleBuffer,obj.filterState(el));
+    %             % Memorizing new filter state
+    %             obj.filterState(el) = dataFilt(end);
+    %             % Substracting filtered central value - invert sign
+    %             data = dataFilt - sampleBuffer;
+    %
+    %             % Finding up and down fronts along the buffer
+    %             % adding an up front at position 1 if a spike appears at this very sample
+    %             % upFront values correspond to the first 1 of the spike
+    %             % downFront values correspond to the first 0 after the spike
+    %             aboveThreshold = data > obj.spikeThresholds(el);
+    %             if ~obj.buildingSpike(el) && aboveThreshold(1)
+    %                 upFronts = [1,strfind(aboveThreshold,[0 1])+1];
+    %             else
+    %                 upFronts = strfind(aboveThreshold,[0 1])+1;
+    %             end
+    %             if obj.buildingSpike(el) && ~aboveThreshold(1)
+    %                 downFronts = [1,strfind(aboveThreshold,[1 0])+1];
+    %             else
+    %                 downFronts = strfind(aboveThreshold,[1 0])+1;
+    %             end
+    %
+    %             % Creating all finished spikes EXCEPT the first one
+    %             nSpikes = size(downFronts,2);
+    %             for n = nSpikes:-1:2
+    %                 maxSpikeTime(1,n) = 0;
+    %
+    %                 spikeArray(1,n) = SpikeM(obj.currentSample+maxSpikeTime(n),el,maxAmplitude);
+    %             end
+    %
+    %
+    %             if obj.buildingSpike(el) % Case: we need to finish building a running spike
+    %                 if isempty(downFronts) % No downfronts - spike runs across the whole buffer
+    %
+    %                 else % Current spike runs up to the first down front
+    %
+    %                 end
+    %             end
+    %         end % processElectrodeBuffer
+    
+    %     end
 end

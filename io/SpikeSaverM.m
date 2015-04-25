@@ -17,30 +17,22 @@ classdef SpikeSaverM
     
     methods
         % put getters, spike treater & debug stuff
-        function obj = SpikeSaverM(sampleInputStream, savePath)
+        function obj = SpikeSaverM(header, savePath)
             import edu.ucsc.neurobiology.vision.io.*
             
-            % sampleInputStream validity check
-            if ~isa(sampleInputStream,'MultipleCompressedSampleInputStreamM')
-                ME = MException('SpikeSaverM:IllegalConstructorArgumentException',...
-                    ['Constructor argument sampleInputStream must be of java type ',...
-                    'MultipleCompressedSampleInputStream.']);
-                throw(ME);
-            end
+            % header class check validity check
+            validateattributes(header, {'edu.ucsc.neurobiology.vision.io.RawDataHeader512'},{},'','header',1);
             
             % TODO Complete a path validity check for outputPath argument
             % savePath validity check
+            validateattributes(savePath,{'char'},{},'','savePath',2);
             if false
-                ME = MException('SpikeSaverM:IllegalConstructorArgumentException',...
-                    'Constructor argument outputPath is not a valid path.');
-                throw(ME);
+                throw(MException('SpikeSaverM:IllegalConstructorArgumentException',...
+                    'Constructor argument outputPath is not a valid path.'));
             else
                 % Set the output path
                 obj.savePath = savePath;
             end
-            
-            % Getting header from input stream
-            header = sampleInputStream.getJavaHeader();
             
             % Create spikeFile object. outputPath should be corrected for
             % the argument should be a folder path and is used here as a file path
@@ -55,7 +47,8 @@ classdef SpikeSaverM
             meanTimeConstant = 0;
             spikeThreshold = 0;
             
-            obj.spikeFile = SpikeFile([savePath, '.spikes'], header.getArrayID(),...
+            [~,name,~] = fileparts(savePath);
+            obj.spikeFile = SpikeFile([savePath,filesep,name,'.spikes'], header.getArrayID(),...
                 meanTimeConstant, spikeThreshold,...
                 header.getNumberOfSamples(),...
                 header.getSamplingFrequency());
@@ -68,22 +61,20 @@ classdef SpikeSaverM
             spikesFound = obj.spikeSaver.getSpikesFound();
         end
         
-        function processSpike(obj, spikeM)
+        function processSpikes(obj, spikes)
             import edu.ucsc.neurobiology.vision.io.*
             
-            if ~isa(spikeM,'SpikeM')
-                ME = MException('SpikeSaverM:IllegalArgumentException',...
-                    'processSpike argument spike is not a spikeM object.');
-                throw(ME);
-            end
-            spike = Spike(spikeM.time,spikeM.electrode,spikeM.amplitude);
+            validateattributes(spikes,{'numeric'},{'2d','ncols',3},'','spikes');
+            validateattributes(spikes(:,1),{'numeric'},{'nondecreasing','integer'},'','spikes(:,1)');
             
-            obj.spikeSaver.processSpike(spike);
+            for i = 1:size(spikes,1)
+                spikeJava = Spike(spikes(i,1),spikes(i,2)-1,spikes(i,3));
+                obj.spikeSaver.processSpike(spikeJava);
+            end
         end
         
         function finishSpikeProcessing(obj)
-            % TODO deal with calling twice and avoid the java error.
-           obj.spikeSaver.finishSpikeProcessing(); 
+            obj.spikeSaver.finishSpikeProcessing();
         end
     end
     
