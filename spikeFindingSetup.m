@@ -63,7 +63,7 @@ function outputHashMap = spikeFindingSetup(rawDataFile,outputPath,sigmaFileName,
     % No interest in doing nothing
     % or doing covariance analysis concurrent to spike finding for now.
     % Below is a trick to recover a nested enum value:
-    analysisToDo = javaMethod('valueOf', 'edu.ucsc.neurobiology.vision.anf.SpikeFinding$AnalysisToDo', 'SAVE_SPIKES');
+    analysisToDo = javaMethod('valueOf', 'edu.ucsc.neurobiology.vision.anf.SpikeFinding$AnalysisToDo', 'SAVE_SPIKES_AND_COVARINCES');
     
     outputHashMap.put('Analysis', 'true');
     outputHashMap.put('Analysis.Analysis To Do', String(num2str(analysisToDo.ordinal())));
@@ -75,7 +75,7 @@ function outputHashMap = spikeFindingSetup(rawDataFile,outputPath,sigmaFileName,
     %    outputHashMap.put('Analysis.Minimum Noise Events', d.get('Analysis.Minimum Noise Events'));
     %    } else {
     outputHashMap.put('Analysis.Minimum Noise Events', String('0'));
-    %        }    
+    %        }
     outputHashMap.put('Analysis.Electrode Usage', String(num2str(d.get('Analysis.Electrode Usage'))));
     outputHashMap.put('Analysis.Output_Path', outputPath);
     

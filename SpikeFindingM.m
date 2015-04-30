@@ -3,8 +3,7 @@ function [ ] = SpikeFindingM( parameters )
 %   Takes on after noise finding has been done (or not)
 % Computes the spikesproperties over the electrode array and stores
 % them in a .spike file
-% In a format matching the current behavior of vision. %% Note: offset of 20000 samples, probably
-% due to initialization of spikeFinder.
+% In a format matching the current behavior of vision.
 
 import edu.ucsc.neurobiology.vision.electrodemap.*
 import edu.ucsc.neurobiology.vision.io.*
@@ -97,7 +96,7 @@ sigma = sigma * spikeThreshold;
 %% Create the Spiker Finder and heirs
 spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant);
 spikeBufferM = SpikeBufferM();
-spikeSaverM  = SpikeSaverM(header, outputPath);
+spikeSaverM  = SpikeSaverM(header, outputPath, meanTimeConstant, spikeThreshold);
 
 %% Analysis
 % Skipped - this version meant to do spike saving
@@ -112,7 +111,8 @@ currentSample = 0;
 
 if totalSamples >= samplingRate % We need 1 sec buffer to initialize Spikefinder with
     rawData = rawDataFile.getData(startSample, samplingRate)'; % Get a read of 1 second
-    lastSampleLoaded = samplingRate; % Do not update? - Seems that Vision starts at sample 1 even after initializing
+    % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
+    % initialization samples, with updated means.
     
     spikeFinderM.initialize(rawData);
 else

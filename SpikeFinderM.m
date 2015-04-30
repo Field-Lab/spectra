@@ -151,7 +151,7 @@ classdef SpikeFinderM < handle
                 throw(MException('SpikeFinderM_initialize:InitializationError','Sample counter already > 0'));
             end
             if nargin == 1
-                obj.initialize([]);
+                obj.initialize(zeros(513,0));
                 obj.initialized = true;
             else
                 sampleBuffer = varargin{1};

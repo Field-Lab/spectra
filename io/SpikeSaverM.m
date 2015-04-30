@@ -17,7 +17,7 @@ classdef SpikeSaverM
     
     methods
         % put getters, spike treater & debug stuff
-        function obj = SpikeSaverM(header, savePath)
+        function obj = SpikeSaverM(header, savePath, meanTimeConstant, spikeThreshold)
             import edu.ucsc.neurobiology.vision.io.*
             
             % header class check validity check
@@ -38,14 +38,6 @@ classdef SpikeSaverM
             % the argument should be a folder path and is used here as a file path
             
             % header does NOT always contain the correct packed array ID. See SpikeFinding.java
-            
-            % meanTimeConstant & spikeThreshold come from the argument HashMap
-            % which likely comes from the xml files/user settings
-            % These values should not be used on the way down by the saver except for storing
-            % in header
-            % So for now just set to 0
-            meanTimeConstant = 0;
-            spikeThreshold = 0;
             
             [~,name,~] = fileparts(savePath);
             obj.spikeFile = SpikeFile([savePath,filesep,name,'.spikes'], header.getArrayID(),...
