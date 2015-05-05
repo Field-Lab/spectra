@@ -75,6 +75,8 @@ end
 electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
 nElectrodes = electrodeMap.getNumberOfElectrodes();
 
+disconnected = electrodeMap.getDisconnectedElectrodesList();
+
 %% Get sigmas
 % sigma = getSigmas(sigmaPath, nElectrodes)
 % Implemeting functionality of SpikeFinding.getSigmas(String fileNameOrValue, nElectrodes);
@@ -106,9 +108,12 @@ spikeSaverM  = SpikeSaverM(header, outputPath, meanTimeConstant, spikeThreshold)
 %% Get the machine ready
 %% Spike Finding
 
-lastSampleLoaded = 0; % Index of last sample read, initialize @ 0
+lastSampleLoaded = startSample-1; % Index of last sample read, initialize @ 0
 currentSample = 0;
 
+bufferLengthInSamples = samplingRate;
+
+% Initialization
 if totalSamples >= samplingRate % We need 1 sec buffer to initialize Spikefinder with
     rawData = rawDataFile.getData(startSample, samplingRate)'; % Get a read of 1 second
     % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
@@ -121,8 +126,8 @@ else
 end
 
 while lastSampleLoaded < stopSample-1 % stopSample should be the first sample not loaded
-   rawData = rawDataFile.getData(lastSampleLoaded+1, min(samplingRate,stopSample-lastSampleLoaded-1))';
-   lastSampleLoaded = lastSampleLoaded + min(samplingRate,stopSample-lastSampleLoaded-1);
+   rawData = rawDataFile.getData(lastSampleLoaded+1, min(bufferLengthInSamples,stopSample-lastSampleLoaded-1))';
+   lastSampleLoaded = lastSampleLoaded + min(bufferLengthInSamples,stopSample-lastSampleLoaded-1);
    
    for i = 1:size(rawData,2)
        currentSample = currentSample + 1;
@@ -134,18 +139,6 @@ end
 
 spikeSaverM.processSpikes(spikeBufferM.getAllSpikes());
 spikeSaverM.finishSpikeProcessing();
-% Initialize stuff with this read
-
-
-% Loop loading buffers
-% Pass buffers to spikeFinder
-% Pass Spikes to spikes buffer
-% Pass Spikes to spikeSaver
-
-% Get All remaining Spikes in SpikeBuffer
-% Pass them to the saver
-% Done !
-
 
 end
 
