@@ -99,7 +99,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     
     % interpolation bases
     interpBase = 1:nPoints;
-    resampleBase = nLPoints:0.001:(nLPoints+2);
+    resampleBase = nLPoints:0.01:(nLPoints+2);
     
     % Initializing covariance matrices
     covMatrix = cell(nElectrodes,1);
@@ -107,12 +107,12 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     totSpikes = zeros(nElectrodes,1);
     
     for i = 2:nElectrodes
-       covMatrix{i} = zeros((nPoints-2) * numel(adjacent{i})); 
-       averages{i} = zeros(1,(nPoints - 2) * numel(adjacent{i}));
+        covMatrix{i} = zeros((nPoints-2) * numel(adjacent{i}));
+        averages{i} = zeros(1,(nPoints - 2) * numel(adjacent{i}));
     end
     
     %%%
-%     stopSample = 5000;
+        stopSample = 5000;
     %%%
     while ~isFinished % stopSample should be the first sample not loaded
         %% Load samples
@@ -128,6 +128,12 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
             single(rawDataFile.getData(bufferStart, bufferEnd - bufferStart)'),...
             filterState, 2);
         
+        %% per electrode interp model. Too many losses in ppval otherwise.
+        for el = nElectrodes:-1:1
+            interpModel(el) = interp1(1:size(rawData,2),rawData(el,:),'spline','pp');
+%             interpModelAdj(el) = interp1(1:size(rawData,2),rawData(adjacent{el}+1,:),'spline','pp');
+        end
+        
         %% Load Spikes
         spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
         % If no spikes at all are loaded, skip iteration
@@ -142,25 +148,31 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         for el = 2:nElectrodes
             %% Process each spike
             for spikeTime = spikes{el}'
-                % Load master spike and neighboring electrodes 
+                % Load master spike and neighboring electrodes
                 spikeAtWork = rawData(adjacent{el}+1,...
                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+                
                 % Realign minimun of resampled spline
-                % Spline resampled only around expected minimum
-                interpSpike = interp1(interpBase',spikeAtWork(1,:)',resampleBase','spline')';
-                offset = (find(interpSpike == min(interpSpike),1)-1)/1000;
+                interpSpike = ppval(interpModel(el),resampleBase + double(spikeTime) - nLPoints);
+                
+                offset = (find(interpSpike == min(interpSpike),1)-1)/100;
                 interpPoints = (1:(nPoints-2)) + offset;
-                centeredSpike = interp1(interpBase',spikeAtWork',interpPoints','spline');
+                centeredSpike = zeros(nPoints-2,numel(adjacent{el}));
+                for i = 1:numel(adjacent{el})
+                    centeredSpike(:,i) = ppval(interpModel(adjacent{el}(i)+1),interpPoints + double(spikeTime) - nLPoints);
+                end
+                
                 % Update info
                 totSpikes(el) = totSpikes(el) + 1;
                 averages{el} = averages{el} + centeredSpike(:)';
                 covMatrix{el} = covMatrix{el} + centeredSpike(:) * centeredSpike(:)';
-%                 plot(interpBase,spikeAtWork(1,:),'b+',resampleBase,interpSpike);
-                % Spike cubic spline test snippet
-
-%                                 plot(1:21,spikeAtWork','b-',2:20,centeredSpike','r-');
-%                                 ['el: ',num2str(el),' ; spikeTime: ',num2str(spikeTime)]
-%                                 pause(0.1);
+                
+%                 plot(interpBase,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
+%                 hold on
+%                 plot(1:21,spikeAtWork(1,:),'b');
+%                 plot(1:21,spikeAtWork,'k--');
+%                 plot(2:20,centeredSpike,'r');
+%                 hold off
             end
         end
     end
@@ -169,9 +181,9 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     for el = 2:nElectrodes
         if totSpikes(el) >= 2
             covMatrix{el} = (covMatrix{el} - averages{el}' * averages{el} / totSpikes(el))/(totSpikes(el)-1);
-%             covMatrix{el} = (covMatrix{el} / totSpikes(el))/(totSpikes(el)-1);
+            %             covMatrix{el} = (covMatrix{el} / totSpikes(el))/(totSpikes(el)-1);
             averages{el} = averages{el}/totSpikes(el);
         end
-    end    
+    end
     
 end
