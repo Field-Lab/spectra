@@ -6,6 +6,7 @@ javaaddpath('C:/Users/Vincent/Documents/EJGroup/Java/vision7/bin/');
 javaaddpath('C:/Users/Vincent/Documents/EJGroup/Java/vision7/Vision.jar','-end');
 import edu.ucsc.neurobiology.vision.*
 import edu.ucsc.neurobiology.vision.anf.*
+import edu.ucsc.neurobiology.vision.math.*
 import edu.ucsc.neurobiology.vision.calculations.*
 import edu.ucsc.neurobiology.vision.io.*
 import edu.ucsc.neurobiology.vision.electrodeMap.*

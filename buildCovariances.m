@@ -1,4 +1,4 @@
-function covMatrix = buildCovariances(parameters, spikeFileName)
+function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFileName)
     % Build the covariance matrix for spikes around a given electrode
     % Input HashMap parameters should be the same given than for SpikeFindingM
     
@@ -50,6 +50,8 @@ function covMatrix = buildCovariances(parameters, spikeFileName)
     
     totalSamples = stopSample - startSample;
     
+    alpha = 1 / (meanTimeConstant * samplingRate);
+    
     %% Creating spike source
     spikeFile = SpikeFile(spikeFileName);
     
@@ -85,29 +87,91 @@ function covMatrix = buildCovariances(parameters, spikeFileName)
     isFinished = false;
     
     bufferLengthInSamples = samplingRate;
+    validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
     
+    % Initialize filter state for data filtering - 1st order highpass IIR
+    filterState = zeros(1,513);
+    bFilter = (1-alpha)*[1,-1];
+    aFilter = [1,alpha-1];
+    
+    % Assigning a UniformSpline java object -- java hybrid debug purposes
+    % splineObject = edu.ucsc.neurobiology.vision.math.UniformSpline(nPoints);
+    
+    % interpolation bases
+    interpBase = 1:nPoints;
+    resampleBase = nLPoints:0.001:(nLPoints+2);
+    
+    % Initializing covariance matrices
+    covMatrix = cell(nElectrodes,1);
+    averages = cell(nElectrodes,1);
+    totSpikes = zeros(nElectrodes,1);
+    
+    for i = 2:nElectrodes
+       covMatrix{i} = zeros((nPoints-2) * numel(adjacent{i})); 
+       averages{i} = zeros(1,(nPoints - 2) * numel(adjacent{i}));
+    end
+    
+    %%%
+%     stopSample = 5000;
+    %%%
     while ~isFinished % stopSample should be the first sample not loaded
-        bufferStart = max(startSample, lastSampleLoaded + 1 - nLPoints); % Buffer beginning (inclusive)
-        bufferEnd = min(lastSampleLoaded + bufferLengthInSamples + nRPoints + 1, stopSample); % Buffer end (exclusive)
+        %% Load samples
+        bufferStart = max(startSample, lastSampleLoaded + 1 - nLPoints) % Buffer beginning (inclusive)
+        bufferEnd = min(lastSampleLoaded + bufferLengthInSamples + nRPoints + 1, stopSample) % Buffer end (exclusive)
         if bufferEnd == stopSample
             isFinished = true;
         end
         lastSampleLoaded = bufferEnd - nRPoints - 1;
         
-        rawData = rawDataFile.getData(bufferStart, bufferEnd - bufferStart)';
+        % Filter
+        [rawData, filterState] = filter(bFilter, aFilter, ...
+            single(rawDataFile.getData(bufferStart, bufferEnd - bufferStart)'),...
+            filterState, 2);
         
+        %% Load Spikes
         spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
-        for el = 2:nElectrodes % Could parallel here, but actually slower due to the IO cost of sending to each worker.
-            % The better part would be to change the while loop to a smarter parfor loop.
+        % If no spikes at all are loaded, skip iteration
+        % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
+        if size(spikes,2) == 0
+            continue
+        end
+        
+        %% Process by electrodes
+        % Could parallel here, but actually slower due to the IO cost of sending to each worker.
+        % The better part would be to change the while loop to a smarter parfor loop.
+        for el = 2:nElectrodes
+            %% Process each spike
             for spikeTime = spikes{el}'
-                spikeAtWork = ...
-                    rawData(adjacent{el}+1,(spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-%                     plot(spikeAtWork');
-%                     pause(0.01);
-%                     input(['el: ',num2str(el),' ; spikeTime: ',num2str(spikeTime)]);
+                % Load master spike and neighboring electrodes 
+                spikeAtWork = rawData(adjacent{el}+1,...
+                    (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+                % Realign minimun of resampled spline
+                % Spline resampled only around expected minimum
+                interpSpike = interp1(interpBase',spikeAtWork(1,:)',resampleBase','spline')';
+                offset = (find(interpSpike == min(interpSpike),1)-1)/1000;
+                interpPoints = (1:(nPoints-2)) + offset;
+                centeredSpike = interp1(interpBase',spikeAtWork',interpPoints','spline');
+                % Update info
+                totSpikes(el) = totSpikes(el) + 1;
+                averages{el} = averages{el} + centeredSpike(:)';
+                covMatrix{el} = covMatrix{el} + centeredSpike(:) * centeredSpike(:)';
+%                 plot(interpBase,spikeAtWork(1,:),'b+',resampleBase,interpSpike);
+                % Spike cubic spline test snippet
+
+%                                 plot(1:21,spikeAtWork','b-',2:20,centeredSpike','r-');
+%                                 ['el: ',num2str(el),' ; spikeTime: ',num2str(spikeTime)]
+%                                 pause(0.1);
             end
         end
     end
     
+    %% Normalize averages and covmatrix
+    for el = 2:nElectrodes
+        if totSpikes(el) >= 2
+            covMatrix{el} = (covMatrix{el} - averages{el}' * averages{el} / totSpikes(el))/(totSpikes(el)-1);
+%             covMatrix{el} = (covMatrix{el} / totSpikes(el))/(totSpikes(el)-1);
+            averages{el} = averages{el}/totSpikes(el);
+        end
+    end    
     
 end
