@@ -86,7 +86,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     lastSampleLoaded = startSample-1;
     isFinished = false;
     
-    bufferLengthInSamples = samplingRate;
+    bufferLengthInSamples = 2500; %samplingRate;
     validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
     
     % Initialize filter state for data filtering - 1st order highpass IIR
@@ -112,7 +112,9 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     end
     
     %%%
-        stopSample = 5000;
+    stopSample = 20000;
+    upSampRatio = 100;
+    upSampStep = 1/upSampRatio;
     %%%
     while ~isFinished % stopSample should be the first sample not loaded
         %% Load samples
@@ -129,9 +131,13 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
             filterState, 2);
         
         %% per electrode interp model. Too many losses in ppval otherwise.
+        upSampPoints = 1:upSampStep:size(rawData,2);
+        upSampData = [];
+        upSampData(nElectrodes,numel(upSampPoints)) = single(0);
+        
         for el = nElectrodes:-1:1
-            interpModel(el) = interp1(1:size(rawData,2),rawData(el,:),'spline','pp');
-%             interpModelAdj(el) = interp1(1:size(rawData,2),rawData(adjacent{el}+1,:),'spline','pp');
+            interpModel{el} = griddedInterpolant(1:size(rawData,2),rawData(el,:),'spline');
+            upSampData(el,:) = interpModel{el}(upSampPoints);
         end
         
         %% Load Spikes
@@ -148,19 +154,15 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         for el = 2:nElectrodes
             %% Process each spike
             for spikeTime = spikes{el}'
-                % Load master spike and neighboring electrodes
-                spikeAtWork = rawData(adjacent{el}+1,...
-                    (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+                % Load master spike
+                interpSpike = upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
                 
-                % Realign minimun of resampled spline
-                interpSpike = ppval(interpModel(el),resampleBase + double(spikeTime) - nLPoints);
-                
+                % Find minimum and compute associated resample points
                 offset = (find(interpSpike == min(interpSpike),1)-1)/100;
                 interpPoints = (1:(nPoints-2)) + offset;
-                centeredSpike = zeros(nPoints-2,numel(adjacent{el}));
-                for i = 1:numel(adjacent{el})
-                    centeredSpike(:,i) = ppval(interpModel(adjacent{el}(i)+1),interpPoints + double(spikeTime) - nLPoints);
-                end
+                
+                % Load realigned spikes, master + neighbors
+                centeredSpike = upSampData(adjacent{el}+1,round(upSampRatio*(interpPoints + double(spikeTime) - bufferStart - nLPoints - 1))+1)';
                 
                 % Update info
                 totSpikes(el) = totSpikes(el) + 1;
@@ -169,9 +171,9 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
                 
 %                 plot(interpBase,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
 %                 hold on
-%                 plot(1:21,spikeAtWork(1,:),'b');
+%                 plot(1:21,spikeAtWork,'b+');
 %                 plot(1:21,spikeAtWork,'k--');
-%                 plot(2:20,centeredSpike,'r');
+%                 plot(2:20,centeredSpike,'r-');
 %                 hold off
             end
         end
