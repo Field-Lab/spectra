@@ -32,7 +32,8 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
     spikeUse = p.get('Analysis.Spike To Use');
     
     electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-    
+%     electrodeUsage = 2;
+        
     %% Creating data source
     % We are not listening to any sampleInputStream
     % --> Setting up a data source straight from file
@@ -86,7 +87,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
     lastSampleLoaded = startSample-1;
     isFinished = false;
     
-    bufferLengthInSamples = 4096-20; %samplingRate;
+    bufferLengthInSamples = 2048-20; %samplingRate;
     validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
     
     % Initialize filter state for data filtering - 1st order highpass IIR
@@ -100,7 +101,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
     
     %%%
 %     stopSample = 20000;
-    upSampRatio = 10;
+    upSampRatio = 32;
     upSampStep = 1/upSampRatio;
     %%%
     

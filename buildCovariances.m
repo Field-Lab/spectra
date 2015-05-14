@@ -32,6 +32,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     spikeUse = p.get('Analysis.Spike To Use');
     
     electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
+%     electrodeUsage = 2;
     
     %% Creating data source
     % We are not listening to any sampleInputStream
@@ -86,7 +87,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     lastSampleLoaded = startSample-1;
     isFinished = false;
     
-    bufferLengthInSamples = 4096-20; %samplingRate;
+    bufferLengthInSamples = 2048-20; %samplingRate;
     validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
     
     % Initialize filter state for data filtering - 1st order highpass IIR
@@ -99,8 +100,8 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     
     
     %%%
-%     stopSample = 20000;
-    upSampRatio = 10;
+%     stopSample = 4075;
+    upSampRatio = 16;
     upSampStep = 1/upSampRatio;
     %%%
     
@@ -112,9 +113,14 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     averages = cell(nElectrodes,1);
     totSpikes = zeros(nElectrodes,1);
     
+    spikePile = cell(nElectrodes,1);
+    spikeTot = 1000;
+    spikeIndex = zeros(nElectrodes,1);
+    
     for i = 2:nElectrodes
         covMatrix{i} = zeros((nPoints-2) * numel(adjacent{i}));
         averages{i} = zeros(1,(nPoints - 2) * numel(adjacent{i}));
+        spikePile{i} = zeros(spikeTot,(nPoints - 2) * numel(adjacent{i}));
     end
     
     while ~isFinished % stopSample should be the first sample not loaded
@@ -130,27 +136,13 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         [rawData, filterState] = filter(bFilter, aFilter, ...
             single(rawDataFile.getData(bufferStart, bufferEnd - bufferStart)'),...
             filterState, 2);
+%          rawDataGPU = gpuArray(rawData);
         
-        %% per electrode interp model. Too many losses in ppval otherwise.
-%                 upSampPoints = 1:upSampStep:size(rawData,2);
-%                 upSampData2 = [];
-%                 upSampData2(nElectrodes,numel(upSampPoints)) = single(0);
-%         
-%                 for el = nElectrodes:-1:1
-%                     interpModel{el} = griddedInterpolant(1:size(rawData,2),rawData(el,:),'spline');
-%                     upSampData2(el,:) = interpModel{el}(upSampPoints);
-%                 end
-        
-        rawDataGPU = gpuArray(rawData);
-        upArrayGPU = zeros(nElectrodes,upSampRatio*size(rawData,2),'gpuArray');
-        fftData = upSampRatio*fft(rawDataGPU,[],2);
-        upArrayGPU(:,1:(floor(size(fftData,2)/2))) = fftData(:,1:(floor(size(fftData,2)/2)));
-        upArrayGPU(:,(end-floor((size(fftData,2)-1)/2)):end) = fftData(:,(floor(size(fftData,2)/2)+1):end);
-        upSampData = gather(ifft(upArrayGPU,[],2,'symmetric'));
-        
-        %         upSampData = gather(ifft([fftData(:,1:(floor(size(fftData,2)/2))),...
-        %             zeros(size(fftData,1),size(fftData,2)*(upSampRatio-1)),...
-        %             fftData(:,(floor(size(fftData,2)/2)+1):end)],[],2,'symmetric'));
+        % Upsample
+        fftData = upSampRatio*fft(rawData,[],2);
+        upSampData = ifft(fftData(:,1:(floor(size(fftData,2)/2))),...
+            upSampRatio*size(rawData,2),...
+            2,'symmetric');
         
         %% Load Spikes
         spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
@@ -168,35 +160,55 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
             for spikeTime = spikes{el}'
                 % Load master spike
                 interpSpike = upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
-%                 interpSpike2 = upSampData2(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
                 
                 % Find minimum and compute associated resample points
-                offset = (find(interpSpike == min(interpSpike),1)-1)/100;
+                offset = (find(interpSpike == min(interpSpike),1)-1)/upSampRatio;
                 interpPoints = (1:(nPoints-2)) + offset;
                 
                 % Load realigned spikes, master + neighbors
-                centeredSpike = upSampData(adjacent{el}+1,round(upSampRatio*(interpPoints + double(spikeTime) - bufferStart - nLPoints - 1))+1)';
+%               centeredSpike = upSampData(adjacent{el}+1,round(upSampRatio*(interpPoints + double(spikeTime) - bufferStart - nLPoints - 1))+1)';
                 
-                % Update info
-                totSpikes(el) = totSpikes(el) + 1;
-                averages{el} = averages{el} + centeredSpike(:)';
-                covMatrix{el} = covMatrix{el} + centeredSpike(:) * centeredSpike(:)';
+%               spikePile{el}(spikeIndex(el)+1,:) = centeredSpike(:)';
+                spikePile{el}(spikeIndex(el)+1,:) =...
+                    reshape(upSampData(adjacent{el}+1,...
+                    round(upSampRatio*(interpPoints + double(spikeTime) -...
+                    bufferStart - nLPoints - 1))+1)',...
+                    size(spikePile{el},2),1);
+                spikeIndex(el) = spikeIndex(el)+1;
                 
-                 
-%                 spikeAtWork = rawData(adjacent{el}+1,...
-%                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-%                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r',resampleBase,interpSpike2,'k');
-%                 hold on
-%                 plot(1:21,spikeAtWork,'b+');
-%                 plot(1:21,spikeAtWork,'k--');
-%                 plot(2:20,centeredSpike,'r-');
-%                 hold off
+                if spikeIndex(el) == spikeTot
+                    totSpikes(el) = totSpikes(el) + spikeTot;
+                    averages{el} = averages{el} + spikeTot*mean(spikePile{el},1);
+                    covMatrix{el} = covMatrix{el} + (spikeTot-1)*cov(spikePile{el});
+                    spikeIndex(el) = 0;
+                end
+                
+                
+%                                 spikeAtWork = rawData(adjacent{el}+1,...
+%                                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+%                                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
+%                                 hold on
+%                                 plot(1:21,spikeAtWork,'b+');
+%                                 plot(1:21,spikeAtWork,'k--');
+%                                 plot(2:20,centeredSpike,'r-');
+%                                 hold off
             end % spikeTime
         end % el
     end % while ~isFinihed
     
     %% Normalize averages and covmatrix
     for el = 2:nElectrodes
+        if spikeIndex(el) > 0
+            totSpikes(el) = totSpikes(el) + spikeIndex(el);
+            averages{el} = averages{el} + spikeIndex(el)*mean(spikePile{el}(1:spikeIndex(el),:),1);
+            if spikeIndex(el) > 1
+                covMatrix{el} = covMatrix{el} + (spikeIndex(el)-1)*cov(spikePile{el}(1:spikeIndex(el),:));
+            else
+                covMatrix{el} = covMatrix{el} + cov(spikePile{el}(1:spikeIndex(el),:));
+            end
+        end
+
+        
         if totSpikes(el) >= 2
             covMatrix{el} = (covMatrix{el} - averages{el}' * averages{el} / totSpikes(el))/(totSpikes(el)-1);
             averages{el} = averages{el}/totSpikes(el);
