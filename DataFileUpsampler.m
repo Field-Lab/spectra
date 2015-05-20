@@ -18,6 +18,7 @@ classdef DataFileUpsampler < handle
         upSampData
         
         nElectrodes
+        samplingRate
         
         rawDataFile
         
@@ -33,11 +34,11 @@ classdef DataFileUpsampler < handle
     
     methods
         % Constructor
-        function obj = DataFileUpsampler(rawDataSource, nLPoints, nRPoints, meanTimeConstant)
+        function obj = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints)
             validateattributes(rawDataSource,{'char'},{},'','rawDataSource',1);
-            validateattributes(nLPoints,{'numeric'},{'scalar','integer','>',0},'','nLPoints',2);
-            validateattributes(nRPoints,{'numeric'},{'scalar','integer','>',0},'','nRPoints',3);
-            validateattributes(meanTimeConstant,{'numeric'},{'scalar','>',0},'','meanTimeConstant',4);
+            validateattributes(meanTimeConstant,{'numeric'},{'scalar','>',0},'','meanTimeConstant',2);
+            validateattributes(nLPoints,{'numeric'},{'scalar','integer','>=',0},'','nLPoints',3);
+            validateattributes(nRPoints,{'numeric'},{'scalar','integer','>=',0},'','nRPoints',4);
             
             import edu.ucsc.neurobiology.vision.io.*
             import edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory
@@ -55,13 +56,13 @@ classdef DataFileUpsampler < handle
             stopTimes = parser.getStopTimes();
             
             header = obj.rawDataFile.getHeader();
-            samplingRate = header.getSamplingFrequency();
+            obj.samplingRate = header.getSamplingFrequency();
             
-            obj.startSample = startTimes(1) * samplingRate;
-            obj.stopSample = stopTimes(1) * samplingRate;
+            obj.startSample = startTimes(1) * obj.samplingRate;
+            obj.stopSample = stopTimes(1) * obj.samplingRate;
             obj.lastSampleLoaded = obj.startSample-1;
             
-            obj.alpha = 1 / (meanTimeConstant * samplingRate);
+            obj.alpha = 1 / (meanTimeConstant * obj.samplingRate);
             
             packedArrayID = int32(header.getArrayID());
             electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
@@ -72,13 +73,20 @@ classdef DataFileUpsampler < handle
             obj.aFilter = [1,obj.alpha-1];
         end
         
-        function [bufferStart, bufferEnd] = loadNextBuffer(obj)
+        function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
+            if nargin == 2 % Can be used to force a different length buffer call.
+               validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
+               bufferSize = varargin{1};
+            else
+               bufferSize = obj.bufferMaxSize;
+            end
+            
             if obj.isFinished
                 throw(MException('','DataFileUpsampler:loadNextBuffer:Reader is already finished'));
             end
             
             obj.bufferStart = max(obj.startSample, obj.lastSampleLoaded + 1 - obj.nLPoints); % Buffer beginning (inclusive)
-            obj.bufferEnd = min(obj.lastSampleLoaded + obj.bufferMaxSize + obj.nRPoints + 1, obj.stopSample); % Buffer end (exclusive)
+            obj.bufferEnd = min(obj.lastSampleLoaded + bufferSize + obj.nRPoints + 1, obj.stopSample); % Buffer end (exclusive)
             if obj.bufferEnd == obj.stopSample
                 obj.isFinished = true;
             end

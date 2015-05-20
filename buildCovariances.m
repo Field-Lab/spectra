@@ -35,7 +35,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     %     electrodeUsage = 2;
     
     %% Creating data source
-    dataSource = DataFileUpsampler(rawDataSource, nLPoints, nRPoints, meanTimeConstant);
+    dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
     
     %% Creating spike source
     spikeFile = SpikeFile(spikeFileName);
