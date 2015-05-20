@@ -35,37 +35,14 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
 %     electrodeUsage = 2;
         
     %% Creating data source
-    % We are not listening to any sampleInputStream
-    % --> Setting up a data source straight from file
-    parser = DataFileStringParser(rawDataSource);
-    datasets = parser.getDatasets();
-    rawDataFile = RawDataFile(File(char(datasets(1))));
-    startTimes = parser.getStartTimes();
-    stopTimes = parser.getStopTimes();
-    
-    header = rawDataFile.getHeader();
-    samplingRate = header.getSamplingFrequency();
-    
-    startSample = startTimes(1) * samplingRate;
-    stopSample = stopTimes(1) * samplingRate;
-    
-    totalSamples = stopSample - startSample;
-    
-    alpha = 1 / (meanTimeConstant * samplingRate);
+    dataSource = DataFileUpsampler(rawDataSource, nLPoints, nRPoints, meanTimeConstant);
     
     %% Creating spike source
     spikeFile = SpikeFile(spikeFileName);
     
     %% Java electrodemap setup
+    header = dataSource.rawDataFile.getHeader();
     packedArrayID = int32(header.getArrayID());
-    binPackedArrayID = dec2bin(packedArrayID,32);
-    arrayID = bin2dec(binPackedArrayID(17:32));
-    arrayPart = bin2dec(binPackedArrayID(9:16));
-    arrayNParts = bin2dec(binPackedArrayID(1:8));
-    if arrayPart == 0
-        arrayPart = 1;
-        arrayNParts = 1;
-    end
     
     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
     nElectrodes = electrodeMap.getNumberOfElectrodes();
@@ -80,30 +57,10 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
         end
     end
     
-    %% Data strategy:
-    % Load buffers of 1 sec for spikes
-    % Load buffers of 1 sec + edge points for matrix
+    %% Data flow
     
-    lastSampleLoaded = startSample-1;
-    isFinished = false;
-    
-    bufferLengthInSamples = 2048-20; %samplingRate;
-    validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
-    
-    % Initialize filter state for data filtering - 1st order highpass IIR
-    filterState = zeros(1,513);
-    bFilter = (1-alpha)*[1,-1];
-    aFilter = [1,alpha-1];
-    
-    % Assigning a UniformSpline java object -- java hybrid debug purposes
-    % splineObject = edu.ucsc.neurobiology.vision.math.UniformSpline(nPoints);
-    
-    
-    %%%
-%     stopSample = 20000;
-    upSampRatio = 32;
+    upSampRatio = dataSource.upSampleRatio;
     upSampStep = 1/upSampRatio;
-    %%%
     
     % interpolation bases
     resampleBase = nLPoints:upSampStep:(nLPoints+2);
@@ -122,27 +79,10 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
        projSpikes{el} = zeros(totSpikes(el),nDims);
     end
     
-    while ~isFinished % stopSample should be the first sample not loaded
-        %% Load samples
-        bufferStart = max(startSample, lastSampleLoaded + 1 - nLPoints) % Buffer beginning (inclusive)
-        bufferEnd = min(lastSampleLoaded + bufferLengthInSamples + nRPoints + 1, stopSample) % Buffer end (exclusive)
-        if bufferEnd == stopSample
-            isFinished = true;
-        end
-        lastSampleLoaded = bufferEnd - nRPoints - 1;
+    while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
-        % Filter
-        [rawData, filterState] = filter(bFilter, aFilter, ...
-            single(rawDataFile.getData(bufferStart, bufferEnd - bufferStart)'),...
-            filterState, 2);
-        
-        
-        rawDataGPU = gpuArray(rawData);
-        upArrayGPU = zeros(nElectrodes,upSampRatio*size(rawData,2),'gpuArray');
-        fftData = upSampRatio*fft(rawDataGPU,[],2);
-        upArrayGPU(:,1:(floor(size(fftData,2)/2))) = fftData(:,1:(floor(size(fftData,2)/2)));
-        upArrayGPU(:,(end-floor((size(fftData,2)-1)/2)):end) = fftData(:,(floor(size(fftData,2)/2)+1):end);
-        upSampData = gather(ifft(upArrayGPU,[],2,'symmetric'));
+        [bufferStart,bufferEnd] = dataSource.loadNextBuffer()
+        dataSource.upsampleBuffer();
         
         %% Load Spikes
         spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
@@ -159,15 +99,18 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
             %% Process each spike
             for spikeTime = spikes{el}'
                 % Load master spike
-                interpSpike = upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
-%                 interpSpike2 = upSampData2(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
+                interpSpike = dataSource.upSampData(el,...
+                    round(upSampRatio*(resampleBase + double(spikeTime)...
+                    - bufferStart - nLPoints - 1))+1);
                 
                 % Find minimum and compute associated resample points
                 offset = (find(interpSpike == min(interpSpike),1)-1)/100;
                 interpPoints = (1:(nPoints-2)) + offset;
                 
                 % Load realigned spikes, master + neighbors
-                centeredSpike = upSampData(adjacent{el}+1,round(upSampRatio*(interpPoints + double(spikeTime) - bufferStart - nLPoints - 1))+1)';
+                centeredSpike = dataSource.upSampData(adjacent{el}+1,...
+                    round(upSampRatio*(interpPoints +...
+                    double(spikeTime) - bufferStart - nLPoints - 1))+1)';
                 
                 % Compute projections
                 projSpikes{el}(currSpike(el),:) = (centeredSpike(:)' - averages{el}) * eigenVectors{el};
@@ -185,6 +128,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
 %                 plot(1:21,spikeAtWork,'k--');
 %                 plot(2:20,centeredSpike,'r-');
 %                 hold off
+
             end % spikeTime
         end % el
     end % while ~isFinihed

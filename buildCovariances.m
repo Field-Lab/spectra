@@ -32,40 +32,17 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     spikeUse = p.get('Analysis.Spike To Use');
     
     electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-%     electrodeUsage = 2;
+    %     electrodeUsage = 2;
     
     %% Creating data source
-    % We are not listening to any sampleInputStream
-    % --> Setting up a data source straight from file
-    parser = DataFileStringParser(rawDataSource);
-    datasets = parser.getDatasets();
-    rawDataFile = RawDataFile(File(char(datasets(1))));
-    startTimes = parser.getStartTimes();
-    stopTimes = parser.getStopTimes();
-    
-    header = rawDataFile.getHeader();
-    samplingRate = header.getSamplingFrequency();
-    
-    startSample = startTimes(1) * samplingRate;
-    stopSample = stopTimes(1) * samplingRate;
-    
-    totalSamples = stopSample - startSample;
-    
-    alpha = 1 / (meanTimeConstant * samplingRate);
+    dataSource = DataFileUpsampler(rawDataSource, nLPoints, nRPoints, meanTimeConstant);
     
     %% Creating spike source
     spikeFile = SpikeFile(spikeFileName);
     
     %% Java electrodemap setup
+    header = dataSource.rawDataFile.getHeader();
     packedArrayID = int32(header.getArrayID());
-    binPackedArrayID = dec2bin(packedArrayID,32);
-    arrayID = bin2dec(binPackedArrayID(17:32));
-    arrayPart = bin2dec(binPackedArrayID(9:16));
-    arrayNParts = bin2dec(binPackedArrayID(1:8));
-    if arrayPart == 0
-        arrayPart = 1;
-        arrayNParts = 1;
-    end
     
     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
     nElectrodes = electrodeMap.getNumberOfElectrodes();
@@ -80,30 +57,10 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         end
     end
     
-    %% Data strategy:
-    % Load buffers of 1 sec for spikes
-    % Load buffers of 1 sec + edge points for matrix
+    %% Data flow
     
-    lastSampleLoaded = startSample-1;
-    isFinished = false;
-    
-    bufferLengthInSamples = 2048-20; %samplingRate;
-    validateattributes(bufferLengthInSamples,{'numeric'},{'scalar','integer','>',0},'','bufferLengthInSamples');
-    
-    % Initialize filter state for data filtering - 1st order highpass IIR
-    filterState = zeros(1,513);
-    bFilter = (1-alpha)*[1,-1];
-    aFilter = [1,alpha-1];
-    
-    % Assigning a UniformSpline java object -- java hybrid debug purposes
-    % splineObject = edu.ucsc.neurobiology.vision.math.UniformSpline(nPoints);
-    
-    
-    %%%
-%     stopSample = 4075;
-    upSampRatio = 16;
+    upSampRatio = dataSource.upSampleRatio;
     upSampStep = 1/upSampRatio;
-    %%%
     
     % interpolation bases
     resampleBase = nLPoints:upSampStep:(nLPoints+2);
@@ -114,7 +71,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     totSpikes = zeros(nElectrodes,1);
     
     spikePile = cell(nElectrodes,1);
-    spikeTot = 1000;
+    spikeTot = 100;
     spikeIndex = zeros(nElectrodes,1);
     
     for i = 2:nElectrodes
@@ -123,26 +80,10 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         spikePile{i} = zeros(spikeTot,(nPoints - 2) * numel(adjacent{i}));
     end
     
-    while ~isFinished % stopSample should be the first sample not loaded
-        %% Load samples
-        bufferStart = max(startSample, lastSampleLoaded + 1 - nLPoints) % Buffer beginning (inclusive)
-        bufferEnd = min(lastSampleLoaded + bufferLengthInSamples + nRPoints + 1, stopSample) % Buffer end (exclusive)
-        if bufferEnd == stopSample
-            isFinished = true;
-        end
-        lastSampleLoaded = bufferEnd - nRPoints - 1;
+    while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
-        % Filter
-        [rawData, filterState] = filter(bFilter, aFilter, ...
-            single(rawDataFile.getData(bufferStart, bufferEnd - bufferStart)'),...
-            filterState, 2);
-%          rawDataGPU = gpuArray(rawData);
-        
-        % Upsample
-        fftData = upSampRatio*fft(rawData,[],2);
-        upSampData = ifft(fftData(:,1:(floor(size(fftData,2)/2))),...
-            upSampRatio*size(rawData,2),...
-            2,'symmetric');
+        [bufferStart,bufferEnd] = dataSource.loadNextBuffer()
+        dataSource.upsampleBuffer();
         
         %% Load Spikes
         spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
@@ -159,18 +100,15 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
             %% Process each spike
             for spikeTime = spikes{el}'
                 % Load master spike
-                interpSpike = upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
+                interpSpike = dataSource.upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
                 
                 % Find minimum and compute associated resample points
                 offset = (find(interpSpike == min(interpSpike),1)-1)/upSampRatio;
-                interpPoints = (1:(nPoints-2)) + offset;
+                interpPoints = (1:(nPoints-2)) + offset;                
                 
-                % Load realigned spikes, master + neighbors
-%               centeredSpike = upSampData(adjacent{el}+1,round(upSampRatio*(interpPoints + double(spikeTime) - bufferStart - nLPoints - 1))+1)';
-                
-%               spikePile{el}(spikeIndex(el)+1,:) = centeredSpike(:)';
+                % Assign realigned spikes, master + neighbors                
                 spikePile{el}(spikeIndex(el)+1,:) =...
-                    reshape(upSampData(adjacent{el}+1,...
+                    reshape(dataSource.upSampData(adjacent{el}+1,...
                     round(upSampRatio*(interpPoints + double(spikeTime) -...
                     bufferStart - nLPoints - 1))+1)',...
                     size(spikePile{el},2),1);
@@ -183,18 +121,21 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
                     spikeIndex(el) = 0;
                 end
                 
+%                 centeredSpike = dataSource.upSampData(adjacent{el}+1,...
+%                     round(upSampRatio*(interpPoints + double(spikeTime)...
+%                     - bufferStart - nLPoints - 1))+1)';
+%                 spikeAtWork = dataSource.rawData(adjacent{el}+1,...
+%                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+%                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
+%                 hold on
+%                 plot(1:21,spikeAtWork,'b+');
+%                 plot(1:21,spikeAtWork,'k--');
+%                 plot(2:20,centeredSpike,'r-');
+%                 hold off
                 
-%                                 spikeAtWork = rawData(adjacent{el}+1,...
-%                                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-%                                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
-%                                 hold on
-%                                 plot(1:21,spikeAtWork,'b+');
-%                                 plot(1:21,spikeAtWork,'k--');
-%                                 plot(2:20,centeredSpike,'r-');
-%                                 hold off
             end % spikeTime
         end % el
-    end % while ~isFinihed
+    end % while ~isFinished
     
     %% Normalize averages and covmatrix
     for el = 2:nElectrodes
@@ -207,7 +148,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
                 covMatrix{el} = covMatrix{el} + cov(spikePile{el}(1:spikeIndex(el),:));
             end
         end
-
+        
         
         if totSpikes(el) >= 2
             covMatrix{el} = (covMatrix{el} - averages{el}' * averages{el} / totSpikes(el))/(totSpikes(el)-1);
