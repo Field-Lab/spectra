@@ -41,8 +41,8 @@ classdef DataFileUpsampler < handle
             validateattributes(nRPoints,{'numeric'},{'scalar','integer','>=',0},'','nRPoints',4);
             
             import edu.ucsc.neurobiology.vision.io.*
-            import edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory
-            import java.io.File
+            import edu.ucsc.neurobiology.vision.electrodemap.*
+            import java.io.*
             
             obj.nLPoints = nLPoints;
             obj.nRPoints = nRPoints;
@@ -75,10 +75,10 @@ classdef DataFileUpsampler < handle
         
         function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
             if nargin == 2 % Can be used to force a different length buffer call.
-               validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
-               bufferSize = varargin{1};
+                validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
+                bufferSize = varargin{1};
             else
-               bufferSize = obj.bufferMaxSize;
+                bufferSize = obj.bufferMaxSize;
             end
             
             if obj.isFinished
