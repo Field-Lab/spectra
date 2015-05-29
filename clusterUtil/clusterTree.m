@@ -8,15 +8,14 @@ classdef clusterTree < handle
     end
     
     methods
-        function obj = clusterTree(low,high,projections,order)
+        function obj = clusterTree(low,high,pc)
             validateattributes(low,{'numeric'},{'integer','vector','nonempty','>',0},'','lower bound',1);
             validateattributes(high,{'numeric'},{'integer','vector','size',size(low),'>',0},'','upper bound',2);
             validateattributes(high-low,{'numeric'},{'vector','>=',0},'','cluster sizes');
-            validateattributes(order,{'numeric'},{'vector','integer','>',0},'','order',4);
-            validateattributes(projections,{'numeric'},{'2d','nrows',size(projections,1)},'','projections',3);
+%             validateattributes(order,{'numeric'},{'vector','integer','>',0},'','order',4);
+%             validateattributes(projections,{'numeric'},{'2d','nrows',size(projections,1)},'','projections',3);
             
-            subproj = projections(order(min(low):max(high)),:);
-            obj.root = clusterNode(min(low),max(high),mean(subproj,1),std(subproj,1));
+            obj.root = clusterNode(min(low),max(high),pc);
             
             argmaxes = intersect(find(high == max(high)),find(low == min(low)));
             if numel(argmaxes) > 0
@@ -24,31 +23,35 @@ classdef clusterTree < handle
                 high(argmaxes(1)) = [];
             end
             for i = 1:numel(low)
-                obj.insert(clusterTree(low(i),high(i),projections,order));
+                obj.insert(clusterTree(low(i),high(i),pc));
             end
         end
         
         function insert(obj,tree)
-           % validateattributes(tree,{'clusterTree'},{'scalar'},'','tree',1);
-            found = false;
+            % validateattributes(tree,{'clusterTree'},{'scalar'},'','tree',1);
             for k = 1:numel(obj.children)
                 x = obj.children(k);
                 if x.root.contains(tree.root)
                     x.insert(tree);
-                    found = true;
-                    break
+                    return
                 end
                 if tree.root.contains(x.root)
                     obj.children(k) = [];
                     tree.insert(x);
                     obj.insert(tree);
-                    found = true;
-                    break
+                    return
                 end
             end
-            if ~found
-                obj.children = [obj.children,tree];
+            
+            for k = 1:numel(obj.children)
+                x = obj.children(k);
+                if x.root.overlap(tree.root)
+                    tree.root = tree.root.merge(x.root);
+                    obj.insert(tree)
+                    return
+                end
             end
+            obj.children = [obj.children,tree];
         end
         
         function parentArray = assignPar(obj)
@@ -60,14 +63,14 @@ classdef clusterTree < handle
             end
         end
         
-        function reduce(obj)
+        function reduce(obj) % Change to reduce (or) split single child into complementary
             if numel(obj.children) == 1
                 obj.children = obj.children.children;
                 obj.reduce();
             else
-            for x = obj.children
-                x.reduce();
-            end
+                for x = obj.children
+                    x.reduce();
+                end
             end
         end
         
@@ -76,8 +79,8 @@ classdef clusterTree < handle
             depth = 1;
             for x = obj.children;
                 [subNode,subDepth] = x.enum();
-                nodeArray = [subNode,nodeArray];
-                depth = [subDepth+1,depth];
+                nodeArray = [nodeArray,subNode];
+                depth = [depth,subDepth+1];
             end
         end
         
