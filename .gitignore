@@ -1,3 +1,5 @@
 *.asv
 *.mat
 test*.m
+buildTree.m
+*.fig

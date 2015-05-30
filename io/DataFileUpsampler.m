@@ -34,20 +34,34 @@ classdef DataFileUpsampler < handle
     
     methods
         % Constructor
-        function obj = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints)
+        function obj = DataFileUpsampler(rawDataSource, varargin)
+            narginchk(1,4)
+            meanTimeConstant = 1;
+            nLPointsInput = 0;
+            nRPointsInput = 0;
+            
             validateattributes(rawDataSource,{'char'},{},'','rawDataSource',1);
-            validateattributes(meanTimeConstant,{'numeric'},{'scalar','>',0},'','meanTimeConstant',2);
-            validateattributes(nLPoints,{'numeric'},{'scalar','integer','>=',0},'','nLPoints',3);
-            validateattributes(nRPoints,{'numeric'},{'scalar','integer','>=',0},'','nRPoints',4);
+            if nargin >= 2
+                meanTimeConstant = varargin{1};
+                validateattributes(meanTimeConstant,{'numeric'},{'scalar','>',0},'','meanTimeConstant',2);
+            else
+                
+            end
+            if nargin == 4
+                nLPointsInput = varargin{2};
+                nRPointsInput = varargin{3};
+                validateattributes(nLPointsInput,{'numeric'},{'scalar','integer','>=',0},'','nLPoints',3);
+                validateattributes(nRPointsInput,{'numeric'},{'scalar','integer','>=',0},'','nRPoints',4);
+            end
             
             import edu.ucsc.neurobiology.vision.io.*
             import edu.ucsc.neurobiology.vision.electrodemap.*
             import java.io.*
             
-            obj.nLPoints = nLPoints;
-            obj.nRPoints = nRPoints;
+            obj.nLPoints = nLPointsInput;
+            obj.nRPoints = nRPointsInput;
             
-            obj.bufferMaxSize = obj.bufferMaxSize - nLPoints - nRPoints;
+            obj.bufferMaxSize = obj.bufferMaxSize - obj.nLPoints - obj.nRPoints;
             
             parser = DataFileStringParser(rawDataSource);
             datasets = parser.getDatasets();
@@ -100,8 +114,35 @@ classdef DataFileUpsampler < handle
             obj.isBufferUpsampled = false;
             
             % Assign
-            bufferStart = obj.bufferStart;
-            bufferEnd = obj.bufferEnd;
+            bufferStart = obj.bufferStart
+            bufferEnd = obj.bufferEnd
+        end
+        
+        function loadRandomBuffer(obj, bufferStart, bufferSize, filterTag)
+            validateattributes(bufferStart,{'numeric'},{'scalar','integer','>=',0});
+            validateattributes(bufferSize,{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
+            validateattributes(filterTag,{'logical'},{'scalar'},'','filterTag',3);
+            
+            obj.bufferStart = bufferStart; % Buffer beginning (inclusive)
+            obj.bufferEnd = min(bufferStart + bufferSize, obj.stopSample); % Buffer end (exclusive)\
+            if obj.bufferEnd == obj.stopSample
+                disp('Warning: data source too short to load complete requested random buffer');
+            end
+            
+            % Filter
+            if filterTag
+                [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
+                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
+                    obj.filterState, 2);
+            else
+                obj.rawData = single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)');
+            end
+            obj.isBufferLoaded = true;
+            obj.isBufferUpsampled = false;
+            
+            % Assign
+            bufferStart = obj.bufferStart
+            bufferEnd = obj.bufferEnd
         end
         
         function upsampleBuffer(obj)

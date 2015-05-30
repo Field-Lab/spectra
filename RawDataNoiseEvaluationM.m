@@ -1,4 +1,4 @@
-function [] = RawDataNoiseEvaluationM( dataPath, saveFolder )
+function rmsNoise = RawDataNoiseEvaluationM( dataPath, saveFolder )
 % RAWDATANOISEEVALUATION Evaluates the amount of noise over all electrodes
 % for a input data recording
 % Generates and save the output .noise file in ascii single precision
@@ -10,14 +10,6 @@ function [] = RawDataNoiseEvaluationM( dataPath, saveFolder )
 % dataPath - absolute or relative path to data folder/file
 % saveFolder - absolute or relative path to output save folder
 %
-% Note:is called RawDataNoiseEvaluationM.mat for now to avoid conflicts
-% with java class calls.
-%
-% TODO - optionalize the list of electrodes to analyze with both include
-% and exclude options.
-%
-%
-%
 %--------------------------------------------
 
 %% Using java up to getData
@@ -25,34 +17,29 @@ import edu.ucsc.neurobiology.vision.io.*
 import java.io.*
 
 % Hardcoded configuration from the java version
-time = 5;
-timeToSkip = 5;
-samplingRate = 20000;
+time = 5; % Compute noise from 5 secs of data
+timeToSkip = 5; % Skip the first 5 sec of the file
 
-% data read code conveniently adapted for java/matlab data compatibility
-% File setup adopted from java version
-% for command call compatibility
-% TODO move that to a matlab file IO
-parser = DataFileStringParser(dataPath);
-datasets = parser.getDatasets();
-rawDataFile = RawDataFile(File(char(datasets(1))));
-startTimes = parser.getStartTimes();
-startTime = startTimes(1);
+% Setup the data source
+dataSource = DataFileUpsampler(dataPath);
 
-header = rawDataFile.getHeader();
-nElectrodes = header.getNumberOfElectrodes();
+header = dataSource.rawDataFile.getHeader();
+
+samplingRate = header.getSamplingFrequency();
+
 nSamples = time * samplingRate;
 
 % getData
-rawData = rawDataFile.getData( (timeToSkip+startTime) * samplingRate, nSamples);
-% rawData is finally set up !
+
+dataSource.loadRandomBuffer(timeToSkip * samplingRate + dataSource.startSample, nSamples, false);
 
 %% Starting noise calculation
-[rmsNoise,~] = getNoise(rawData(:,2:end));
-rmsNoise = [0;rmsNoise'];
+[rmsNoise,~] = getNoise(dataSource.rawData(2:end,:)); % Skip TTL
+rmsNoise = [0;rmsNoise];
 
-%% Writing output .noise file
+%% Writing output .noise file - as .ascii and as .mat
 [~,name,~] = fileparts(saveFolder); % Catching folder name as last element of saveFolder path
-save([saveFolder,filesep,name,'.noise'],'rmsNoise','-ascii'); % Saving, ascii single precision format
+% save([saveFolder,filesep,name,'.noise'],'rmsNoise','-ascii','-double'); % Saving, ascii single precision format
+% save([saveFolder,filesep,name,'.noise.mat'],'rmsNoise'); % Saving a copy in mat format for further use.
 
 end

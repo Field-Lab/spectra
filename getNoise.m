@@ -1,49 +1,53 @@
 function [sigma, mu] = getNoise(data)
-% Matricialized version of noise calculation
-% data should be 1 column per electrode, size(data) = nSamples,nElectrodes
-
-data = double(data); % Cast data - for compatibility calls from uint8
-% TODO Consider going to single for speed
-data2 = data.^2; % Pre computing squared data only once
-
-% Extracting parameters
-nSamples = size(data,1);
-nElectrodes= size(data,2);
-
-% Output arrays
-sigma = inf(1,nElectrodes);
-mu = zeros(1,nElectrodes);
-
-oneMat = ones(nSamples,1);
-
-for el = 1:nElectrodes % Working individually on electrodes - the number of while iterations required can be very different
-    el; % Speed debug
-    % Electrode setup - Reset counters
-    hitCount = 0;
-    sumX = 0;
-    sumX2 = 0;
+    % Vectorized version of noise calculation
+    % data should be 1 row per electrode, size(data) = [nElectrodes,nSamples]
     
-    while true % Iterating for noise rms value convergence
+    % NECESSARY CAST - otherwise in single - precision overflow in covariance summing - neg sqrt.
+    data = double(data);
+    
+    data2 = data.^2; % Pre computing squared data only once
+    
+    % Extracting parameters
+    nSamples = size(data,2);
+    nElectrodes= size(data,1);
+    
+    % Output arrays
+    sigma = inf(nElectrodes,1);
+    mu = zeros(nElectrodes,1);
+    
+    for el = 1:nElectrodes % Working individually on electrodes - the number of while iterations required can be very different
         
-        mask = abs(data(:,el) - mu(el)*oneMat) < 3*sigma(el)*oneMat; % Masking outliers out
-        % Update counters
-        hitCount = hitCount + sum(mask);
-        sumX = sumX + sum(data(:,el).*mask);
-        sumX2 = sumX2 + sum(data2(:,el).*mask);
+        % Electrode setup - Reset counters
+        hitCount = 0;
+        sumX = 0;
+        sumX2 = 0;
         
-        % Update average and std
-        sigmaNew = sqrt((sumX2 - sumX.^2./hitCount)./(hitCount-1));
-        mu(el) = sumX./hitCount;
+        dataEl = data(el,:);
+        data2El = data2(el,:);
         
-        % Check for convergence
-        if abs(sigma(el)- sigmaNew) < 0.01 % WARNING HARDOCED 0.01
-            sigma(el) = sigmaNew;
-            break
-        else
-            sigma(el) = sigmaNew;
-        end
-    end % while
-end % el
-
+        while true % Iterating for noise rms value convergence
+            
+            mask = abs(dataEl - mu(el)) < 3*sigma(el); % finding outliers
+            % Chop off outliers
+            dataEl(~mask) = [];
+            data2El(~mask) = [];
+            
+            % Update counters
+            hitCount = hitCount + numel(dataEl);
+            sumX = sumX + sum(dataEl);
+            sumX2 = sumX2 + sum(data2El);
+            
+            % Update average and std
+            sigmaNew = sqrt((sumX2 - sumX.^2./hitCount)./(hitCount-1));
+            mu(el) = sumX./hitCount;
+            
+            % Check for convergence
+            if abs(sigma(el)- sigmaNew) < 0.01 % Hardcoded convergence compliance
+                sigma(el) = sigmaNew;
+                break
+            else
+                sigma(el) = sigmaNew;
+            end
+        end % while
+    end % el
 end
-
