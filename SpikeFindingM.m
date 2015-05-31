@@ -2,7 +2,7 @@ function SpikeFindingM( parameters )
     %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
     %   Takes on after noise finding has been done (or not)
     % Computes the spikesproperties over the electrode array and stores
-    % them in a .spike file
+    % them in a .spikes file
     % In a format matching the current behavior of vision.
     
     import edu.ucsc.neurobiology.vision.electrodemap.*

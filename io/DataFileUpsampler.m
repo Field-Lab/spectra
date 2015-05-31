@@ -3,37 +3,54 @@ classdef DataFileUpsampler < handle
     %   Detailed explanation goes here
     
     properties(SetAccess = protected, GetAccess = public)
-        isBufferUpsampled@logical = false
-        isBufferLoaded@logical = false
-        isFinished@logical = false
-        bufferMaxSize = 4096 % put a power of 2 here for quicker FFTs
-        upSampleRatio = 16 % idem
-        lastSampleLoaded
-        bufferStart
-        bufferEnd
-        nLPoints
-        nRPoints
+        % General
+        nElectrodes % Number of electrodes
+        samplingRate % Sampling rate
         
-        rawData
-        upSampData
+        % Data buffers
+        rawData % nElectrodes x bufferLength buffer
+        upSampData % nElectrodes x (bufferLength * upSampRatio) upsampled buffer.
         
-        nElectrodes
-        samplingRate
+        % Buffer management
+        isBufferUpsampled@logical = false % Upsampled buffer tag. For spike realignment
+        isBufferLoaded@logical = false % If the first buffer has ever been loaded
+        bufferMaxSize = 4096 % Maximum buffer size - power of 2 for quick upsampling
         
-        rawDataFile
+        lastSampleLoaded % Marker for continous buffers
+        bufferStart % Start (inclusive) of current buffer
+        bufferEnd % End (exclusive) of current buffer 
         
-        startSample
-        stopSample
+        nLPoints % Number of left point for spike form loading
+        nRPoints % Number of right point for spike form loading
         
-        alpha
+        % Upsampling management
+        upSampleRatio = 16 % Precision of upsampling - power of 2 as well
         
-        filterState
-        bFilter
-        aFilter
+        % Data Source management
+        rawDataFile % Data source path + vision style time tags (eg ".../data...(0-10)")
+        startSample % First (inclusive) sample of data source in the data files
+        stopSample % Last (exclusive) sample of data source in the data files
+        isFinished@logical = false % Tag for last sample of data source reached
+        
+        % Data Filtering
+        alpha % IIR data filter constant
+        filterState % Memory of filter state buffer-to-buffer
+        bFilter % Filter coefficients
+        aFilter % Filter coefficients
     end
     
     methods
         % Constructor
+        % Inputs
+        % rawDataSource - Data source path + vision style time tags (eg ".../data...(0-10)")
+        % (opt) meanTimeConstant - time constant for raw data lowpass filtering
+        % (opt) nLPoints - number of points to the left for spike form
+        % (opt) nRPoints - number of points to the right for spike form
+        %
+        % Calls
+        % obj = DataFileUpsampler(rawDataSource)
+        % obj = DataFileUpsampler(rawDataSource, meanTimeConstant)
+        % obj = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints)
         function obj = DataFileUpsampler(rawDataSource, varargin)
             narginchk(1,4)
             meanTimeConstant = 1;
@@ -44,8 +61,6 @@ classdef DataFileUpsampler < handle
             if nargin >= 2
                 meanTimeConstant = varargin{1};
                 validateattributes(meanTimeConstant,{'numeric'},{'scalar','>',0},'','meanTimeConstant',2);
-            else
-                
             end
             if nargin == 4
                 nLPointsInput = varargin{2};
@@ -87,10 +102,24 @@ classdef DataFileUpsampler < handle
             obj.aFilter = [1,obj.alpha-1];
         end
         
+        % Load next buffer in order
+        % Maintains the order of the buffers and sequentially loads all the range of the data source
+        %
+        % Inputs
+        % (opt) bufferSize = size of buffer to call. Defaults to the maximal size defined for the class
+        % defaults to the size defined as constant class parameter.
+        %
+        % Calls
+        % obj.loadNextBuffer()
+        % obj.loadNextBuffer(bufferSize)
+        %
+        % Returns
+        % bufferStart - Inclusive start sample of loaded buffer
+        % bufferEnd - Exclusive end sample of loaded buffer
         function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
             if nargin == 2 % Can be used to force a different length buffer call.
-                validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
-                bufferSize = varargin{1};
+                validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',obj.nLPoints+obj.nRPoints},'','bufferLength',2);
+                bufferSize = varargin{1}-obj.nLPoints-obj.nRPoints;
             else
                 bufferSize = obj.bufferMaxSize;
             end
@@ -114,26 +143,42 @@ classdef DataFileUpsampler < handle
             obj.isBufferUpsampled = false;
             
             % Assign
-            bufferStart = obj.bufferStart
-            bufferEnd = obj.bufferEnd
+            bufferStart = obj.bufferStart;
+            bufferEnd = obj.bufferEnd;
         end
         
-        function loadRandomBuffer(obj, bufferStart, bufferSize, filterTag)
+        % Load a requested random access buffer
+        % Does not erase the sample markers of buffers loaded with obj.loadNextBuffer()
+        % So can be used in the middle of sequential buffer calls
+        %
+        % Inputs
+        % bufferStart = start sample of buffer (inclusive)
+        % bufferEnd = stop sample of buffer (exclusive)
+        % filterTag = boolean tag if buffer must be filtered.
+        % if true, the previous filter state is neither used nor overwritten
+        %
+        % Calls
+        % obj.loadRandomBuffer(bufferStart, bufferEnd, filterTag)
+        %
+        % Returns
+        % bufferStart - Inclusive start sample of loaded buffer
+        % bufferEnd - Exclusive end sample of loaded buffer
+        function [bufferStart, bufferEnd] = loadRandomBuffer(obj, bufferStart, bufferSize, filterTag)
             validateattributes(bufferStart,{'numeric'},{'scalar','integer','>=',0});
             validateattributes(bufferSize,{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
             validateattributes(filterTag,{'logical'},{'scalar'},'','filterTag',3);
             
-            obj.bufferStart = bufferStart; % Buffer beginning (inclusive)
-            obj.bufferEnd = min(bufferStart + bufferSize, obj.stopSample); % Buffer end (exclusive)\
+            obj.bufferStart = bufferStart;
+            obj.bufferEnd = min(bufferStart + bufferSize, obj.stopSample);
             if obj.bufferEnd == obj.stopSample
                 disp('Warning: data source too short to load complete requested random buffer');
             end
             
             % Filter
             if filterTag
-                [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
+                [obj.rawData, ~] = filter(obj.bFilter, obj.aFilter, ...
                     single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
-                    obj.filterState, 2);
+                    [], 2);
             else
                 obj.rawData = single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)');
             end
@@ -141,22 +186,27 @@ classdef DataFileUpsampler < handle
             obj.isBufferUpsampled = false;
             
             % Assign
-            bufferStart = obj.bufferStart
-            bufferEnd = obj.bufferEnd
+            bufferStart = obj.bufferStart;
+            bufferEnd = obj.bufferEnd;
         end
         
+        % Upsampling of currently loaded buffer
+        % Method used in non-aliasing constant bandwidth upsampling
+        % Instead of cubic spline interpolation as in vision
+        %
+        % This may be accelerated on GPU
+        % Or parallelized by electrode if done in another language
+        %
+        % Limiting factor is upsampled buffer size in RAM
+        % Many other data strategies are worth it
+        % this one takes advantage of the large amount of upsampling necessary for all the
+        % spikes + Matlab's ability for big ffts.
+        % 4096 buffer length * 16 upsampling * 513 electrodes * single precision = 135 MB
         function upsampleBuffer(obj)
             if ~obj.isBufferLoaded
                 throw(MException('','DataFileUpsampler:loadNextBuffer:No Buffer Loaded'));
             end
             if ~obj.isBufferUpsampled
-                % rawDataGPU = gpuArray(obj.rawData);
-                % fftData = obj.upSampleRatio*fft(rawDataGPU,[],2);
-                % obj.upSampData = gather(...
-                %   ifft(...
-                %   fftData(:,1:(ceil(size(fftData,2)/2))),...
-                %   obj.upSampleRatio*size(obj.rawData,2),...
-                %   2,'symmetric'));
                 fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
                 obj.upSampData = ifft(...
                     fftData(:,1:(ceil(size(fftData,2)/2))),...
@@ -166,10 +216,7 @@ classdef DataFileUpsampler < handle
             obj.isBufferUpsampled = true;
         end
         
-        %         function data = getData(obj,rows,cols)
         
-        %         function data = getUpSampData(obj,rows,cols)
-    end
-    
-end
+    end % methods
+end % classdef
 
