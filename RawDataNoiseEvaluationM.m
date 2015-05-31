@@ -39,7 +39,7 @@ rmsNoise = [0;rmsNoise];
 
 %% Writing output .noise file - as .ascii and as .mat
 [~,name,~] = fileparts(saveFolder); % Catching folder name as last element of saveFolder path
-% save([saveFolder,filesep,name,'.noise'],'rmsNoise','-ascii','-double'); % Saving, ascii single precision format
-% save([saveFolder,filesep,name,'.noise.mat'],'rmsNoise'); % Saving a copy in mat format for further use.
+save([saveFolder,filesep,name,'.noise'],'rmsNoise','-ascii','-double'); % Saving, ascii single precision format
+save([saveFolder,filesep,name,'.noise.mat'],'rmsNoise'); % Saving a copy in mat format for further use.
 
 end

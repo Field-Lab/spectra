@@ -13,24 +13,8 @@ function outputHashMap = spikeFindingSetup(rawDataFile,outputPath,sigmaFileName,
     
     % Parameter check
     validateattributes(visionConfig,{'edu.ucsc.neurobiology.vision.Config'},{},'','visionConfig');
-    % TODO
-    if false % Path validity for rawDataFile
-        ME = MException('SpikeFindingSetup:IllegalArgumentException',...
-            ['argument rawDataFile ', rawDataFile,' is not a valid path.']);
-        throw(ME);
-    end
-    % TODO
-    if false % Path validity for outputPath -- Not implemented -- See exist/ check dataFileNameParser for specs.
-        ME = MException('SpikeFindingSetup:IllegalArgumentException',...
-            ['argument outputPath ',outputPath,' is not a valid path.']);
-        throw(ME);
-    end
-    % TODO
-    if false % Path validity for sigmaFileName -- Same as above
-        ME = MException('SpikeFindingSetup:IllegalArgumentException',...
-            ['argument sigmaFilename ',sigmaFileName,' is not a valid path.']);
-        throw(ME);
-    end
+
+    % TODO: path validity checks
     
     %% Compatibilized java code
     

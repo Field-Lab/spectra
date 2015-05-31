@@ -27,7 +27,22 @@ config = edu.ucsc.neurobiology.vision.Config([visionFolder,filesep,'config.xml']
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002';
 saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002';
+if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+    throw(MException('demoScript','dataset folder does not exist'));
+end
+mkdir(saveFolder);
+[~,dataSetName,~] = fileparts(dataPath); % Catching dataset name as last part of dataPath
 
-%% Starting processing
-% Process noise
-noise = RawDataNoiseEvaluationM(dataPath,saveFolder);
+%% Processing
+%% Process noise and make a .noise file
+if ~(exist([saveFolder,filesep,dataSetName,'.noise'],'file') == 2)
+    noise = RawDataNoiseEvaluationM(dataPath,saveFolder);
+end
+
+%% Find spikes and make a .spikes file
+if ~(exist([saveFolder,filesep,dataSetName,'.spikes'],'file') == 2)
+    sigmaFileName = [saveFolder,filesep,dataSetName,'.noise'];
+    parameters = spikeFindingSetup([dataPath,'(0-10)'],saveFolder,sigmaFileName,config);
+    SpikeFindingM(parameters);
+end
+

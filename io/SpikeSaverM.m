@@ -26,13 +26,7 @@ classdef SpikeSaverM
             % TODO Complete a path validity check for outputPath argument
             % savePath validity check
             validateattributes(savePath,{'char'},{},'','savePath',2);
-            if false
-                throw(MException('SpikeSaverM:IllegalConstructorArgumentException',...
-                    'Constructor argument outputPath is not a valid path.'));
-            else
-                % Set the output path
-                obj.savePath = savePath;
-            end
+            obj.savePath = savePath;
             
             % Create spikeFile object. outputPath should be corrected for
             % the argument should be a folder path and is used here as a file path
