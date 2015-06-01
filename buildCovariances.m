@@ -156,4 +156,5 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         end
     end
     
+    
 end

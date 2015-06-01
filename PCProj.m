@@ -81,7 +81,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
-        [bufferStart,bufferEnd] = dataSource.loadNextBuffer()
+        [bufferStart,bufferEnd] = dataSource.loadNextBuffer();
         dataSource.upsampleBuffer();
         
         %% Load Spikes

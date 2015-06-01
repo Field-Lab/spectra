@@ -14,21 +14,25 @@ clear;
 % Add subfolders to the matlab path
 addpath(genpath('./'));
 
+% generate repository path
+repoPath = pwd;
+
 % USER INPUT - Path to vision jar - add to java path
-visionPath = 'C:/Users/Vincent/Documents/EJGroup/Java/vision7/Vision.jar';
+visionPath = [repoPath,'/vision/vision.jar'];
 if ~exist('edu/ucsc/neurobiology/vision/io/RawDataFile','class')
     javaaddpath(visionPath)
 end
-javaaddpath('./io');
+javaaddpath('./vision');
 
 % Get vision's config xml file
-[visionFolder,~,~] = fileparts(visionPath);
-config = edu.ucsc.neurobiology.vision.Config([visionFolder,filesep,'config.xml']);
+config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000';
+% dataPath = '/Volumes/Data/2013-04-30-3/data000'
 timeCommand = '(0-10)';
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000';
+% saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data000'
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('demoScript','dataset folder does not exist'));
