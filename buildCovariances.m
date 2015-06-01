@@ -156,5 +156,6 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         end
     end
     
-    
+    %% Closing spike source
+    spikeFile.close();
 end

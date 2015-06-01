@@ -132,4 +132,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
             end % spikeTime
         end % el
     end % while ~isFinihed
+    
+    %% Close spike source
+    spikeFile.close();
 end

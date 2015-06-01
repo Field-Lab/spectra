@@ -2,7 +2,7 @@ classdef DataFileUpsampler < handle
     %DATAFILEREADER Summary of this class goes here
     %   Detailed explanation goes here
     
-    properties(SetAccess = protected, GetAccess = public)
+    properties(SetAccess = public, GetAccess = public)
         % General
         nElectrodes % Number of electrodes
         samplingRate % Sampling rate
@@ -117,6 +117,7 @@ classdef DataFileUpsampler < handle
         % bufferStart - Inclusive start sample of loaded buffer
         % bufferEnd - Exclusive end sample of loaded buffer
         function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
+            narginchk(1,2);
             if nargin == 2 % Can be used to force a different length buffer call.
                 validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',obj.nLPoints+obj.nRPoints},'','bufferLength',2);
                 bufferSize = varargin{1}-obj.nLPoints-obj.nRPoints;
@@ -216,6 +217,22 @@ classdef DataFileUpsampler < handle
             obj.isBufferUpsampled = true;
         end
         
+        % Forces refiltering of current buffer
+        % Useful during spikefinding when initial filter state is initialized after analysis of the
+        % first second of data
+        % Tracking tag sets if the filter state currently stored is to be used and resaved after
+        % filtering
+        function forceFilter(obj,trackingTag)
+            if trackingTag
+                [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
+                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
+                    obj.filterState, 2);
+            else
+                [obj.rawData, ~] = filter(obj.bFilter, obj.aFilter, ...
+                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
+                    [], 2);
+            end
+        end
         
     end % methods
 end % classdef

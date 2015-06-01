@@ -108,3 +108,6 @@ if ~(exist([saveFolder,filesep,dataSetName,'.prj.mat'],'file') == 2)
 else
     disp('.prj.mat file found - skipping projections calculation.');
 end
+
+%% Clustering of eigenSpikes in PC space
+% if ~(exist([],'file'))

@@ -65,7 +65,7 @@ function SpikeFindingM( parameters )
     [s,f] = dataSource.loadNextBuffer(dataSource.samplingRate); % Get a read of 1 second
     % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
     % initialization samples, with updated means.
-    spikeFinderM.initialize(dataSource.rawData);
+    dataSource.filterState = spikeFinderM.initialize(dataSource.rawData)';
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
         throw(MException('SpikeFindingM',...
@@ -80,6 +80,7 @@ function SpikeFindingM( parameters )
             [s,f] = dataSource.loadNextBuffer();
         else
             firstIter = false;
+            dataSource.forceFilter(true);
         end
         
         for i = 1:size(dataSource.rawData,2)
