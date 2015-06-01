@@ -82,7 +82,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
-        [bufferStart,bufferEnd] = dataSource.loadNextBuffer()
+        [bufferStart,bufferEnd] = dataSource.loadNextBuffer();
         dataSource.upsampleBuffer();
         
         %% Load Spikes
