@@ -18,7 +18,7 @@ classdef DataFileUpsampler < handle
         
         lastSampleLoaded % Marker for continous buffers
         bufferStart % Start (inclusive) of current buffer
-        bufferEnd % End (exclusive) of current buffer 
+        bufferEnd % End (exclusive) of current buffer
         
         nLPoints % Number of left point for spike form loading
         nRPoints % Number of right point for spike form loading
@@ -117,12 +117,17 @@ classdef DataFileUpsampler < handle
         % bufferStart - Inclusive start sample of loaded buffer
         % bufferEnd - Exclusive end sample of loaded buffer
         function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
-            narginchk(1,2);
-            if nargin == 2 % Can be used to force a different length buffer call.
+            narginchk(1,3);
+            if nargin >= 2 % Can be used to force a different length buffer call.
                 validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',obj.nLPoints+obj.nRPoints},'','bufferLength',2);
                 bufferSize = varargin{1}-obj.nLPoints-obj.nRPoints;
             else
                 bufferSize = obj.bufferMaxSize;
+            end
+            if nargin == 3
+                filterTag = varargin{2};
+            else
+                filterTag = true; % Default behavior: filter buffers
             end
             
             if obj.isFinished
@@ -137,9 +142,14 @@ classdef DataFileUpsampler < handle
             obj.lastSampleLoaded = obj.bufferEnd - obj.nRPoints - 1;
             
             % Filter
-            [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
-                single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
-                obj.filterState, 2);
+            if filterTag
+                [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
+                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
+                    obj.filterState, 2);
+            else
+                obj.rawData = single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)');
+            end
+            
             obj.isBufferLoaded = true;
             obj.isBufferUpsampled = false;
             
@@ -169,7 +179,7 @@ classdef DataFileUpsampler < handle
             validateattributes(bufferSize,{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
             validateattributes(filterTag,{'logical'},{'scalar'},'','filterTag',3);
             
-            obj.bufferStart = bufferStart;
+            obj.bufferStart = max(obj.startSample,bufferStart);
             obj.bufferEnd = min(bufferStart + bufferSize, obj.stopSample);
             if obj.bufferEnd == obj.stopSample
                 disp('Warning: data source too short to load complete requested random buffer');

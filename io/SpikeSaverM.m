@@ -17,7 +17,7 @@ classdef SpikeSaverM
     
     methods
         % put getters, spike treater & debug stuff
-        function obj = SpikeSaverM(header, savePath, meanTimeConstant, spikeThreshold)
+        function obj = SpikeSaverM(header, savePath, datasetName, meanTimeConstant, spikeThreshold)
             import edu.ucsc.neurobiology.vision.io.*
             
             % header class check validity check
@@ -33,8 +33,7 @@ classdef SpikeSaverM
             
             % header does NOT always contain the correct packed array ID. See SpikeFinding.java
             
-            [~,name,~] = fileparts(savePath);
-            obj.spikeFile = SpikeFile([savePath,filesep,name,'.spikes'], header.getArrayID(),...
+            obj.spikeFile = SpikeFile([savePath,filesep,datasetName,'.spikes'], header.getArrayID(),...
                 meanTimeConstant, spikeThreshold,...
                 header.getNumberOfSamples(),...
                 header.getSamplingFrequency());

@@ -17,6 +17,10 @@ function SpikeFindingM( parameters )
     
     %% Parsing and Storing input HashMap
     rawDataSource = p.get('Raw_Data_Source'); % Actually at this point includes a command concatenated under the dataFileParser format: '.../data002(0-10)'
+    [~,datasetName,~] = fileparts(rawDataSource);
+    if numel(find(datasetName == '(',1)) > 0
+        datasetName = datasetName(1:(find(datasetName == '(',1)-1));
+    end
     sigmaPath = p.get('Sigma'); % .noise file
     outputPath = p.get('Analysis.Output_Path'); % Output path for the .spikes file
     
@@ -57,12 +61,12 @@ function SpikeFindingM( parameters )
     %% Create the Spiker Finder and heirs
     spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant);
     spikeBufferM = SpikeBufferM();
-    spikeSaverM  = SpikeSaverM(header, outputPath, meanTimeConstant, spikeThreshold);
+    spikeSaverM  = SpikeSaverM(header, outputPath, datasetName, meanTimeConstant, spikeThreshold);
     
     %% Spike Finding
     
     % Initialization
-    [s,f] = dataSource.loadNextBuffer(dataSource.samplingRate); % Get a read of 1 second
+    [s,f] = dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
     % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
     % initialization samples, with updated means.
     dataSource.filterState = spikeFinderM.initialize(dataSource.rawData)';

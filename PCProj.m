@@ -1,4 +1,4 @@
-function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileName, covMatrix, averages, totSpikes, nDims)
+function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, spikeFileName, covMatrix, averages, totSpikes, nDims)
     % Build the covariance matrix for spikes around a given electrode
     % Input HashMap parameters should be the same given than for SpikeFindingM
     
@@ -69,6 +69,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
     eigenValues = cell(nElectrodes,1);
     eigenVectors = cell(nElectrodes,1);
     projSpikes = cell(nElectrodes,1);
+    spikeTimes = cell(nElectrodes,1);
     currSpike = ones(nElectrodes,1);
     
     for el = 2:nElectrodes
@@ -77,6 +78,7 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
        eigenValues{el} = e(1:nDims);
        eigenVectors{el} = fliplr(v(:,(end-nDims+1):end));
        projSpikes{el} = zeros(totSpikes(el),nDims);
+       spikeTimes{el} = zeros(1,totSpikes(el));
     end
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
@@ -92,10 +94,14 @@ function [projSpikes,eigenValues,eigenVectors] = PCProj(parameters, spikeFileNam
             continue
         end
         
+        
         %% Process by electrodes
         % Could parallel here, but actually slower due to the IO cost of sending to each worker.
         % The better part would be to change the while loop to a smarter parfor loop.
         for el = 2:nElectrodes
+            %% Store spike times
+            spikeTimes{el}(currSpike(el):(currSpike(el)+numel(spikes{el})-1)) = spikes{el};
+            
             %% Process each spike
             for spikeTime = spikes{el}'
                 % Load master spike

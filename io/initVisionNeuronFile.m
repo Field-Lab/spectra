@@ -1,4 +1,4 @@
-function newNeuronFile = initVisionNeuronFile(rawDataFilePath, newNeuronFilePath, ttlTimes, visionPath)
+function newNeuronFile = initVisionNeuronFile(rawDataFilePath, newNeuronFilePath, ttlTimes, varargin)
 %INITVISIONNEURONFILE Initializes a Vision neuron file.
 % 
 %   INITVISIONNEURONFILE(RAWDATAFILEPATH, NEWNEURONFILEPATH, TTLTIMES, ...
@@ -23,6 +23,16 @@ function newNeuronFile = initVisionNeuronFile(rawDataFilePath, newNeuronFilePath
 %
 %   Don't forget to close() the neuronFile after you're done with it.
 %   
+
+% ------------
+% Vincent Deo - Stanford University - 06/02/2015
+% If the jar is already imported in call hierarchy, any argument can be passed as
+% visionPath. Changed 4th argument to optional.
+narginchk(3,4);
+if nargin == 4
+    visionPath = varargin{1};
+end
+% -------------
 
 % Check we linked to the Vision jar file already
 if ~exist('edu/ucsc/neurobiology/vision/io/RawDataFile','class') && exist('visionPath', 'var')

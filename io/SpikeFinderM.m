@@ -59,8 +59,6 @@ classdef SpikeFinderM < handle
             if ~obj.initialized
                 throw(MException('SpikeFinderM.processSample: not initialized'));
             end
-            % updating current sample
-            obj.currentSample = obj.currentSample + 1;
             
             % processing of TTL sample
             ttlSpike = zeros(0,3);
@@ -132,6 +130,9 @@ classdef SpikeFinderM < handle
                 end
             end
             obj.totalSpikes = obj.totalSpikes + numel(spikes);
+            
+            % updating current sample
+            obj.currentSample = obj.currentSample + 1;
             
         end % processSample
         

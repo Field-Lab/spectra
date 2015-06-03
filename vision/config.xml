@@ -43,9 +43,9 @@
     <ParametersGroup name="Vision Parameters">
         <StringParameter name="Plot Panel Folder" value="F:\vision5"/>
         <StringParameter name="folder" value="X:\EJgroup_data"/>
-        <IntegerParameter name="X" value="0"/>
-        <IntegerParameter name="Y" value="0"/>
-        <IntegerParameter name="W" value="1366"/>
+        <IntegerParameter name="X" value="-8"/>
+        <IntegerParameter name="Y" value="-8"/>
+        <IntegerParameter name="W" value="1382"/>
         <IntegerParameter name="H" value="754"/>
     </ParametersGroup>
         
@@ -194,8 +194,8 @@
     </ParametersGroup>
 
     <ParametersGroup name="Raw Data Noise Evaluation">
-        <FileParameter extension="+bin" name="Raw_Data_File" screenName="Raw Data File" value="X:\EJgroup_data\Data\2008-06-10-1\data000"/>
-        <FileParameter extension="+" name="Save_To_File" screenName="Save_To_File" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000Vision"/>
+        <FileParameter extension="+bin" name="Raw_Data_File" screenName="Raw Data File" value="X:\EJgroup_data\Data\2005-04-26-0\data002"/>
+        <FileParameter extension="+" name="Save_To_File" screenName="Save_To_File" value="X:\EJgroup_data\TestOut\2005-04-26-0\data002"/>
     </ParametersGroup>
 
     <ParametersGroup name="Raw Data Filtering">
@@ -204,15 +204,15 @@
     </ParametersGroup>
 
     <ParametersGroup name="Spike Finding">
-        <FileParameter extension="+bin" name="Raw_Data_Source" screenName="Raw Data Source" value="X:\EJgroup_data\Data\2008-06-10-1\data000(0-10)"/>
+        <FileParameter extension="+bin" name="Raw_Data_Source" screenName="Raw Data Source" value="X:\EJgroup_data\Data\2005-04-26-0\data002(0-10)"/>
         <IntegerParameter name="Buffer Size (Kb)" value="200"/>
         <IntegerParameter name="Buffers Count" value="2000"/>
         <DoubleParameter name="Spike Threshold" value="3.0"/>
-        <StringParameter name="Sigma" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000Vision\data000Vision.noise"/>
+        <StringParameter name="Sigma" value="X:\EJgroup_data\TestOut\2005-04-26-0\data002\data002.noise"/>
         <DoubleParameter name="TTL Threshold" value="1000.0"/>
         <DoubleParameter name="Mean Time Constant" value="0.01"/>
 
-        <ParametersGroup name="Diagnostic Plots" value="true">
+        <ParametersGroup name="Diagnostic Plots" value="false">
             <BooleanParameter name="Show Oscilloscope" screenName="Show Oscilloscope ?" value="false"/>
             <IntegerParameter name="Number of Traces" value="2"/>
             <BooleanParameter name="Show Spike Rate" screenName="Show Spike Statistics ?" value="false"/>
@@ -230,14 +230,14 @@
         </ParametersGroup>
 
         <ParametersGroup name="Analysis" value="true">
-            <EnumeratorParameter name="Analysis To Do" value="1.0" values="DO NOTHING:0:SAVE SPIKES:1:SAVE SPIKES AND COVARINCES:2"/>
+            <EnumeratorParameter name="Analysis To Do" value="2.0" values="DO NOTHING:0:SAVE SPIKES:1:SAVE SPIKES AND COVARINCES:2"/>
             <IntegerParameter name="Left Points" value="5"/>
             <IntegerParameter name="Right Points" value="15"/>
             <DoubleParameter name="Minimization Error" value="0.001"/>
             <IntegerParameter name="Spike To Use" value="0"/>
             <IntegerParameter name="Minimum Noise Events" value="0"/>
-            <EnumeratorParameter name="Electrode Usage" value="1.0" values=":1 Electrode:0 :7 Electrodes:1 :19 Electrodes:2"/>
-            <FileParameter extension="+" name="Output_Path" screenName="Spike Output Folder" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000Vision"/>
+            <EnumeratorParameter name="Electrode Usage" value="0.0" values=":1 Electrode:0 :7 Electrodes:1 :19 Electrodes:2"/>
+            <FileParameter extension="+" name="Output_Path" screenName="Spike Output Folder" value="X:\EJgroup_data\TestOut\2005-04-26-0\data002"/>
         </ParametersGroup>
         <ParametersGroup name="Set Electrodes" value="false">
         	<IntegerParameter name="arrayID" screenName="array ID" value="0"/>
@@ -249,8 +249,8 @@
     </ParametersGroup>
     
     <ParametersGroup name="Noise Whitened Covariances">
-    	<FileParameter extension="+bin" name="Raw Data Path" screenName="Raw Data Source" value="/data/2000-12-14-1/data051.bin"/>
-    	<FileParameter extension="+" name="Dataset Folder" value="/data/2000-12-14-1test/data051"/>  
+    	<FileParameter extension="+bin" name="Raw Data Path" screenName="Raw Data Source" value="X:\EJgroup_data\Data\2008-06-10-1\data000(0-10)"/>
+    	<FileParameter extension="+" name="Dataset Folder" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000"/>  
         <IntegerParameter name="Number of Threads" value="4"/>
     </ParametersGroup>
 
@@ -268,15 +268,15 @@
     </ParametersGroup>
 
     <ParametersGroup name="PCA Neuron Finding: Projections">
-        <FileParameter extension="+bin" name="Raw_Data_File" screenName="Raw Data File" value="X:\EJgroup_data\Data\2005-04-26-0\data002(0-10)"/>
-        <FileParameter extension="+" name="Dataset Folder" value="X:\EJgroup_data\TestOut\2005-04-26-0\data002vision"/>
+        <FileParameter extension="+bin" name="Raw_Data_File" screenName="Raw Data File" value="X:\EJgroup_data\Data\2008-06-10-1\data000(0-10)"/>
+        <FileParameter extension="+" name="Dataset Folder" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000"/>
         <FileParameter extension="model" name="Model File" value=""/>
         <IntegerParameter name="PCA Dimensions" value="5"/>
         <IntegerParameter name="nThreads" value="4"/>
     </ParametersGroup>
 
     <ParametersGroup name="PCA Neuron Finding: Clustering">
-        <FileParameter extension="+" name="Dataset_Folder" screenName="Dataset Folder" value="X:\EJgroup_data\TestOut\2005-04-26-0\data002vision"/>
+        <FileParameter extension="+" name="Dataset_Folder" screenName="Dataset Folder" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000Vision"/>
         <IntegerParameter name="From" screenName="From Electrode" value="1"/>
         <IntegerParameter name="To" screenName="To Electrode" value="512"/>
 
@@ -296,7 +296,7 @@
     </ParametersGroup>
 
     <ParametersGroup name="Neuron Cleaning">
-        <FileParameter extension="neurons-raw" name="Neuron_File" screenName="Neuron File" value="C:\data\Copy of data005-imm\raw neurons\data005-imm.neurons-raw"/>
+        <FileParameter extension="neurons-raw" name="Neuron_File" screenName="Neuron File" value="X:\EJgroup_data\TestOut\2008-06-10-1\data000Vision\data000Vision.neurons-raw"/>
         <IntegerParameter name="Minimun Number of Spikes" value="100"/>
         <DoubleParameter name="Maximum Contamination" value="0.1"/>
         <IntegerParameter name="Coincidence Time" value="10"/>
