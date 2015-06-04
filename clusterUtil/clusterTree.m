@@ -84,6 +84,21 @@ classdef clusterTree < handle
             end
         end
         
+        function [nodeArray,depth] = enumLeaves(obj)
+            if numel(obj.children) == 0
+                nodeArray = obj.root;
+                depth = 1;
+            else
+                nodeArray = [];
+                depth = [];
+                for x = obj.children;
+                    [subNode,subDepth] = x.enumLeaves();
+                    nodeArray = [nodeArray,subNode];
+                    depth = [depth,subDepth+1];
+                end
+            end
+        end
+        
         function n = treeSize(obj)
             n = 1;
             for x = obj.children;

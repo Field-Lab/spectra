@@ -10,7 +10,7 @@ classdef clusterNode < handle
         pc @ pcPointer
         
         av
-        sigma
+        covMat
         density
     end
     
@@ -33,11 +33,11 @@ classdef clusterNode < handle
         
         function val = overlap(obj,node)
             % This function check for an overlap between 2 clusters
-            isOv = ~ ((obj.high < node.low) || (node.high < obj.low))
+            isOv = ~ ((obj.high < node.low) || (node.high < obj.low));
             % Measure overlap amount
             % Check case: inclusion
             if obj.contains(node) || node.contains(obj)
-                val = true
+                val = true;
                 return
             end
             % Non-inclusive overlap
@@ -57,8 +57,9 @@ classdef clusterNode < handle
         
         function update(obj)
             obj.av =  mean(obj.pc.spikeComp(obj.pc.order(obj.low:obj.high),:),1);
-            obj.sigma =  std(obj.pc.spikeComp(obj.pc.order(obj.low:obj.high),:),1);
-            obj.density = (0.68^size(obj.pc.spikeComp,2))/prod(obj.sigma);
+            spkTemp = bsxfun(@minus,obj.pc.spikeComp(obj.pc.order(obj.low:obj.high),:),obj.av);
+            obj.covMat =  spkTemp' * spkTemp / max(1,obj.numPoints-1);
+            obj.density = (0.68^size(obj.pc.spikeComp,2))/prod(sqrt(eig(obj.covMat)));
         end
             
     end

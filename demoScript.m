@@ -35,7 +35,7 @@ saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000Matlab';
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data000'
 
 % USER input - FORCE rewriting output even if files are found
-force = 3;
+force = 6;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -140,14 +140,14 @@ if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') =
     
     % Separate the neurons in format [neuronID, neuronSpikeTimes]
     % Do some neuron cleaning if wanted
-    
+ 
     [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] = PCClustering(projSpikes, spikeTimes);
     
     save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
     
-    neuronEls = [1;1;3;4];
-    neuronClusters = [1;2;1;1];
-    neuronSpikeTimes = {[1,2,3,4];[11,12,13,14];[21,22,23,24];[25,26,27,29]};
+%     neuronEls = [1;1;3;4];
+%     neuronClusters = [1;2;1;1];
+%     neuronSpikeTimes = {[1,2,3,4];[11,12,13,14];[21,22,23,24];[25,26,27,29]};
     save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
     
     x = toc;
@@ -170,7 +170,7 @@ if force <=5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2
         el = neuronEls(i);
         neuronSaver.addNeuron(el,...
             neuronSaver.getNeuronID(el,neuronClusters(i)),...
-            neuronSpikeTimes{el});
+            neuronSpikeTimes{i});
     end
     
     x = toc;

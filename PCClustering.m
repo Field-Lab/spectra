@@ -24,10 +24,100 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCclusterin
     % The clustering structure will allow to determine if any spike is the member of any cluster
     % Then apply the requiring permutation/concatenation/discarding to build spikeTimeNeurons
     
-    clusterParams = [];
+    dims = 3;
+    
+    nElectrodes = numel(projSpikes);
+    clusterParams = cell(nElectrodes,1);
     neuronEls = [];
     neuronClusters = [];
     spikeTimesNeuron = [];
     
-end
+    for el = 2:nElectrodes
+        
+        if numel(projSpikes{el}) == 0
+            continue
+        end
+        %% Quick density computation by n-D binning
+        dimMax = max(projSpikes{el},[],1);
+        dimMin = min(projSpikes{el},[],1);
+        dimBins = 30;
+        binSpace = (dimMax-dimMin)/dimBins;
+        binned = floor(bsxfun(@rdivide,projSpikes{el},binSpace));
+        occupiedBins = size(unique(binned(:,1:dims),'rows'),1);
+        
+        avDens = size(projSpikes{el},1)./occupiedBins;
+        
+        
+        %% OPTICS algorithm does the pre-clustering
+        [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikes{el}(:,1:dims), round(5*avDens), 0);
+        
+        pc = pcPointer(projSpikes{el}(:,1:dims),order);
+        
+        store = [];
+        linear = zeros(1,numel(order));
+        n = size(SetOfClusters,2);
+        for k = 1:n
+            store = [store,[SetOfClusters(k).start;SetOfClusters(k).end;SetOfClusters(k).end-SetOfClusters(k).start+1]];
+        end
+        
+        %% OPTICS hierarchical clusters post-processing
+        tree = clusterTree(store(1,:),store(2,:),pc);
+        tree.reduce();
+        
+        [nodeArray,depth] = tree.enumLeaves();
+        
+        relativeAvs = zeros(numel(nodeArray));
+        
+        for clusterIndex = 1:numel(nodeArray)
+            cluster = nodeArray(clusterIndex);
+            [v,d] = eig(cluster.covMat);
+            for cl = 1:numel(nodeArray)
+                relativeAvs(clusterIndex,cl) = norm(v' * ((nodeArray(cl).av'-cluster.av')./ sqrt(diag(d))));
+            end
+        end
+        
+        %% Discarding intersecting clusters
+        relativeAvs(eye(numel(nodeArray)) == 1) = Inf;
+        discard = false(1, numel(nodeArray));
+        
+        for cl = 1:numel(nodeArray)
+            discard(cl) = any(relativeAvs(cl,:) <= 2);
+            relativeAvs(cl:end,discard) = Inf;
+        end
+        
+        nodeArrayRed = nodeArray(~discard);
+        
+        %% Gaussian mixture model
+        gsn = numel(nodeArrayRed);
+        if gsn > 8 % Vision fuckup to plan if we go around this limit, which is set in config.xml
+            gsn = 8;
+        end
+        S.mu = zeros(gsn,dims);
+        S.Sigma = zeros(dims,dims,gsn);
+        S.ComponentProportion = zeros(1,gsn);
+        
+        for clusterIndex = 1:gsn
+            cluster = nodeArrayRed(clusterIndex);
+            S.mu(clusterIndex,:) = cluster.av';
+            S.Sigma(:,:,clusterIndex) = cluster.covMat;
+            S.ComponentProportion(clusterIndex) = cluster.numPoints./numel(order);
+        end
+        
+        el;
+        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'RegularizationValue',0.1);
+        
+        %% Assigning output
+        neuronEls = [neuronEls;el*ones(gsn,1)];
+        neuronClusters = [neuronClusters;(1:gsn)'];
+        
+        spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:dims)) >= 0.8;
+        temp = cell(gsn,1);
+        for i = 1:gsn
+            temp{i} = spikeTimesEl{el}(find(spikeClust(:,i)));
+        end
+        spikeTimesNeuron = [spikeTimesNeuron;temp];
+        
+        
+    end % el
+end % function
 
