@@ -1,4 +1,4 @@
-function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCclustering(projSpikes, spikeTimesEl)
+function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClustering(projSpikes, spikeTimesEl)
     %PCCLUSTERING Outputs dummy clusters
     %
     % Specifications
@@ -103,9 +103,12 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCclusterin
             S.ComponentProportion(clusterIndex) = cluster.numPoints./numel(order);
         end
         
-        el;
-        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'RegularizationValue',0.1);
-        
+        el
+        %  R2015
+        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'RegularizationValue',0.01);
+        %  R2014
+	% clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);        
+
         %% Assigning output
         neuronEls = [neuronEls;el*ones(gsn,1)];
         neuronClusters = [neuronClusters;(1:gsn)'];
