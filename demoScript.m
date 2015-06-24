@@ -29,10 +29,10 @@ config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 
 % USER INPUT - Set up data and output folders
 % dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
-dataPath = '/Volumes/Data/2013-04-30-3/data000'
-timeCommand = '(0-1500)';
+dataPath = '/Volumes/Data/2013-04-30-3/data001'
+timeCommand = '(5-15)';
 % saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000Matlab'
-saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data000'
+saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
 % USER input - FORCE rewriting output even if files are found
 force = 6;
@@ -125,7 +125,7 @@ else
 end
 
 
-%% Clustering + Neuron Cleaning
+%% Clustering
 if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
         exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2)
     %%

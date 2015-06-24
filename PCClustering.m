@@ -1,39 +1,39 @@
 function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClustering(projSpikes, spikeTimesEl)
-    %PCCLUSTERING Outputs dummy clusters
-    %
-    % Specifications
-    % Inputs
-    % projSpikes is a nElectrodes x 1 cell array
-    % projSpikes{el} is a nSpikes x nDims array containing the PC components of all spikes
-    %
-    % spikeTimesEl is a nElectrodes x 1 cell array
-    % spikeTimesEl{el} is a nSpike x 1 array containing the spike times on electrode el
-    %
-    % Outputs
-    % clusterParams is a nElectrodes x 1 cell array
-    % clusterParams{el} is either 1 object or a nClusters x 1 array of object/parameters describing the clusters
-    %
-    % neuronEls is a nNeurons x 1 array containing the electrode number for neurons
-    % neuronClusters is a nNeurons x 1 array containing the cluster number describing neuron i
-    % --> clusterParams{neuronEls(i)}(neuronClusters(i)) describes a neuron
-    %
-    % spikeTimesNeurons is a nNeurons x 1 cell array
-    % spikeTimeNeurons{neuron} is a nSpikesOfNeuron x 1 array containing the spike times of the
-    % neuron
-    %
-    % The clustering structure will allow to determine if any spike is the member of any cluster
-    % Then apply the requiring permutation/concatenation/discarding to build spikeTimeNeurons
-    
-    dims = 3;
-    
-    nElectrodes = numel(projSpikes);
-    clusterParams = cell(nElectrodes,1);
-    neuronEls = [];
-    neuronClusters = [];
-    spikeTimesNeuron = [];
-    
-    for el = 2:nElectrodes
-        
+%PCCLUSTERING Outputs dummy clusters
+%
+% Specifications
+% Inputs
+% projSpikes is a nElectrodes x 1 cell array
+% projSpikes{el} is a nSpikes x nDims array containing the PC components of all spikes
+%
+% spikeTimesEl is a nElectrodes x 1 cell array
+% spikeTimesEl{el} is a nSpike x 1 array containing the spike times on electrode el
+%
+% Outputs
+% clusterParams is a nElectrodes x 1 cell array
+% clusterParams{el} is either 1 object or a nClusters x 1 array of object/parameters describing the clusters
+%
+% neuronEls is a nNeurons x 1 array containing the electrode number for neurons
+% neuronClusters is a nNeurons x 1 array containing the cluster number describing neuron i
+% --> clusterParams{neuronEls(i)}(neuronClusters(i)) describes a neuron
+%
+% spikeTimesNeurons is a nNeurons x 1 cell array
+% spikeTimeNeurons{neuron} is a nSpikesOfNeuron x 1 array containing the spike times of the
+% neuron
+%
+% The clustering structure will allow to determine if any spike is the member of any cluster
+% Then apply the requiring permutation/concatenation/discarding to build spikeTimeNeurons
+
+dims = 3;
+
+nElectrodes = numel(projSpikes);
+clusterParams = cell(nElectrodes,1);
+neuronEls = [];
+neuronClusters = [];
+spikeTimesNeuron = [];
+
+for el = 2:nElectrodes
+    try
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -49,12 +49,14 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         
         
         %% OPTICS algorithm does the pre-clustering
+        tic
         [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikes{el}(:,1:dims), round(5*avDens), 0);
+        disp(['Time for optics pre-clustering ',num2str(toc)]);
         
         pc = pcPointer(projSpikes{el}(:,1:dims),order);
         
         store = [];
-        linear = zeros(1,numel(order));
+        % linear = zeros(1,numel(order));
         n = size(SetOfClusters,2);
         for k = 1:n
             store = [store,[SetOfClusters(k).start;SetOfClusters(k).end;SetOfClusters(k).end-SetOfClusters(k).start+1]];
@@ -64,7 +66,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         tree = clusterTree(store(1,:),store(2,:),pc);
         tree.reduce();
         
-        [nodeArray,depth] = tree.enumLeaves();
+        [nodeArray,~] = tree.enumLeaves();
         
         relativeAvs = zeros(numel(nodeArray));
         
@@ -105,10 +107,12 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         
         el
         %  R2015
+        tic
         clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'RegularizationValue',0.01);
         %  R2014
-	% clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);        
-
+        % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);
+        disp(['Time for Gaussian Mixture Clustering ',num2str(toc)]);
+        
         %% Assigning output
         neuronEls = [neuronEls;el*ones(gsn,1)];
         neuronClusters = [neuronClusters;(1:gsn)'];
@@ -119,8 +123,9 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             temp{i} = spikeTimesEl{el}(find(spikeClust(:,i)));
         end
         spikeTimesNeuron = [spikeTimesNeuron;temp];
-        
-        
-    end % el
+    catch error
+        disp(['Error at electrode ',el,', skipping.']);
+    end
+end % el
 end % function
 
