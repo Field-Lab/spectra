@@ -37,29 +37,34 @@ for el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
+        %% Reduction of projSpikes for optics, which is quadratic in complexity
+        nOptics = min(5000,size(projSpikes{el},1));
+        subset = randsample(size(projSpikes{el},1),nOptics);
+        projSpikesRed = projSpikes{el}(subset,:);
+        
         %% Quick density computation by n-D binning
-        dimMax = max(projSpikes{el},[],1);
-        dimMin = min(projSpikes{el},[],1);
+        dimMax = max(projSpikesRed,[],1);
+        dimMin = min(projSpikesRed,[],1);
         dimBins = 30;
         binSpace = (dimMax-dimMin)/dimBins;
-        binned = floor(bsxfun(@rdivide,projSpikes{el},binSpace));
+        binned = floor(bsxfun(@rdivide,projSpikesRed,binSpace));
         occupiedBins = size(unique(binned(:,1:dims),'rows'),1);
         
-        avDens = size(projSpikes{el},1)./occupiedBins;
-        
+        avDens = size(projSpikesRed,1)./occupiedBins;
         
         %% OPTICS algorithm does the pre-clustering
         tic
-        [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikes{el}(:,1:dims), round(5*avDens), 0);
+        [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:dims), round(5*avDens), 0);
         disp(['Time for optics pre-clustering ',num2str(toc)]);
         
-        pc = pcPointer(projSpikes{el}(:,1:dims),order);
+        pc = pcPointer(projSpikesRed(:,1:dims),order);
         
         store = [];
         % linear = zeros(1,numel(order));
         n = size(SetOfClusters,2);
         for k = 1:n
-            store = [store,[SetOfClusters(k).start;SetOfClusters(k).end;SetOfClusters(k).end-SetOfClusters(k).start+1]];
+            store = [store,[SetOfClusters(k).start;SetOfClusters(k).end;...
+                SetOfClusters(k).end-SetOfClusters(k).start+1]];
         end
         
         %% OPTICS hierarchical clusters post-processing
@@ -74,7 +79,8 @@ for el = 2:nElectrodes
             cluster = nodeArray(clusterIndex);
             [v,d] = eig(cluster.covMat);
             for cl = 1:numel(nodeArray)
-                relativeAvs(clusterIndex,cl) = norm(v' * ((nodeArray(cl).av'-cluster.av')./ sqrt(diag(d))));
+                relativeAvs(clusterIndex,cl) = ...
+                    norm(v' * ((nodeArray(cl).av'-cluster.av')./ sqrt(diag(d))));
             end
         end
         
@@ -118,9 +124,10 @@ for el = 2:nElectrodes
         neuronClusters = [neuronClusters;(1:gsn)'];
         
         spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:dims)) >= 0.8;
+        whos spikeClust
         temp = cell(gsn,1);
         for i = 1:gsn
-            temp{i} = spikeTimesEl{el}(find(spikeClust(:,i)));
+            temp{i} = spikeTimesEl{el}(spikeClust(:,i));
         end
         spikeTimesNeuron = [spikeTimesNeuron;temp];
     catch error
