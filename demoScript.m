@@ -28,11 +28,11 @@ javaaddpath('./vision');
 config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 
 % USER INPUT - Set up data and output folders
-% dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
-dataPath = '/Volumes/Data/2013-04-30-3/data001'
+dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
+% dataPath = '/Volumes/Data/2013-04-30-3/data001'
 timeCommand = '(5-15)';
-% saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000Matlab'
-saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev'
+% saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
 % USER input - FORCE rewriting output even if files are found
 force = 6;
