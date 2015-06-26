@@ -87,7 +87,7 @@ function SpikeFindingM( parameters )
         
         spikeBufferM.addSpikes(spikeFinderM.processBuffer());
         
-        s = spikeBufferM.getSpikes(dataSource.bufferEnd -1);
+        s = spikeBufferM.getSpikes(dataSource.bufferEnd - 1);
         spikeSaverM.processMultipleSpikes(s);
     end
     

@@ -62,7 +62,9 @@ classdef SpikeSaverM
             validateattributes(spikes,{'numeric'},{'2d','ncols',3},'','spikes');
             validateattributes(spikes(:,1),{'numeric'},{'nondecreasing','integer'},'','spikes(:,1)');
             
-            obj.spikeSaver.processMultipleSpikes(spikes(:,2),spikes(:,1));
+            if size(spikes,1) > 0
+                obj.spikeSaver.processMultipleSpikes(spikes(:,2),spikes(:,1));
+            end
         end
         
         function finishSpikeProcessing(obj)

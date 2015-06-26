@@ -66,6 +66,7 @@ end
 if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2)
     %%
     disp('Starting spike finding...');
+    profile on
     tic
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
@@ -74,6 +75,7 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2
     SpikeFindingM(parameters);
     
     x = toc;
+    profile viewer
     disp(['Time for spike finding ', num2str(x), ' seconds']);
 else
     disp('.spikes file found - skipping spike finding.');

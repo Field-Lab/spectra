@@ -213,7 +213,11 @@ classdef SpikeFinderM < handle
                 spikes = [spikes;spikesEl];
             end
             
+            % Sorting spikes
             spikes = sortrows(spikes,[1,2]);
+            
+            % Removing time offset of the dataset
+            spikes(:,1) = spikes(:,1);
             
             % updating spikes counter
             obj.totalSpikes = obj.totalSpikes + size(spikes,1);
