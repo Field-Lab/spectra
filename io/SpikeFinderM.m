@@ -8,12 +8,21 @@ classdef SpikeFinderM < handle
         minTimeSeparation = 0.25 * 20; % .25 msec separation, in samples
         maxSpikeWidth = 2.5 * 20; % 2.5 msec maximum spike width, in samples
     end
+    
+    %//TODO
+    %// Remove local sample counter
+    %// remove config hashmap in spikefinding - move to matlab .m config scripts.
+    %// Add handle to datafileupsampler
+    %// Modify spikebuffer and spikesaver management
+    %// Runtime compares
+    
     properties (SetAccess = immutable, GetAccess = public)
         nElectrodes
         disconnected @logical
         spikeThresholds
         ttlThreshold
         alpha
+        dataFileUpsampler
     end
     properties (SetAccess = protected, GetAccess = public)
         buildingSpike @logical
@@ -30,7 +39,7 @@ classdef SpikeFinderM < handle
     
     methods
         % Constructor
-        function obj = SpikeFinderM(electrodeMap, spikeThresholds, ttlThreshold, timeConstant)
+        function obj = SpikeFinderM(electrodeMap, spikeThresholds, ttlThreshold, timeConstant, dataFileUpsampler)
             % validate electrode map
             validateattributes(electrodeMap,{'edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMap'},{},'','electrodeMap');
             obj.nElectrodes = int32(electrodeMap.getNumberOfElectrodes());
@@ -41,6 +50,9 @@ classdef SpikeFinderM < handle
             
             validateattributes(ttlThreshold,{'numeric'},{'scalar'},'','ttlThresholds');
             obj.ttlThreshold = double(ttlThreshold);
+            
+            validateattributes(dataFileUpsampler,{'DataFileUpsampler'},{},'','dataFileUpsampler',5);
+            obj.dataFileUpsampler = dataFileUpsampler;
             
             % For process flow
             obj.buildingSpike = false(obj.nElectrodes, 1);
@@ -56,18 +68,20 @@ classdef SpikeFinderM < handle
         
         
         %%%%%%%%%%%%%%%%% WIP
-        function spikes = processBuffer(obj, buffer)
-            validateattributes(buffer,{'numeric'},{'2d','nrows',obj.nElectrodes},'','sample');
+        function spikes = processBuffer(obj)
+            
+            bs = obj.dataFileUpsampler.bufferStart;
+            
             if ~obj.initialized
                 throw(MException('SpikeFinderM.processSample: not initialized'));
             end
             
             % processing of TTL buffer
-            ttlThresholded = [obj.buildingSpike(1),buffer(1,:) < -obj.ttlThreshold];
+            ttlThresholded = [obj.buildingSpike(1),obj.dataFileUpsampler.rawData(1,:) < -obj.ttlThreshold];
             ttlThUp = find(and(~ttlThresholded(1:(end-1)),ttlThresholded(2:end)));
             ttlThDown = find(and(ttlThresholded(1:(end-1)),~ttlThresholded(2:end)));
             
-            ttlSpike = [ttlThUp',repmat([1,1500],numel(ttlThUp),1)];
+            ttlSpike = [ttlThUp'+bs,repmat([1,1500],numel(ttlThUp),1)];
             
             if numel(ttlThUp) > 0
                 if obj.previousSpikeTime <= 0 % First ttl ever is in this buffer
@@ -92,7 +106,7 @@ classdef SpikeFinderM < handle
             spikes = ttlSpike;
             %%%
             % processing of all other electrodes
-            bufferThresholded = [obj.buildingSpike(1:end),bsxfun(@lt,buffer(1:end,:),-obj.spikeThresholds)];
+            bufferThresholded = [obj.buildingSpike(1:end),bsxfun(@lt,obj.dataFileUpsampler.rawData(1:end,:),-obj.spikeThresholds)];
             
             for el = 2:obj.nElectrodes
                 if obj.disconnected(el)
@@ -133,17 +147,18 @@ classdef SpikeFinderM < handle
                 if numel(firstDown) > 0
                     x = firstDown;
                     
-                    time = find(buffer(el,1:x) == min(buffer(el,1:x)),1);
-                    amp = buffer(el,time);
+                    time = find(obj.dataFileUpsampler.rawData(el,1:x) ==...
+                        min(obj.dataFileUpsampler.rawData(el,1:x)),1);
+                    amp = obj.dataFileUpsampler.rawData(el,time);
                     if amp < obj.maxAmplitude(el);
-                        obj.maxTime(el) = time + obj.currentSample;
+                        obj.maxTime(el) = time + bs;
                         obj.maxAmplitude(el) = amp;
                     end
                     
-                    if (x + obj.currentSample - obj.startTime(el) <= obj.maxSpikeWidth) &&...
+                    if (x + bs - obj.startTime(el) <= obj.maxSpikeWidth) &&...
                             (obj.maxTime(el) - obj.previousSpikeTime(el) > obj.minTimeSeparation)
                         % Spike is valid inter-time-wise
-                        spikesEl = [spikesEl;obj.maxTime(el),el,obj.maxAmplitude(el)];
+                        spikesEl = [spikesEl;obj.maxTime(el),el,-obj.maxAmplitude(el)];
                     end
                     
                     obj.buildingSpike(el) = false;
@@ -151,33 +166,46 @@ classdef SpikeFinderM < handle
                     
                 else if numel(frames) == 0 && numel(lastUp) == 0 && obj.buildingSpike(el)
                         % Corner case - spikes running across whole buffer
-                        time = find(buffer(el,:) == min(buffer(el,:)),1);
-                        amp = buffer(el,time);
+                        time = find(obj.dataFileUpsampler.rawData(el,:) ==...
+                            min(obj.dataFileUpsampler.rawData(el,:)),1);
+                        amp = obj.dataFileUpsampler.rawData(el,time);
                         if amp < obj.maxAmplitude(el);
-                            obj.maxTime(el) = time + obj.currentSample;
+                            obj.maxTime(el) = time + bs;
                             obj.maxAmplitude(el) = amp;
                         end
                     end
                 end
                 
-                for f = frames
-                    time = f(1) - 1 + find(buffer(el,f(1):f(2)) == min(buffer(el,f(1):f(2))),1);
-                    amp = buffer(el,time);
+                if numel(frames) > 0
+                    frameStack = Inf(size(frames,2),max(frames(2,:)-frames(1,:))+1);
                     
-                    if ((f(2) - f(1)) <= obj.maxSpikeWidth &&...
-                       (time + obj.currentSample - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
-                        % Spike is valid inter-time-wise
-                        spikesEl = [spikesEl;time + obj.currentSample,el,amp];
+                    for f = 1:size(frames,2)
+                        frameStack(f,1:(frames(2,f)-frames(1,f)+1)) =...
+                            obj.dataFileUpsampler.rawData(el,frames(1,f):frames(2,f));
                     end
                     
-                    obj.previousSpikeTime(el) = time + obj.currentSample;
+                    [amp,I] = min(frameStack,[],2);
+                    time = frames(1,:)' - 1 + I;
                     
+                    keep = true(size(time));
+                    
+                    for f = 1:size(frames,2)
+                        if ~((frames(1,f) - frames(1,f)) <= obj.maxSpikeWidth &&...
+                                (time(f) + bs - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
+                            % Spike is NOT valid inter-time-wise
+                            keep(f) = false;
+                        end
+                        obj.previousSpikeTime(el) = time(f) + bs;
+                    end
+                    
+                    spikesEl = [spikesEl; [time(keep)+bs,repmat(el,nnz(keep),1),-amp(keep)]];
                 end
                 
                 if numel(lastUp) > 0
                     x = lastUp;
-                    obj.maxTime(el) = find(buffer(el,x:end) == min(buffer(el,x:end)),1) + obj.currentSample;
-                    obj.maxAmplitude(el) = buffer(el,time);
+                    obj.maxTime(el) = find(obj.dataFileUpsampler.rawData(el,x:end) ==...
+                        min(obj.dataFileUpsampler.rawData(el,x:end)),1) + bs - 1;
+                    obj.maxAmplitude(el) = obj.dataFileUpsampler.rawData(el,obj.maxTime(el) - bs + 1);
                     
                     obj.buildingSpike(el) = true;
                 end
@@ -185,15 +213,14 @@ classdef SpikeFinderM < handle
                 spikes = [spikes;spikesEl];
             end
             
-            spikes = sortrows(spikes,1);
+            spikes = sortrows(spikes,[1,2]);
             
             % updating spikes counter
             obj.totalSpikes = obj.totalSpikes + size(spikes,1);
             
-            % updating current sample
-            obj.currentSample = obj.currentSample + size(buffer,2);
-        end
-        %%%%%%%%%%%%%%%%%%%
+        end % processBuffer
+        
+        %%%%%%%%%%%%%%%%%%% end WIP
         
         function spikes = processSample(obj, sample)
             validateattributes(sample,{'numeric'},{'column','nrows',obj.nElectrodes},'','sample');
@@ -285,13 +312,12 @@ classdef SpikeFinderM < handle
             if obj.currentSample ~= 0
                 throw(MException('SpikeFinderM_initialize:InitializationError','Sample counter already > 0'));
             end
-            if nargin == 1
-                obj.initialize(zeros(obj.nElectrodes,0));
+            if nargin == 1 % Initialize on datasource buffer
+                meanCorrection = mean(obj.dataFileUpsampler.rawData,2);
                 obj.initialized = true;
-            else
-                sampleBuffer = varargin{1};
-                validateattributes(sampleBuffer,{'numeric'},{'2d','nrows',obj.nElectrodes},'','sampleBuffer');
-                meanCorrection = mean(sampleBuffer,2);
+            else % initialize on argument buffer
+                validateattributes(varargin{1},{'numeric'},{'2d','nrows',obj.nElectrodes},'','sampleBuffer');
+                meanCorrection = mean(varargin{1},2);
                 obj.initialized = true;
             end % nargin test
         end % initialize

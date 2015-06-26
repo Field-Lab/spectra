@@ -37,7 +37,6 @@ function SpikeFindingM( parameters )
     
     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
     nElectrodes = electrodeMap.getNumberOfElectrodes();
-    
     disconnected = electrodeMap.getDisconnectedElectrodesList();
     
     %% Get sigmas
@@ -59,17 +58,17 @@ function SpikeFindingM( parameters )
     % Skipped - this version meant to work on already recorded data
     
     %% Create the Spiker Finder and heirs
-    spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant);
+    spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant, dataSource);
     spikeBufferM = SpikeBufferM();
     spikeSaverM  = SpikeSaverM(header, outputPath, datasetName, meanTimeConstant, spikeThreshold);
     
     %% Spike Finding
     
     % Initialization
-    [s,f] = dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
+    dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
     % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
     % initialization samples, with updated means.
-    dataSource.filterState = spikeFinderM.initialize(dataSource.rawData)';
+    dataSource.filterState = -spikeFinderM.initialize()';
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
         throw(MException('SpikeFindingM',...
@@ -77,22 +76,19 @@ function SpikeFindingM( parameters )
     end
     
     firstIter = true;
-    currentSample = 0;
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         if ~firstIter
-            [s,f] = dataSource.loadNextBuffer();
+            dataSource.loadNextBuffer();
         else
             firstIter = false;
             dataSource.forceFilter(true);
         end
         
-        for i = 1:size(dataSource.rawData,2)
-            currentSample = currentSample + 1;
-            spikeBufferM.addSpikes(spikeFinderM.processSample(double(dataSource.rawData(:,i))));
-            s = spikeBufferM.getSpikes(currentSample);
-            spikeSaverM.processSpikes(s);
-        end
+        spikeBufferM.addSpikes(spikeFinderM.processBuffer());
+        
+        s = spikeBufferM.getSpikes(dataSource.bufferEnd -1);
+        spikeSaverM.processSpikes(s);
     end
     
     spikeSaverM.processSpikes(spikeBufferM.getAllSpikes());
