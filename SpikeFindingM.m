@@ -88,10 +88,10 @@ function SpikeFindingM( parameters )
         spikeBufferM.addSpikes(spikeFinderM.processBuffer());
         
         s = spikeBufferM.getSpikes(dataSource.bufferEnd -1);
-        spikeSaverM.processSpikes(s);
+        spikeSaverM.processMultipleSpikes(s);
     end
     
-    spikeSaverM.processSpikes(spikeBufferM.getAllSpikes());
+    spikeSaverM.processMultipleSpikes(spikeBufferM.getAllSpikes());
     spikeSaverM.finishSpikeProcessing();
     
 end
