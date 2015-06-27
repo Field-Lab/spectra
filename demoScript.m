@@ -63,7 +63,7 @@ end
 
 
 %% Find spikes and make a .spikes file
-if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2)
+if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2)
     %%
     disp('Starting spike finding...');
     profile on
@@ -72,13 +72,14 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
     
-    SpikeFindingM(parameters);
-        
+    spikes = SpikeFindingM(parameters);
+    save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikes');
+    
     x = toc;
     profile viewer
     disp(['Time for spike finding ', num2str(x), ' seconds']);
 else
-    disp('.spikes file found - skipping spike finding.');
+    disp('.spikes.mat file found - skipping spike finding.');
 end
 
 
@@ -90,9 +91,11 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
-    spikeFileName = [saveFolder,filesep,datasetName,'.spikes'];
+    if ~exist('spikes')
+        load([saveFolder,filesep,datasetName,'.spikes.mat']);
+    end
     
-    [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFileName);
+    [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikes);
     
     save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
     x = toc;

@@ -1,4 +1,4 @@
-function SpikeFindingM( parameters )
+function spikes = SpikeFindingM( parameters )
     %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
     %   Takes on after noise finding has been done (or not)
     % Computes the spikesproperties over the electrode array and stores
@@ -77,6 +77,8 @@ function SpikeFindingM( parameters )
     
     firstIter = true;
     
+    spikes = zeros(0,3);
+    
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         if ~firstIter
             dataSource.loadNextBuffer();
@@ -85,13 +87,15 @@ function SpikeFindingM( parameters )
             dataSource.forceFilter(true);
         end
         
-        spikeBufferM.addSpikes(spikeFinderM.processBuffer());
+        spikes = [spikes;spikeFinderM.processBuffer()];
         
-        s = spikeBufferM.getSpikes(dataSource.bufferEnd - 1);
-        spikeSaverM.processMultipleSpikes(s);
+%         s = spikeBufferM.getSpikes(dataSource.bufferEnd - 1);
+%         spikeSaverM.processMultipleSpikes(s);
     end
     
-    spikeSaverM.processMultipleSpikes(spikeBufferM.getAllSpikes());
-    spikeSaverM.finishSpikeProcessing();
+    spikes = sortrows(spikes,1);
+    
+%     spikeSaverM.processMultipleSpikes(spikeBufferM.getAllSpikes());
+%     spikeSaverM.finishSpikeProcessing();
     
 end

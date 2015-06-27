@@ -239,7 +239,7 @@ classdef SpikeFinderM < handle
             end
             
             % Sorting spikes
-            spikes = sortrows(spikes,[1,2]);
+            spikes = sortrows(spikes,1);
             
             % Updating spikes counter
             obj.totalSpikes = obj.totalSpikes + size(spikes,1);
