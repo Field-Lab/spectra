@@ -3,8 +3,8 @@
 % Starting at raw data files and ending at .neurons file.
 %
 % Work in progress
-% Current state: clustering not implemented
-% writing dummy clusters into .neurons
+% Current state: clustering implemented through OPTICS + Gaussian Mixture model
+% writes (uncleaned) vision-compatible .neurons
 %
 % Vincent Deo - Stanford University - 05/29/2015
 
@@ -30,7 +30,7 @@ config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(5-15)';
+timeCommand = '(0-100)';
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
@@ -73,7 +73,7 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
     
     SpikeFindingM(parameters);
-    
+        
     x = toc;
     profile viewer
     disp(['Time for spike finding ', num2str(x), ' seconds']);

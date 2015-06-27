@@ -12,9 +12,6 @@ classdef SpikeFinderM < handle
     %//TODO
     %// Remove local sample counter
     %// remove config hashmap in spikefinding - move to matlab .m config scripts.
-    %// Add handle to datafileupsampler
-    %// Modify spikebuffer and spikesaver management
-    %// Runtime compares
     
     properties (SetAccess = immutable, GetAccess = public)
         nElectrodes
@@ -31,7 +28,7 @@ classdef SpikeFinderM < handle
         maxAmplitude
         previousSpikeTime
         startTime
-        currentSample = 0; % Last sample of the last treated buffer
+        currentSample = 0; % Last sample of the last treated buffer % Unused if per-buffer finding
         ttlAverage = 0;
         ttlCount = 0; % Counter for ttl intervals. 1 less than TTL spikes outputed
         totalSpikes = 0;
@@ -108,13 +105,27 @@ classdef SpikeFinderM < handle
             % processing of all other electrodes
             bufferThresholded = [obj.buildingSpike(1:end),bsxfun(@lt,obj.dataFileUpsampler.rawData(1:end,:),-obj.spikeThresholds)];
             
-            for el = 2:obj.nElectrodes
-                if obj.disconnected(el)
-                    continue
+            [thCrossEls,thCrossTimes] = find(xor(bufferThresholded(:,2:end),bufferThresholded(:,1:(end-1))));
+            
+            % Allocation - extension of num rows done further down if needed
+            frameStack = Inf(1,obj.maxSpikeWidth + 1);
+            
+            for el = (find(~obj.disconnected(2:end))+1)'
+                
+                elThCross = thCrossTimes(thCrossEls == el)';
+                try
+                    if bufferThresholded(el,elThCross(1)+1);
+                       elThUp = elThCross(1:2:end);
+                       elThDown = elThCross(2:2:end);
+                    else
+                       elThUp = elThCross(2:2:end);
+                       elThDown = elThCross(1:2:end);
+                    end
+                catch e
+                    elThUp = [];
+                    elThDown = [];
                 end
                 
-                elThUp = find(and(~bufferThresholded(el,1:(end-1)),bufferThresholded(el,2:end)));
-                elThDown = find(and(bufferThresholded(el,1:(end-1)),~bufferThresholded(el,2:end)));
                 
                 % Align frames
                 if numel(elThUp) > numel(elThDown)
@@ -177,15 +188,29 @@ classdef SpikeFinderM < handle
                 end
                 
                 if numel(frames) > 0
-                    frameStack = Inf(size(frames,2),max(frames(2,:)-frames(1,:))+1);
-                    
-                    for f = 1:size(frames,2)
-                        frameStack(f,1:(frames(2,f)-frames(1,f)+1)) =...
-                            obj.dataFileUpsampler.rawData(el,frames(1,f):frames(2,f));
+                    if size(frames,2) > size(frameStack,1)
+                        frameStack = Inf(size(frames,2),obj.maxSpikeWidth + 1);
+                    else
+                        frameStack(:) = Inf;
                     end
                     
+                    frameLength = frames(2,:) - frames(1,:);
+                    buffSeed = zeros(1,sum(frameLength)+ size(frameLength,2));
+                    frameDest = zeros(1,sum(frameLength)+ size(frameLength,2));
+                    ind = 1;
+                    nEl = double(obj.nElectrodes);
+                    
+                    for f = 1:size(frames,2)
+                        buffSeed(ind:(ind+frameLength(f))) = (0:frameLength(f)) * nEl + el;
+                        frameDest(ind:(ind+frameLength(f))) = (0:frameLength(f)) * size(frameStack,1) + f;
+                        ind = ind + frameLength(f) + 1;
+                        % frameStack(f,1:(frames(2,f)-frames(1,f)+1)) =...
+                        %    obj.dataFileUpsampler.rawData(el,frames(1,f):frames(2,f));
+                    end
+                    frameStack(frameDest) = obj.dataFileUpsampler.rawData(buffSeed);
+                    
                     [amp,I] = min(frameStack,[],2);
-                    time = frames(1,:)' - 1 + I;
+                    time = frames(1,:)' - 1 + I(1:size(frames,2));
                     
                     keep = true(size(time));
                     
@@ -216,10 +241,7 @@ classdef SpikeFinderM < handle
             % Sorting spikes
             spikes = sortrows(spikes,[1,2]);
             
-            % Removing time offset of the dataset
-            spikes(:,1) = spikes(:,1);
-            
-            % updating spikes counter
+            % Updating spikes counter
             obj.totalSpikes = obj.totalSpikes + size(spikes,1);
             
         end % processBuffer
