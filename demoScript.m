@@ -30,9 +30,12 @@ config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-100)';
+timeCommand = '(0-10)';
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
+
+% DEBUG - additional saved file datset name extension
+nameExt = 'debug_5';
 
 % USER input - FORCE rewriting output even if files are found
 force = 6;
@@ -73,7 +76,10 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
     
     spikes = SpikeFindingM(parameters);
-    save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikes');
+    spikeSave = int32(spikes(:,1:2));
+    save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave');
+    save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave');
+    
     
     x = toc;
     profile viewer

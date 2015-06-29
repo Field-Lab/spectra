@@ -64,7 +64,6 @@ classdef SpikeFinderM < handle
         end % Constructor
         
         
-        %%%%%%%%%%%%%%%%% WIP
         function spikes = processBuffer(obj)
             
             bs = obj.dataFileUpsampler.bufferStart;
@@ -78,7 +77,7 @@ classdef SpikeFinderM < handle
             ttlThUp = find(and(~ttlThresholded(1:(end-1)),ttlThresholded(2:end)));
             ttlThDown = find(and(ttlThresholded(1:(end-1)),~ttlThresholded(2:end)));
             
-            ttlSpike = [ttlThUp'+bs,repmat([1,1500],numel(ttlThUp),1)];
+            ttlSpike = [ttlThUp'+bs-1,repmat([1,1500],numel(ttlThUp),1)];
             
             if numel(ttlThUp) > 0
                 if obj.previousSpikeTime <= 0 % First ttl ever is in this buffer
@@ -158,11 +157,10 @@ classdef SpikeFinderM < handle
                 if numel(firstDown) > 0
                     x = firstDown;
                     
-                    time = find(obj.dataFileUpsampler.rawData(el,1:x) ==...
-                        min(obj.dataFileUpsampler.rawData(el,1:x)),1);
-                    amp = obj.dataFileUpsampler.rawData(el,time);
+                    [amp,time] = min(obj.dataFileUpsampler.rawData(el,1:x));
+                    
                     if amp < obj.maxAmplitude(el);
-                        obj.maxTime(el) = time + bs;
+                        obj.maxTime(el) = time + bs - 1;
                         obj.maxAmplitude(el) = amp;
                     end
                     
@@ -177,11 +175,9 @@ classdef SpikeFinderM < handle
                     
                 else if numel(frames) == 0 && numel(lastUp) == 0 && obj.buildingSpike(el)
                         % Corner case - spikes running across whole buffer
-                        time = find(obj.dataFileUpsampler.rawData(el,:) ==...
-                            min(obj.dataFileUpsampler.rawData(el,:)),1);
-                        amp = obj.dataFileUpsampler.rawData(el,time);
+                        [amp,time] = min(obj.dataFileUpsampler.rawData(el,:));
                         if amp < obj.maxAmplitude(el);
-                            obj.maxTime(el) = time + bs;
+                            obj.maxTime(el) = time + bs - 1;
                             obj.maxAmplitude(el) = amp;
                         end
                     end
@@ -201,12 +197,11 @@ classdef SpikeFinderM < handle
                     nEl = double(obj.nElectrodes);
                     
                     for f = 1:size(frames,2)
-                        buffSeed(ind:(ind+frameLength(f))) = (0:frameLength(f)) * nEl + el;
+                        buffSeed(ind:(ind+frameLength(f))) = ((0:frameLength(f)) + frames(1,f) - 1) * nEl + el;
                         frameDest(ind:(ind+frameLength(f))) = (0:frameLength(f)) * size(frameStack,1) + f;
                         ind = ind + frameLength(f) + 1;
-                        % frameStack(f,1:(frames(2,f)-frames(1,f)+1)) =...
-                        %    obj.dataFileUpsampler.rawData(el,frames(1,f):frames(2,f));
                     end
+                    
                     frameStack(frameDest) = obj.dataFileUpsampler.rawData(buffSeed);
                     
                     [amp,I] = min(frameStack,[],2);
@@ -220,17 +215,19 @@ classdef SpikeFinderM < handle
                             % Spike is NOT valid inter-time-wise
                             keep(f) = false;
                         end
-                        obj.previousSpikeTime(el) = time(f) + bs;
+                        obj.previousSpikeTime(el) = time(f) + bs - 1;
                     end
                     
-                    spikesEl = [spikesEl; [time(keep)+bs,repmat(el,nnz(keep),1),-amp(keep)]];
+                    spikesEl = [spikesEl; [time(keep)+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
                 end
                 
                 if numel(lastUp) > 0
                     x = lastUp;
-                    obj.maxTime(el) = find(obj.dataFileUpsampler.rawData(el,x:end) ==...
-                        min(obj.dataFileUpsampler.rawData(el,x:end)),1) + bs - 1;
-                    obj.maxAmplitude(el) = obj.dataFileUpsampler.rawData(el,obj.maxTime(el) - bs + 1);
+                    [amp,time] = min(obj.dataFileUpsampler.rawData(el,x:end));
+                    obj.maxTime(el) = time + bs + x - 2;
+                    obj.maxAmplitude(el) = amp;
+                    
+                    obj.startTime(el) = x + bs - 1;
                     
                     obj.buildingSpike(el) = true;
                 end
@@ -245,8 +242,6 @@ classdef SpikeFinderM < handle
             obj.totalSpikes = obj.totalSpikes + size(spikes,1);
             
         end % processBuffer
-        
-        %%%%%%%%%%%%%%%%%%% end WIP
         
         function spikes = processSample(obj, sample)
             validateattributes(sample,{'numeric'},{'column','nrows',obj.nElectrodes},'','sample');
