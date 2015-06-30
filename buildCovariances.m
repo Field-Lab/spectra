@@ -1,4 +1,4 @@
-function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFileName)
+function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTotal)
     % Build the covariance matrix for spikes around a given electrode
     % Input HashMap parameters should be the same given than for SpikeFindingM
     
@@ -37,8 +37,6 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
     
-    %% Creating spike source
-    spikeFile = SpikeFile(spikeFileName);
     
     %% Java electrodemap setup
     header = dataSource.rawDataFile.getHeader();
@@ -86,12 +84,20 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         dataSource.upsampleBuffer();
         
         %% Load Spikes
-        spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
+        spikesTemp = spikesTotal(and(spikesTotal(:,1) >= bufferStart + nLPoints, spikesTotal(:,1) < bufferEnd - nRPoints),:);
         % If no spikes at all are loaded, skip iteration
         % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
-        if size(spikes,2) == 0
+        if numel(spikesTemp) == 0
             continue
         end
+        
+        spikes = cell(513,1);
+        
+        for el = 1:nElectrodes
+           spikes{el} = spikesTemp(spikesTemp(:,2) == el,1); 
+        end
+        
+        clear spikesTemp;
         
         %% Process by electrodes
         % Could parallel here, but actually slower due to the IO cost of sending to each worker.
@@ -106,12 +112,17 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
                 offset = (find(interpSpike == min(interpSpike),1)-1)/upSampRatio;
                 interpPoints = (1:(nPoints-2)) + offset;                
                 
-                % Assign realigned spikes, master + neighbors                
+                % Assign realigned spikes, master + neighbors
+                try
                 spikePile{el}(spikeIndex(el)+1,:) =...
                     reshape(dataSource.upSampData(adjacent{el}+1,...
                     round(upSampRatio*(interpPoints + double(spikeTime) -...
                     bufferStart - nLPoints - 1))+1)',...
                     size(spikePile{el},2),1);
+                catch err
+                    err
+                    1;
+                end
                 spikeIndex(el) = spikeIndex(el)+1;
                 
                 if spikeIndex(el) == spikeTot
@@ -156,6 +167,4 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFile
         end
     end
     
-    %% Closing spike source
-    spikeFile.close();
 end

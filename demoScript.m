@@ -3,8 +3,8 @@
 % Starting at raw data files and ending at .neurons file.
 %
 % Work in progress
-% Current state: clustering not implemented
-% writing dummy clusters into .neurons
+% Current state: clustering implemented through OPTICS + Gaussian Mixture model
+% writes (uncleaned) vision-compatible .neurons
 %
 % Vincent Deo - Stanford University - 05/29/2015
 
@@ -28,11 +28,14 @@ javaaddpath('./vision');
 config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 
 % USER INPUT - Set up data and output folders
-% dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
-dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(5-15)';
-% saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000Matlab'
-saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
+dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
+% dataPath = '/Volumes/Data/2013-04-30-3/data001'
+timeCommand = '(0-10)';
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev'
+% saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
+
+% DEBUG - additional saved file datset name extension
+nameExt = 'debug_5';
 
 % USER input - FORCE rewriting output even if files are found
 force = 6;
@@ -63,20 +66,26 @@ end
 
 
 %% Find spikes and make a .spikes file
-if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes'],'file') == 2)
+if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2)
     %%
     disp('Starting spike finding...');
+    profile on
     tic
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
     
-    SpikeFindingM(parameters);
+    spikes = SpikeFindingM(parameters);
+    spikeSave = int32(spikes(:,1:2));
+    save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave');
+    save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave');
+    
     
     x = toc;
+    profile viewer
     disp(['Time for spike finding ', num2str(x), ' seconds']);
 else
-    disp('.spikes file found - skipping spike finding.');
+    disp('.spikes.mat file found - skipping spike finding.');
 end
 
 
@@ -88,9 +97,11 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
-    spikeFileName = [saveFolder,filesep,datasetName,'.spikes'];
+    if ~exist('spikes')
+        load([saveFolder,filesep,datasetName,'.spikes.mat']);
+    end
     
-    [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikeFileName);
+    [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikes);
     
     save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
     x = toc;
