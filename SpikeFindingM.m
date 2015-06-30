@@ -1,4 +1,4 @@
-function [spikes,ttlTimes] = SpikeFindingM( config, dataPath, saveFolder, timeCommand, sigmaPath )
+function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaPath )
     %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
     %   Takes on after noise finding has been done (or not)
     % Computes the spikesproperties over the electrode array and stores
@@ -10,9 +10,6 @@ function [spikes,ttlTimes] = SpikeFindingM( config, dataPath, saveFolder, timeCo
     import java.io.*
     
     %% Argument validation
-    % Argument should be a java.util.HashMap<String,String> containing all relevant parameters for spike
-    % finding
-    validateattributes(config,{'mVisionConfig'},{},'','config',1);
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','SpikeFinding: data folder|file does not exist'));
     end
@@ -24,6 +21,7 @@ function [spikes,ttlTimes] = SpikeFindingM( config, dataPath, saveFolder, timeCo
     end
     
     %% Loading spike finding configuration
+    config = mVisionConfig();
     spikeConfig = config.getSpikeConfig();
     
     %% Parsing and Storing input HashMap

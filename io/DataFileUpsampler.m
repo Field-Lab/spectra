@@ -15,7 +15,7 @@ classdef DataFileUpsampler < handle
         % Buffer management
         isBufferUpsampled@logical = false % Upsampled buffer tag. For spike realignment
         isBufferLoaded@logical = false % If the first buffer has ever been loaded
-        bufferMaxSize = 4096 % Maximum buffer size - power of 2 for quick upsampling
+        bufferMaxSize % Maximum buffer size - power of 2 for quick upsampling
         
         lastSampleLoaded % Marker for continous buffers
         bufferStart % Start (inclusive) of current buffer
@@ -25,7 +25,7 @@ classdef DataFileUpsampler < handle
         nRPoints % Number of right point for spike form loading
         
         % Upsampling management
-        upSampleRatio = 16 % Precision of upsampling - power of 2 as well
+        upSampleRatio % Precision of upsampling - power of 2 as well
         
         % Data Source management
         rawDataFile % Data source path + vision style time tags (eg ".../data...(0-10)")
@@ -76,6 +76,11 @@ classdef DataFileUpsampler < handle
             
             obj.nLPoints = nLPointsInput;
             obj.nRPoints = nRPointsInput;
+            
+            config = mVisionConfig();
+            dataConfig = config.getDataConfig();
+            obj.bufferMaxSize = dataConfig.bufferMaxSize;
+            obj.upSampleRatio = dataConfig.upSampleRatio;
             
             obj.bufferMaxSize = obj.bufferMaxSize - obj.nLPoints - obj.nRPoints;
             

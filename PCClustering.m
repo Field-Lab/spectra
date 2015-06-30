@@ -24,7 +24,11 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
 % The clustering structure will allow to determine if any spike is the member of any cluster
 % Then apply the requiring permutation/concatenation/discarding to build spikeTimeNeurons
 
-dims = 3;
+config = mVisionConfig();
+clustConfig = config.getClustConfig();
+
+nDims = clustConfig.nDims;
+
 
 nElectrodes = numel(projSpikes);
 clusterParams = cell(nElectrodes,1);
@@ -38,26 +42,27 @@ for el = 2:nElectrodes
     end
     try
         %% Reduction of projSpikes for optics, which is quadratic in complexity
-        nOptics = min(5000,size(projSpikes{el},1));
+        nOptics = min(clustConfig.opticsSubsetMaxSize,size(projSpikes{el},1));
         subset = randsample(size(projSpikes{el},1),nOptics);
         projSpikesRed = projSpikes{el}(subset,:);
         
         %% Quick density computation by n-D binning
         dimMax = max(projSpikesRed,[],1);
         dimMin = min(projSpikesRed,[],1);
-        dimBins = 30;
+        dimBins = clustConfig.binsPerDimension;
         binSpace = (dimMax-dimMin)/dimBins;
         binned = floor(bsxfun(@rdivide,projSpikesRed,binSpace));
-        occupiedBins = size(unique(binned(:,1:dims),'rows'),1);
+        occupiedBins = size(unique(binned(:,1:nDims),'rows'),1);
         
         avDens = size(projSpikesRed,1)./occupiedBins;
         
         %% OPTICS algorithm does the pre-clustering
         opticsTimer = tic;
-        [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:dims), round(5*avDens), 0);
+        [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:nDims),...
+            round(clustConfig.opticsDensityFactor*avDens), 0);
         disp(['Time for optics pre-clustering ',num2str(toc(opticsTimer))]);
         
-        pc = pcPointer(projSpikesRed(:,1:dims),order);
+        pc = pcPointer(projSpikesRed(:,1:nDims),order);
         
         store = [];
         % linear = zeros(1,numel(order));
@@ -89,7 +94,7 @@ for el = 2:nElectrodes
         discard = false(1, numel(nodeArray));
         
         for cl = 1:numel(nodeArray)
-            discard(cl) = any(relativeAvs(cl,:) <= 2);
+            discard(cl) = any(relativeAvs(cl,:) <= clustConfig.overlapFactorForDiscard);
             relativeAvs(cl:end,discard) = Inf;
         end
         
@@ -97,12 +102,12 @@ for el = 2:nElectrodes
         
         %% Gaussian mixture model
         gsn = numel(nodeArrayRed);
-        if gsn > 8 % Vision fuckup to expect if we go over the config limit (default 8)
+        if gsn > clustConfig.maxGaussians % Vision fuckup to expect if we go over the config limit (default 8)
                    % which is set in config.xml
-            gsn = 8;
+            gsn = clustConfig.maxGaussians;
         end
-        S.mu = zeros(gsn,dims);
-        S.Sigma = zeros(dims,dims,gsn);
+        S.mu = zeros(gsn,nDims);
+        S.Sigma = zeros(nDims,nDims,gsn);
         S.ComponentProportion = zeros(1,gsn);
         
         for clusterIndex = 1:gsn
@@ -115,18 +120,18 @@ for el = 2:nElectrodes
         el
         %  R2015
         glmTimer = tic;
-        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,...
-            'Options',statset('MaxIter',300),...
-            'Start',S,'RegularizationValue',0.01);
+        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
+            'Options',statset('MaxIter',clustConfig.maxEMIter),...
+            'Start',S,'RegularizationValue',clustConfig.regVal);
         %  R2014
-        % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);
+        % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,'Start',S,'Regularize',0.01);
         disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer))]);
         
         %% Assigning output
         neuronEls = [neuronEls;el*ones(gsn,1)];
         neuronClusters = [neuronClusters;(1:gsn)'];
         
-        spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:dims)) >= 0.8;
+        spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:nDims)) >= 0.8;
         
         temp = cell(gsn,1);
         for i = 1:gsn

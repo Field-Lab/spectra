@@ -24,12 +24,6 @@ if ~exist('edu/ucsc/neurobiology/vision/io/RawDataFile','class')
 end
 javaaddpath('./vision');
 
-% Get vision's config xml file
-config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
-
-% Instantiate a mVision config
-config = mVisionConfig();
-
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
@@ -60,7 +54,7 @@ if force <= 0 || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2)
     %%
     disp('Starting noise finding...');
     tic
-    noise = RawDataNoiseEvaluationM(config, dataPath, saveFolder);
+    noise = RawDataNoiseEvaluationM(dataPath, saveFolder);
     
     disp(['Time for noise evaluation ', num2str(toc), ' seconds.']);
 else
@@ -76,7 +70,7 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     
-    [spikes,ttlTimes] = SpikeFindingM(config, dataPath, saveFolder, timeCommand, sigmaFileName);
+    [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaFileName);
     spikeSave = int32(spikes(:,1:2));
     save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes');
 %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
@@ -92,14 +86,12 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     %%
     disp('Starting covariance calculation...');
     tic
-    
-    sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
-    parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
+
     if ~exist('spikeSave')
         load([saveFolder,filesep,datasetName,'.spikes.mat']);
     end
     
-    [covMatrix,averages,totSpikes] = buildCovariances(parameters, double(spikeSave));
+    [covMatrix,averages,totSpikes] = buildCovariances(double(spikeSave), dataPath, timeCommand);
     
     save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
     
@@ -116,18 +108,15 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     tic
     if ~exist('covMatrix')
         load([saveFolder,filesep,datasetName,'.cov.mat']);
-    end
-    
-    sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
+    end    
     
     if ~exist('spikeSave')
         load([saveFolder,filesep,datasetName,'.spikes.mat']);
     end
     
-    parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
-    
     [projSpikes,eigenValues,eigenVectors,spikeTimes] = ...
-        PCProj(parameters, double(spikeSave), covMatrix, averages, totSpikes, 10);
+        PCProj(dataPath, timeCommand, ...
+        double(spikeSave), covMatrix, averages, totSpikes);
     
     save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes');
     
@@ -153,7 +142,8 @@ if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') =
     % Separate the neurons in format [neuronID, neuronSpikeTimes]
     % Do some neuron cleaning if wanted
  
-    [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] = PCClustering(projSpikes, spikeTimes);
+    [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] =...
+        PCClustering(projSpikes, spikeTimes);
     
     save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
     
@@ -166,7 +156,7 @@ end
 
 
 %% Saving neurons in Vision compatible neuron file
-if force <=5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2)
+if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2)
     %%
     disp('Saving a vision-compatible .neurons file...')
     tic

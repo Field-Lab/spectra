@@ -1,4 +1,4 @@
-function rmsNoise = RawDataNoiseEvaluationM(config, dataPath, saveFolder )
+function rmsNoise = RawDataNoiseEvaluationM(dataPath, saveFolder )
 % RAWDATANOISEEVALUATION Evaluates the amount of noise over all electrodes
 % for a input data recording
 % Generates and save the output .noise file in ascii single precision
@@ -13,7 +13,6 @@ function rmsNoise = RawDataNoiseEvaluationM(config, dataPath, saveFolder )
 %--------------------------------------------
 
 %% Validating attributes
-validateattributes(config,{'mVisionConfig'},{},'','config',1);
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('', 'RawDataNoiseEvaluation: data source does not exist'));
 end
@@ -25,6 +24,7 @@ end
 import edu.ucsc.neurobiology.vision.io.*
 import java.io.*
 
+config = mVisionConfig();
 noiseConfig = config.getNoiseConfig();
 
 time = noiseConfig.time; % Compute noise from 5 secs of data

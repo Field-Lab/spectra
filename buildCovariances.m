@@ -1,51 +1,43 @@
-function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTotal)
+function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath, timeCommand)
     % Build the covariance matrix for spikes around a given electrode
-    % Input HashMap parameters should be the same given than for SpikeFindingM
     
     
     %% Imports
     import edu.ucsc.neurobiology.vision.electrodemap.*
     import edu.ucsc.neurobiology.vision.io.*
-    import java.io.*
+%     import java.io.*
     
     %% Argument validation
-    % Argument should be a java.util.HashMap<String,String> containing all relevant parameters for spike
-    % finding
-    validateattributes(parameters,{'java.util.HashMap'},{},'','parameters');
-    p = parameters; % For concision
+    if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+        throw(MException('','CovarianceCalculation: data folder|file does not exist'));
+    end
     
+    %% Load covariance configuration
+    config = mVisionConfig();
+    covConfig = config.getCovConfig();
     
-    %% Parsing and Storing Input HashMap
-    % Note: Not so much a good input strategy
-    % does not match so well CovarianceCalculator constructor
+    rawDataSource = [dataPath,timeCommand];
     
-    rawDataSource = p.get('Raw_Data_Source'); % Actually at this point includes a command concatenated under the dataFileParser format: '.../data002(0-10)'
-    sigmaPath = p.get('Sigma'); % .noise file
-    outputPath = p.get('Analysis.Output_Path'); % Output path for the .spikes file
+    meanTimeConstant = covConfig.meanTimeConstant;
     
-    meanTimeConstant = str2double(p.get('Mean Time Constant'));
-    
-    nLPoints = str2double(p.get('Analysis.Left Points'));
-    nRPoints = str2double(p.get('Analysis.Right Points'));
+    nLPoints = covConfig.nLPoints;
+    nRPoints = covConfig.nRPoints;
     nPoints = nLPoints + nRPoints + 1;
-    minError = str2double(p.get('Analysis.Minimization Error'));
-    spikeUse = p.get('Analysis.Spike To Use');
     
-    electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-    %     electrodeUsage = 2;
+    electrodeUsage = covConfig.electrodeUsage;
     
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
-    
-    
-    %% Java electrodemap setup
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
-    
-    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-    nElectrodes = electrodeMap.getNumberOfElectrodes();
+        
+    nElectrodes = dataSource.nElectrodes;
+    disconnected = dataSource.disconnected;
     
     %% Setting up neighbor map
+    % Still need to go through java to set neighbors
+    header = dataSource.rawDataFile.getHeader();
+    packedArrayID = int32(header.getArrayID());
+    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
+    
     adjacent = cell(nElectrodes,1);
     maxAdjacent = 0;
     for el = 0:(nElectrodes-1)
@@ -85,8 +77,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
         
         %% Load Spikes
         spikesTemp = spikesTotal(and(spikesTotal(:,1) >= bufferStart + nLPoints, spikesTotal(:,1) < bufferEnd - nRPoints),:);
-        % If no spikes at all are loaded, skip iteration
-        % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
+        % If no spikes at all are loaded, skip buffer
         if numel(spikesTemp) == 0
             continue
         end
@@ -103,6 +94,9 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
         % Could parallel here, but actually slower due to the IO cost of sending to each worker.
         % The better part would be to change the while loop to a smarter parfor loop.
         for el = 2:nElectrodes
+            if disconnected(el)
+                continue;
+            end
             %% Process each spike
             for spikeTime = spikes{el}'
                 % Load master spike
@@ -150,6 +144,10 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
     
     %% Normalize averages and covmatrix
     for el = 2:nElectrodes
+        if disconnected(el)
+            continue
+        end
+        
         if spikeIndex(el) > 0
             totSpikes(el) = totSpikes(el) + spikeIndex(el);
             averages{el} = averages{el} + spikeIndex(el)*mean(spikePile{el}(1:spikeIndex(el),:),1);
