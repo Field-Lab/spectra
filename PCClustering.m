@@ -33,10 +33,10 @@ neuronClusters = [];
 spikeTimesNeuron = [];
 
 for el = 2:nElectrodes
+    if numel(projSpikes{el}) == 0
+        continue
+    end
     try
-        if numel(projSpikes{el}) == 0
-            continue
-        end
         %% Reduction of projSpikes for optics, which is quadratic in complexity
         nOptics = min(5000,size(projSpikes{el},1));
         subset = randsample(size(projSpikes{el},1),nOptics);
@@ -53,9 +53,9 @@ for el = 2:nElectrodes
         avDens = size(projSpikesRed,1)./occupiedBins;
         
         %% OPTICS algorithm does the pre-clustering
-        tic
+        opticsTimer = tic;
         [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:dims), round(5*avDens), 0);
-        disp(['Time for optics pre-clustering ',num2str(toc)]);
+        disp(['Time for optics pre-clustering ',num2str(toc(opticsTimer))]);
         
         pc = pcPointer(projSpikesRed(:,1:dims),order);
         
@@ -97,7 +97,8 @@ for el = 2:nElectrodes
         
         %% Gaussian mixture model
         gsn = numel(nodeArrayRed);
-        if gsn > 8 % Vision fuckup to plan if we go around this limit, which is set in config.xml
+        if gsn > 8 % Vision fuckup to expect if we go over the config limit (default 8)
+                   % which is set in config.xml
             gsn = 8;
         end
         S.mu = zeros(gsn,dims);
@@ -113,25 +114,28 @@ for el = 2:nElectrodes
         
         el
         %  R2015
-        tic
-        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'RegularizationValue',0.01);
+        glmTimer = tic;
+        clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,...
+            'Options',statset('MaxIter',300),...
+            'Start',S,'RegularizationValue',0.01);
         %  R2014
         % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);
-        disp(['Time for Gaussian Mixture Clustering ',num2str(toc)]);
+        disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer))]);
         
         %% Assigning output
         neuronEls = [neuronEls;el*ones(gsn,1)];
         neuronClusters = [neuronClusters;(1:gsn)'];
         
         spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:dims)) >= 0.8;
-        whos spikeClust
+        
         temp = cell(gsn,1);
         for i = 1:gsn
             temp{i} = spikeTimesEl{el}(spikeClust(:,i));
         end
         spikeTimesNeuron = [spikeTimesNeuron;temp];
     catch error
-        disp(['Error at electrode ',el,', skipping.']);
+        error
+        disp(['Error at electrode ',num2str(el),', skipping.']);
     end
 end % el
 end % function

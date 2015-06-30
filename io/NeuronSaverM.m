@@ -13,14 +13,20 @@ classdef NeuronSaverM < handle
     methods
         function obj = NeuronSaverM(dataPath,saveFolder,datasetName)
             obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons'];
-            spikeFilePath = [saveFolder,filesep,datasetName,'.spikes'];
+            spikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
             
-            spikeFile = edu.ucsc.neurobiology.vision.io.SpikeFile(spikeFilePath);    
-            ttlTimes = spikeFile.getTTLTimes();
+            load(spikeFilePath,'ttlTimes');
             
-            obj.nElectrodes = spikeFile.getNumberOfElectrodes();
-            spikeFile.close();
+            %% Creating data source and catching nElectrodes
+            dataSource = DataFileUpsampler(dataPath);
             
+            header = dataSource.rawDataFile.getHeader();
+            packedArrayID = int32(header.getArrayID());
+           
+            electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(packedArrayID);
+            obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
+            
+            %% Adjusting bin path to catch header properly
             if strcmp(dataPath((end-3):end),'.bin')
                 binPath = dataPath;
             else

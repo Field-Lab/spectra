@@ -91,10 +91,10 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
             continue
         end
         
-        spikes = cell(513,1);
+        spikes = cell(nElectrodes,1);
         
         for el = 1:nElectrodes
-           spikes{el} = spikesTemp(spikesTemp(:,2) == el,1); 
+            spikes{el} = spikesTemp(spikesTemp(:,2) == el,1);
         end
         
         clear spikesTemp;
@@ -110,15 +110,15 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
                 
                 % Find minimum and compute associated resample points
                 offset = (find(interpSpike == min(interpSpike),1)-1)/upSampRatio;
-                interpPoints = (1:(nPoints-2)) + offset;                
+                interpPoints = (1:(nPoints-2)) + offset;
                 
                 % Assign realigned spikes, master + neighbors
                 try
-                spikePile{el}(spikeIndex(el)+1,:) =...
-                    reshape(dataSource.upSampData(adjacent{el}+1,...
-                    round(upSampRatio*(interpPoints + double(spikeTime) -...
-                    bufferStart - nLPoints - 1))+1)',...
-                    size(spikePile{el},2),1);
+                    spikePile{el}(spikeIndex(el)+1,:) =...
+                        reshape(dataSource.upSampData(adjacent{el}+1,...
+                        round(upSampRatio*(interpPoints + double(spikeTime) -...
+                        bufferStart - nLPoints - 1))+1)',...
+                        size(spikePile{el},2),1);
                 catch err
                     err
                     1;
@@ -132,17 +132,17 @@ function [covMatrix,averages,totSpikes] = buildCovariances(parameters, spikesTot
                     spikeIndex(el) = 0;
                 end
                 
-%                 centeredSpike = dataSource.upSampData(adjacent{el}+1,...
-%                     round(upSampRatio*(interpPoints + double(spikeTime)...
-%                     - bufferStart - nLPoints - 1))+1)';
-%                 spikeAtWork = dataSource.rawData(adjacent{el}+1,...
-%                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-%                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
-%                 hold on
-%                 plot(1:21,spikeAtWork,'b+');
-%                 plot(1:21,spikeAtWork,'k--');
-%                 plot(2:20,centeredSpike,'r-');
-%                 hold off
+                %                 centeredSpike = dataSource.upSampData(adjacent{el}+1,...
+                %                     round(upSampRatio*(interpPoints + double(spikeTime)...
+                %                     - bufferStart - nLPoints - 1))+1)';
+                %                 spikeAtWork = dataSource.rawData(adjacent{el}+1,...
+                %                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
+                %                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r');
+                %                 hold on
+                %                 plot(1:21,spikeAtWork,'b+');
+                %                 plot(1:21,spikeAtWork,'k--');
+                %                 plot(2:20,centeredSpike,'r-');
+                %                 hold off
                 
             end % spikeTime
         end % el
