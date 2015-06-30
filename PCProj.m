@@ -1,4 +1,4 @@
-function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, spikeFileName, covMatrix, averages, totSpikes, nDims)
+function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, spikesTotal, covMatrix, averages, totSpikes, nDims)
     % Build the covariance matrix for spikes around a given electrode
     % Input HashMap parameters should be the same given than for SpikeFindingM
     
@@ -32,13 +32,11 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
     spikeUse = p.get('Analysis.Spike To Use');
     
     electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-%     electrodeUsage = 2;
-        
+    %     electrodeUsage = 2;
+    
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
     
-    %% Creating spike source
-    spikeFile = SpikeFile(spikeFileName);
     
     %% Java electrodemap setup
     header = dataSource.rawDataFile.getHeader();
@@ -73,12 +71,12 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
     currSpike = ones(nElectrodes,1);
     
     for el = 2:nElectrodes
-       [v,d] = eig(covMatrix{el});
-       e = flipud(diag(d));
-       eigenValues{el} = e(1:nDims);
-       eigenVectors{el} = fliplr(v(:,(end-nDims+1):end));
-       projSpikes{el} = zeros(totSpikes(el),nDims);
-       spikeTimes{el} = zeros(1,totSpikes(el));
+        [v,d] = eig(covMatrix{el});
+        e = flipud(diag(d));
+        eigenValues{el} = e(1:nDims);
+        eigenVectors{el} = fliplr(v(:,(end-nDims+1):end));
+        projSpikes{el} = zeros(totSpikes(el),nDims);
+        spikeTimes{el} = zeros(1,totSpikes(el));
     end
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
@@ -87,12 +85,20 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
         dataSource.upsampleBuffer();
         
         %% Load Spikes
-        spikes = spikeFile.getSpikesTimesUntil(bufferStart + nLPoints, bufferEnd - nRPoints);
+        spikesTemp = spikesTotal(and(spikesTotal(:,1) >= bufferStart + nLPoints, spikesTotal(:,1) < bufferEnd - nRPoints),:);
         % If no spikes at all are loaded, skip iteration
         % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
-        if size(spikes,2) == 0
+        if numel(spikesTemp) == 0
             continue
         end
+        
+        spikes = cell(nElectrodes,1);
+        
+        for el = 1:nElectrodes
+            spikes{el} = spikesTemp(spikesTemp(:,2) == el,1);
+        end
+        
+        clear spikesTemp;
         
         
         %% Process by electrodes
@@ -124,21 +130,9 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
                 % TODO add error cases to check number of spikes - possibly not the same as stored,
                 % etc. Possible array extension to implement, etc.
                 
-                % TODO: Check what happens for 30 first spikes
                 
-%                 spikeAtWork = rawData(adjacent{el}+1,...
-%                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-%                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r',resampleBase,interpSpike2,'k');
-%                 hold on
-%                 plot(1:21,spikeAtWork,'b+');
-%                 plot(1:21,spikeAtWork,'k--');
-%                 plot(2:20,centeredSpike,'r-');
-%                 hold off
-
             end % spikeTime
         end % el
     end % while ~isFinihed
-    
-    %% Close spike source
-    spikeFile.close();
+ 
 end

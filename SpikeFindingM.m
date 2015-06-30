@@ -1,4 +1,4 @@
-function spikes = SpikeFindingM( parameters )
+function [spikes,ttlTimes] = SpikeFindingM( parameters )
     %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
     %   Takes on after noise finding has been done (or not)
     % Computes the spikesproperties over the electrode array and stores
@@ -92,6 +92,7 @@ function spikes = SpikeFindingM( parameters )
     end
     
     spikes = sortrows(spikes,1);
+    ttlTimes = spikes(spikes(:,2) == 1,1);
     
     
 end
