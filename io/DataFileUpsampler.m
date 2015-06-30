@@ -6,6 +6,7 @@ classdef DataFileUpsampler < handle
         % General
         nElectrodes % Number of electrodes
         samplingRate % Sampling rate
+        disconnected % disconnected electrodes
         
         % Data buffers
         rawData % nElectrodes x bufferLength buffer
@@ -96,6 +97,7 @@ classdef DataFileUpsampler < handle
             packedArrayID = int32(header.getArrayID());
             electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
             obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
+            obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
             
             obj.filterState = zeros(1,obj.nElectrodes);
             obj.bFilter = (1-obj.alpha)*[1,-1];

@@ -27,18 +27,21 @@ javaaddpath('./vision');
 % Get vision's config xml file
 config = edu.ucsc.neurobiology.vision.Config([repoPath,'/vision/config.xml']);
 
+% Instantiate a mVision config
+config = mVisionConfig();
+
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-2)';
-saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev'
+timeCommand = '(0-10)';
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
 % DEBUG - additional saved file datset name extension
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 4;
+force = 6;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -46,7 +49,7 @@ force = 4;
 
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
-    throw(MException('demoScript','dataset folder does not exist'));
+    throw(MException('demoScript','data source folder|file does not exist'));
 end
 mkdir(saveFolder);
 [~,datasetName,~] = fileparts(dataPath); % Catching dataset name as last part of dataPath
@@ -57,7 +60,7 @@ if force <= 0 || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2)
     %%
     disp('Starting noise finding...');
     tic
-    noise = RawDataNoiseEvaluationM(dataPath,saveFolder);
+    noise = RawDataNoiseEvaluationM(config, dataPath, saveFolder);
     
     disp(['Time for noise evaluation ', num2str(toc), ' seconds.']);
 else
@@ -72,9 +75,8 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     tic
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
-    parameters = spikeFindingSetup([dataPath,timeCommand],saveFolder,sigmaFileName,config);
     
-    [spikes,ttlTimes] = SpikeFindingM(parameters);
+    [spikes,ttlTimes] = SpikeFindingM(config, dataPath, saveFolder, timeCommand, sigmaFileName);
     spikeSave = int32(spikes(:,1:2));
     save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes');
 %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');

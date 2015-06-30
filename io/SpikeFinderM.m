@@ -36,20 +36,18 @@ classdef SpikeFinderM < handle
     
     methods
         % Constructor
-        function obj = SpikeFinderM(electrodeMap, spikeThresholds, ttlThreshold, timeConstant, dataFileUpsampler)
-            % validate electrode map
-            validateattributes(electrodeMap,{'edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMap'},{},'','electrodeMap');
-            obj.nElectrodes = int32(electrodeMap.getNumberOfElectrodes());
-            obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
-            
-            validateattributes(spikeThresholds,{'numeric'},{'column','nrows',obj.nElectrodes},'','spikeThresholds');
-            obj.spikeThresholds = double(spikeThresholds);
+        function obj = SpikeFinderM(spikeThresholds, ttlThreshold, timeConstant, dataFileUpsampler)
             
             validateattributes(ttlThreshold,{'numeric'},{'scalar'},'','ttlThresholds');
             obj.ttlThreshold = double(ttlThreshold);
             
             validateattributes(dataFileUpsampler,{'DataFileUpsampler'},{},'','dataFileUpsampler',5);
             obj.dataFileUpsampler = dataFileUpsampler;
+            obj.nElectrodes = dataFileUpsampler.nElectrodes;
+            obj.disconnected = dataFileUpsampler.disconnected;
+            
+            validateattributes(spikeThresholds,{'numeric'},{'column','nrows',obj.nElectrodes},'','spikeThresholds');
+            obj.spikeThresholds = double(spikeThresholds);
             
             % For process flow
             obj.buildingSpike = false(obj.nElectrodes, 1);

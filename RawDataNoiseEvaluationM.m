@@ -1,4 +1,4 @@
-function rmsNoise = RawDataNoiseEvaluationM( dataPath, saveFolder )
+function rmsNoise = RawDataNoiseEvaluationM(config, dataPath, saveFolder )
 % RAWDATANOISEEVALUATION Evaluates the amount of noise over all electrodes
 % for a input data recording
 % Generates and save the output .noise file in ascii single precision
@@ -12,29 +12,36 @@ function rmsNoise = RawDataNoiseEvaluationM( dataPath, saveFolder )
 %
 %--------------------------------------------
 
+%% Validating attributes
+validateattributes(config,{'mVisionConfig'},{},'','config',1);
+if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+    throw(MException('', 'RawDataNoiseEvaluation: data source does not exist'));
+end
+if ~(exist(saveFolder,'file') == 7)
+    throw(MException('', 'RawDataNoiseEvaluation: dataset folder does not exist'));
+end
+
 %% Using java up to getData
 import edu.ucsc.neurobiology.vision.io.*
 import java.io.*
 
-% Hardcoded configuration from the java version
-time = 5; % Compute noise from 5 secs of data
-timeToSkip = 5; % Skip the first 5 sec of the file
+noiseConfig = config.getNoiseConfig();
+
+time = noiseConfig.time; % Compute noise from 5 secs of data
+timeToSkip = noiseConfig.timeToSkip; % Skip the first 5 sec of the file
 
 % Setup the data source
 dataSource = DataFileUpsampler(dataPath);
 
-header = dataSource.rawDataFile.getHeader();
-
-samplingRate = header.getSamplingFrequency();
+samplingRate = dataSource.samplingRate;
 
 nSamples = time * samplingRate;
 
 % getData
-
 dataSource.loadRandomBuffer(timeToSkip * samplingRate + dataSource.startSample, nSamples, false);
 
 %% Starting noise calculation
-[rmsNoise,~] = getNoise(dataSource.rawData(2:end,:)); % Skip TTL
+[rmsNoise,~] = getNoise(dataSource.rawData(2:end,:)); % Remove TTL
 rmsNoise = [0;rmsNoise];
 
 %% Writing output .noise file - as .ascii and as .mat

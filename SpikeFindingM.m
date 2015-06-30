@@ -1,4 +1,4 @@
-function [spikes,ttlTimes] = SpikeFindingM( parameters )
+function [spikes,ttlTimes] = SpikeFindingM( config, dataPath, saveFolder, timeCommand, sigmaPath )
     %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
     %   Takes on after noise finding has been done (or not)
     % Computes the spikesproperties over the electrode array and stores
@@ -12,62 +12,52 @@ function [spikes,ttlTimes] = SpikeFindingM( parameters )
     %% Argument validation
     % Argument should be a java.util.HashMap<String,String> containing all relevant parameters for spike
     % finding
-    validateattributes(parameters,{'java.util.HashMap'},{},'','parameters');
-    p = parameters; % For concision
+    validateattributes(config,{'mVisionConfig'},{},'','config',1);
+    if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+        throw(MException('','SpikeFinding: data folder|file does not exist'));
+    end
+    if ~(exist(saveFolder,'file') == 7)
+        throw(MException('','SpikeFinding: output folder does not exist'));
+    end
+    if ~(exist(sigmaPath,'file') == 2)
+        throw(MException('','SpikeFinding: noise file does not exist'));
+    end
+    
+    %% Loading spike finding configuration
+    spikeConfig = config.getSpikeConfig();
     
     %% Parsing and Storing input HashMap
-    rawDataSource = p.get('Raw_Data_Source'); % Actually at this point includes a command concatenated under the dataFileParser format: '.../data002(0-10)'
-    [~,datasetName,~] = fileparts(rawDataSource);
-    if numel(find(datasetName == '(',1)) > 0
-        datasetName = datasetName(1:(find(datasetName == '(',1)-1));
-    end
-    sigmaPath = p.get('Sigma'); % .noise file
-    outputPath = p.get('Analysis.Output_Path'); % Output path for the .spikes file
+    rawDataSource = [dataPath,timeCommand];
     
-    spikeThreshold = str2double(p.get('Spike Threshold'));
-    ttlThreshold = str2double(p.get('TTL Threshold'));
-    meanTimeConstant = str2double(p.get('Mean Time Constant'));
+    spikeThreshold = spikeConfig.spikeThreshold;
+    ttlThreshold = spikeConfig.ttlThreshold;
+    meanTimeConstant = spikeConfig.meanTimeConstant;
     
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, 0, 0);
     
     %% Java electrodemap setup
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
+%     header = dataSource.rawDataFile.getHeader();
+%     packedArrayID = int32(header.getArrayID());
     
-    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-    nElectrodes = electrodeMap.getNumberOfElectrodes();
-    disconnected = electrodeMap.getDisconnectedElectrodesList();
-    
+%     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
+    nElectrodes = dataSource.nElectrodes;
+   
     %% Get sigmas
-    % sigma = getSigmas(sigmaPath, nElectrodes)
-    % Implemeting functionality of SpikeFinding.getSigmas(String fileNameOrValue, nElectrodes);
-    % TODO Check better and throw an error
-    if isempty(str2num(sigmaPath)) % sigmaPath is a path string
-        sigma = load(sigmaPath,'-ascii');
-        validateattributes(sigma,{'numeric'},{'ncols',1,'nrows',nElectrodes},'','loaded sigma file');
-        % File path error
-    else % sigmaPath is a value
-        sigma = sigmaPath * ones(nElectrodes,1);
-    end
-    sigma(1) = 100; % TTL electrode
+    sigma = load(sigmaPath,'-ascii');
+    validateattributes(sigma,{'numeric'},{'ncols',1,'nrows',nElectrodes},'','loaded sigma file');
+
+    sigma(1) = spikeConfig.defaultTtlSigma; % TTL electrode
     sigma = sigma * spikeThreshold;
-    
-    
-    %% Raw Data Saving
-    % Skipped - this version meant to work on already recorded data
-    
+     
     %% Create the Spiker Finder and heirs
-    spikeFinderM = SpikeFinderM(electrodeMap, sigma, ttlThreshold, meanTimeConstant, dataSource);
-    spikeBufferM = SpikeBufferM();
-    spikeSaverM  = SpikeSaverM(header, outputPath, datasetName, meanTimeConstant, spikeThreshold);
+    spikeFinderM = SpikeFinderM(sigma, ttlThreshold, meanTimeConstant, dataSource);
     
     %% Spike Finding
     
     % Initialization
     dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
-    % lastSampleLoaded = samplingRate; % Do not update - after initializing resend all
-    % initialization samples, with updated means.
+
     dataSource.filterState = -spikeFinderM.initialize()';
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
@@ -89,14 +79,9 @@ function [spikes,ttlTimes] = SpikeFindingM( parameters )
         
         spikes = [spikes;spikeFinderM.processBuffer()];
         
-%         s = spikeBufferM.getSpikes(dataSource.bufferEnd - 1);
-%         spikeSaverM.processMultipleSpikes(s);
     end
     
     spikes = sortrows(spikes,1);
     ttlTimes = spikes(spikes(:,2) == 1,1);
-    
-%     spikeSaverM.processMultipleSpikes(spikeBufferM.getAllSpikes());
-%     spikeSaverM.finishSpikeProcessing();
     
 end
