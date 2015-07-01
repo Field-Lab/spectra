@@ -5,6 +5,9 @@ classdef mVisionConfig
     
     
     properties (SetAccess = immutable, GetAccess = public)
+        % General
+        debug = false;
+        
         %% Data Source management
         bufferMaxSize           = 4096  % samples
         upSampleRatio           = 16    % samples
@@ -24,6 +27,8 @@ classdef mVisionConfig
         nRPoints                = 15    % samples
         % 0 - 1 electrode || 1 - 7 electrodes || 2 - 19 electrodes
         electrodeUsage          = 1
+        
+        covSpikeBufferSize      = 100;
         
         %% Projections properties
         projNDimensions         = 3
@@ -47,11 +52,15 @@ classdef mVisionConfig
         end % dataConfig
         
         function noiseConfig = getNoiseConfig(obj)
+            noiseConfig.debug = obj.debug;
+            
             noiseConfig.time = obj.noiseTime;
             noiseConfig.timeToSkip = obj.noiseTimeToSkip;
         end % getNoiseConfig
         
         function spikeConfig = getSpikeConfig(obj)
+            spikeConfig.debug = obj.debug;
+            
             spikeConfig.spikeThreshold = obj.spikeThreshold;
             spikeConfig.ttlThreshold = obj.ttlThreshold;
             spikeConfig.meanTimeConstant = obj.meanTimeConstant;
@@ -59,13 +68,18 @@ classdef mVisionConfig
         end % getSpikeConfig
     
         function covConfig = getCovConfig(obj)
+            covConfig.debug = obj.debug;
+            
             covConfig.meanTimeConstant = obj.meanTimeConstant;
             covConfig.nLPoints = obj.nLPoints;
             covConfig.nRPoints = obj.nRPoints;
             covConfig.electrodeUsage = obj.electrodeUsage;
+            covConfig.spikeBufferSize = obj.covSpikeBufferSize;
         end % getCovConfig
         
         function projConfig = getProjConfig(obj)
+            projConfig.debug = obj.debug;
+            
             projConfig.meanTimeConstant = obj.meanTimeConstant;
             projConfig.nLPoints = obj.nLPoints;
             projConfig.nRPoints = obj.nRPoints;
@@ -74,6 +88,8 @@ classdef mVisionConfig
         end % getProjConfig
         
         function clustConfig = getClustConfig(obj)
+            clustConfig.debug = obj.debug;
+            
             clustConfig.nDims = obj.projNDimensions;
             clustConfig.opticsSubsetMaxSize = obj.opticsSubsetMaxSize;
             clustConfig.binsPerDimension = obj.binsPerDimension;

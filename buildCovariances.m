@@ -61,7 +61,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     totSpikes = zeros(nElectrodes,1);
     
     spikePile = cell(nElectrodes,1);
-    spikeTot = 100;
+    spikeTot = covConfig.spikeBufferSize;
     spikeIndex = zeros(nElectrodes,1);
     
     for i = 2:nElectrodes
@@ -103,20 +103,18 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
                 interpSpike = dataSource.upSampData(el,round(upSampRatio*(resampleBase + double(spikeTime) - bufferStart - nLPoints - 1))+1);
                 
                 % Find minimum and compute associated resample points
-                offset = (find(interpSpike == min(interpSpike),1)-1)/upSampRatio;
+                [~,offset] = min(interpSpike);
+                offset = (offset-1)/upSampRatio;
                 interpPoints = (1:(nPoints-2)) + offset;
                 
                 % Assign realigned spikes, master + neighbors
-                try
-                    spikePile{el}(spikeIndex(el)+1,:) =...
-                        reshape(dataSource.upSampData(adjacent{el}+1,...
-                        round(upSampRatio*(interpPoints + double(spikeTime) -...
-                        bufferStart - nLPoints - 1))+1)',...
-                        size(spikePile{el},2),1);
-                catch err
-                    err
-                    1;
-                end
+                
+                spikePile{el}(spikeIndex(el)+1,:) =...
+                    reshape(dataSource.upSampData(adjacent{el}+1,...
+                    round(upSampRatio*(interpPoints + double(spikeTime) -...
+                    bufferStart - nLPoints - 1))+1)',...
+                    size(spikePile{el},2),1);
+                
                 spikeIndex(el) = spikeIndex(el)+1;
                 
                 if spikeIndex(el) == spikeTot

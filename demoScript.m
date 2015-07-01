@@ -86,6 +86,7 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     %%
     disp('Starting covariance calculation...');
     tic
+    profile on
 
     if ~exist('spikeSave')
         load([saveFolder,filesep,datasetName,'.spikes.mat']);
@@ -95,6 +96,7 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     
     save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
     
+    profile viewer
     disp(['Time for covariance calculation ', num2str(toc), ' seconds']);
 else
     disp('.cov.mat file found - skipping covariance calculation.');
