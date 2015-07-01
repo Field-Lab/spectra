@@ -206,6 +206,7 @@ classdef DataFileUpsampler < handle
             end
             obj.isBufferLoaded = true;
             obj.isBufferUpsampled = false;
+            obj.isInterpolated = false;
             
             % Assign
             bufferStart = obj.bufferStart;
@@ -252,6 +253,8 @@ classdef DataFileUpsampler < handle
                     obj.interpolant{i} = griddedInterpolant(1:size(obj.rawData,2),obj.rawData(i,:),'spline');
                 end
             end
+            
+            obj.isInterpolated = true;
         end
         
         % Forces refiltering of current buffer

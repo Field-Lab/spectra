@@ -35,7 +35,7 @@ saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev3'
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 2;
+force = 0;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -86,7 +86,6 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     %%
     disp('Starting covariance calculation...');
     tic
-    profile on
 
     if ~exist('spikeSave')
         load([saveFolder,filesep,datasetName,'.spikes.mat']);
@@ -96,7 +95,6 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     
     save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
     
-    profile viewer
     disp(['Time for covariance calculation ', num2str(toc), ' seconds']);
 else
     disp('.cov.mat file found - skipping covariance calculation.');
@@ -108,7 +106,6 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     %%
     disp('Starting projections calculation...');
     tic
-    profile on
     
     if ~exist('covMatrix')
         load([saveFolder,filesep,datasetName,'.cov.mat']);
@@ -124,7 +121,6 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     
     save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes');
     
-    profile viewer
     disp(['Time for projections calculation ', num2str(toc), ' seconds']);
 else
     disp('.prj.mat file found - skipping projections calculation.');
@@ -182,3 +178,6 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
 else
     disp('.neurons file found - skipping saving.');
 end
+
+
+profile viewer
