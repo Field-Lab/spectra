@@ -225,11 +225,15 @@ classdef DataFileUpsampler < handle
                 throw(MException('','DataFileUpsampler:loadNextBuffer:No Buffer Loaded'));
             end
             if ~obj.isBufferUpsampled
-                fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
-                obj.upSampData = ifft(...
-                    fftData(:,1:(ceil(size(fftData,2)/2))),...
-                    obj.upSampleRatio*size(obj.rawData,2),...
-                    2,'symmetric');
+                if obj.upSampleRatio > 1
+                    fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
+                    obj.upSampData = ifft(...
+                        fftData(:,1:(ceil(size(fftData,2)/2))),...
+                        obj.upSampleRatio*size(obj.rawData,2),...
+                        2,'symmetric');
+                else
+                    obj.upSampData = obj.rawData;
+                end
             end
             obj.isBufferUpsampled = true;
         end

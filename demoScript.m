@@ -28,14 +28,14 @@ javaaddpath('./vision');
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
 timeCommand = '(0-10)';
-saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev3'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
 % DEBUG - additional saved file datset name extension
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 6;
+force = 2;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -165,7 +165,9 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
     if ~exist('neuronSpikeTimes','var')
         load([saveFolder,filesep,datasetName,'.neurons.mat']);
     end
+    
     neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName);
+    
     for i = 1:numel(neuronEls)
         el = neuronEls(i);
         neuronSaver.addNeuron(el,...
@@ -177,4 +179,3 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
 else
     disp('.neurons file found - skipping saving.');
 end
-
