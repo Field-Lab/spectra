@@ -12,6 +12,10 @@ classdef DataFileUpsampler < handle
         rawData % nElectrodes x bufferLength buffer
         upSampData % nElectrodes x (bufferLength * upSampRatio) upsampled buffer.
         
+        % Cubic Spline interpolation
+        interpolant
+        isInterpolated@logical = false
+        
         % Buffer management
         isBufferUpsampled@logical = false % Upsampled buffer tag. For spike realignment
         isBufferLoaded@logical = false % If the first buffer has ever been loaded
@@ -222,7 +226,7 @@ classdef DataFileUpsampler < handle
         % 4096 buffer length * 16 upsampling * 513 electrodes * single precision = 135 MB
         function upsampleBuffer(obj)
             if ~obj.isBufferLoaded
-                throw(MException('','DataFileUpsampler:loadNextBuffer:No Buffer Loaded'));
+                throw(MException('','DataFileUpsampler:upsampleBuffer:No Buffer Loaded'));
             end
             if ~obj.isBufferUpsampled
                 if obj.upSampleRatio > 1
@@ -236,6 +240,18 @@ classdef DataFileUpsampler < handle
                 end
             end
             obj.isBufferUpsampled = true;
+        end
+        
+        function createInterpolant(obj)
+            if ~obj.isBufferLoaded
+                throw(MException('','DataFileUpsampler:createInterpolant:No Buffer Loaded'));
+            end
+            
+            if ~obj.isInterpolated
+                for i = obj.nElectrodes:-1:2;
+                    obj.interpolant{i} = griddedInterpolant(1:size(obj.rawData,2),obj.rawData(i,:),'spline');
+                end
+            end
         end
         
         % Forces refiltering of current buffer

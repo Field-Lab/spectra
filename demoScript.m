@@ -108,6 +108,8 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     %%
     disp('Starting projections calculation...');
     tic
+    profile on
+    
     if ~exist('covMatrix')
         load([saveFolder,filesep,datasetName,'.cov.mat']);
     end    
@@ -122,6 +124,7 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     
     save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes');
     
+    profile viewer
     disp(['Time for projections calculation ', num2str(toc), ' seconds']);
 else
     disp('.prj.mat file found - skipping projections calculation.');

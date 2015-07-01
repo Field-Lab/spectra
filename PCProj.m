@@ -79,15 +79,17 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
         spikeTimes{el} = zeros(1,totSpikes(el));
     end
     
+    spikeBuffer = zeros(1,(nPoints-2) * maxAdjacent);
+    
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
         [bufferStart,bufferEnd] = dataSource.loadNextBuffer();
-        dataSource.upsampleBuffer();
+        
+        dataSource.createInterpolant();
         
         %% Load Spikes
         spikesTemp = spikesTotal(and(spikesTotal(:,1) >= bufferStart + nLPoints, spikesTotal(:,1) < bufferEnd - nRPoints),:);
-        % If no spikes at all are loaded, skip iteration
-        % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
+        % If no spikes at all are loaded, skip buffer
         if numel(spikesTemp) == 0
             continue
         end
@@ -105,47 +107,45 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
         % Could parallel here, but actually slower due to the IO cost of sending to each worker.
         % The better part would be to change the while loop to a smarter parfor loop.
         for el = 2:nElectrodes
-            if disconnected(el)
+            
+            nSpikes = numel(spikes{el});
+            
+            if dataSource.disconnected(el) || nSpikes == 0;
                 continue
             end
-            %% Store spike times
-            spikeTimes{el}(currSpike(el):(currSpike(el)+numel(spikes{el})-1)) = spikes{el};
             
-            %% Process each spike
-            for spikeTime = spikes{el}'
-                % Load master spike
-                interpSpike = dataSource.upSampData(el,...
-                    round(upSampRatio*(resampleBase + double(spikeTime)...
-                    - bufferStart - nLPoints - 1))+1);
-                
-                % Find minimum and compute associated resample points
-                [~,offset] = min(interpSpike);
-                offset = (offset-1)/upSampRatio;
-                interpPoints = (1:(nPoints-2)) + offset;
-                
-                % Load realigned spikes, master + neighbors
-                centeredSpike = dataSource.upSampData(adjacent{el}+1,...
-                    round(upSampRatio*(interpPoints +...
-                    double(spikeTime) - bufferStart - nLPoints - 1))+1)';
-                
-                % Compute projections
-                projSpikes{el}(currSpike(el),:) = (centeredSpike(:)' - averages{el}) * eigenVectors{el};
-                currSpike(el) = currSpike(el)+1;
-                % TODO add error cases to check number of spikes - possibly not the same as stored,
-                % etc. Possible array extension to implement, etc.
-                
-                % TODO: Check what happens for 30 first spikes?
-                
-                %                 spikeAtWork = rawData(adjacent{el}+1,...
-                %                     (spikeTime-nLPoints-bufferStart+1):(spikeTime+nRPoints-bufferStart+1));
-                %                 plot(1:21,spikeAtWork(1,:),'b+',resampleBase,interpSpike,'r',resampleBase,interpSpike2,'k');
-                %                 hold on
-                %                 plot(1:21,spikeAtWork,'b+');
-                %                 plot(1:21,spikeAtWork,'k--');
-                %                 plot(2:20,centeredSpike,'r-');
-                %                 hold off
-                
-            end % spikeTime
+            %% Check if buffer expansion is required
+            if nSpikes > size(spikeBuffer,1);
+                spikeBuffer = zeros(nSpikes,(nPoints-2) * maxAdjacent);
+            end
+            
+            %% Store spike times
+            spikeTimes{el}(currSpike(el):(currSpike(el) + nSpikes - 1)) = spikes{el};
+            
+            %% Process all spikes
+            interpIndex = bsxfun(@plus,resampleBase,double(spikes{el}) -  bufferStart);
+            interpSpikes = dataSource.interpolant{el}(interpIndex(:));
+            interpSpikes = reshape(interpSpikes,size(interpIndex));
+            
+            [~,offset] = min(interpSpikes,[],2);
+            interpPoints = bsxfun(@plus,...
+                (offset-1)/upSampRatio + double(spikes{el}) - bufferStart - nLPoints,...
+                1:(nPoints-2));
+            interpPointsLin = interpPoints(:);
+            
+            s = size(interpPoints);
+            for elAdjIndex = 1:numel(adjacent{el})
+                elAdj = adjacent{el}(elAdjIndex) + 1;
+                spikeBuffer(1:nSpikes,((nPoints-2)*(elAdjIndex-1)+1):((nPoints-2)*elAdjIndex)) =...
+                    reshape(dataSource.interpolant{elAdj}(interpPointsLin),s);
+            end
+            
+            spikesTemp = spikeBuffer(1:nSpikes,1:(numel(adjacent{el})*(nPoints-2)));
+            
+            projSpikes{el}(currSpike(el):(currSpike(el) + nSpikes - 1),:) = ...
+                bsxfun(@minus,spikesTemp,averages{el}) * eigenVectors{el};
+            currSpike(el) = currSpike(el) + nSpikes;
+            
         end % el
     end % while ~isFinihed
     
