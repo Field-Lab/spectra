@@ -1,12 +1,6 @@
 function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath, timeCommand)
     % Build the covariance matrix for spikes around a given electrode
     
-    
-    %% Imports
-    import edu.ucsc.neurobiology.vision.electrodemap.*
-    import edu.ucsc.neurobiology.vision.io.*
-%     import java.io.*
-    
     %% Argument validation
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','CovarianceCalculation: data folder|file does not exist'));
@@ -24,7 +18,6 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     nRPoints = covConfig.nRPoints;
     nPoints = nLPoints + nRPoints + 1;
     
-    electrodeUsage = covConfig.electrodeUsage;
     
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
@@ -32,19 +25,8 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     nElectrodes = dataSource.nElectrodes;
     
     %% Setting up neighbor map
-    % Still need to go through java to set neighbors
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
-    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-    
-    adjacent = cell(nElectrodes,1);
-    maxAdjacent = 0;
-    for el = 0:(nElectrodes-1)
-        adjacent{el+1} = electrodeMap.getAdjacentsTo(el, electrodeUsage);
-        if numel(adjacent{el+1}) > maxAdjacent
-            maxAdjacent = numel(adjacent{el+1});
-        end
-    end
+    % Subfunction encapsulates java use
+    [adjacent,maxAdjacent] = catchAdjWJava( dataSource, covConfig.electrodeUsage);
     
     %% Data flow
     
@@ -117,7 +99,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
             
             s = size(interpPoints);
             for elAdjIndex = 1:numel(adjacent{el})
-                elAdj = adjacent{el}(elAdjIndex) + 1;
+                elAdj = adjacent{el}(elAdjIndex);
                 spikeBuffer(1:nSpikes,((nPoints-2)*(elAdjIndex-1)+1):((nPoints-2)*elAdjIndex)) =...
                     reshape(dataSource.interpolant{elAdj}(interpPointsLin),s);
             end
@@ -133,7 +115,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
             %%
                 clf
                 for elAdjIndex = 1:numel(adjacent{el})
-                    elAdj = adjacent{el}(elAdjIndex) + 1;
+                    elAdj = adjacent{el}(elAdjIndex);
                     hold on
                     plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
                     plot(1:0.05:size(dataSource.rawData,2),...

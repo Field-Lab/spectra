@@ -6,10 +6,10 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = public)
         % General
-        debug = false;
+        debug = true;
         
         %% Data Source management
-        bufferMaxSize           = 4096  % samples
+        bufferMaxSize           = 65536 % samples
         upSampleRatio           = 16    % samples
         
         %% Raw Data Noise Evaluation
@@ -34,7 +34,7 @@ classdef mVisionConfig
         projNDimensions         = 3
         
         %% Clustering properties
-        opticsSubsetMaxSize     = 5000  % PC space points
+        opticsSubsetMaxSize     = 2500  % PC space points
         binsPerDimension        = 30    % N-dimensional bins
         opticsDensityFactor     = 5     %
         overlapFactorForDiscard = 2     % Distance between means in sigmas

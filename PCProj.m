@@ -1,12 +1,6 @@
 function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, timeCommand, spikesTotal, covMatrix, averages, totSpikes)
-    % Build the covariance matrix for spikes around a given electrode
-    % Input HashMap parameters should be the same given than for SpikeFindingM
+    % Computes eigenvectors of electrode covariance matrices and computes spike projections
     
-    
-    %% Imports
-    import edu.ucsc.neurobiology.vision.electrodemap.*
-    import edu.ucsc.neurobiology.vision.io.*
-%     import java.io.*
     
     %% Argument validation
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
@@ -25,8 +19,6 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     nRPoints = projConfig.nRPoints;
     nPoints = nLPoints + nRPoints + 1;
     
-    electrodeUsage = projConfig.electrodeUsage;
-    
     nDims = projConfig.nDims;
     
     %% Creating data source
@@ -36,20 +28,8 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     disconnected = dataSource.disconnected;
     
     %% Setting up neighbor map
-    % Still need to go through java to set neighbors
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
-    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-    
-    adjacent = cell(nElectrodes,1);
-    maxAdjacent = 0;
-    
-    for el = 0:(nElectrodes-1)
-        adjacent{el+1} = electrodeMap.getAdjacentsTo(el, electrodeUsage);
-        if numel(adjacent{el+1}) > maxAdjacent
-            maxAdjacent = numel(adjacent{el+1});
-        end
-    end
+    % Subfunction encapsulates java use
+    [adjacent,maxAdjacent] = catchAdjWJava( dataSource, projConfig.electrodeUsage);
     
     %% Data flow
     
@@ -135,7 +115,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             
             s = size(interpPoints);
             for elAdjIndex = 1:numel(adjacent{el})
-                elAdj = adjacent{el}(elAdjIndex) + 1;
+                elAdj = adjacent{el}(elAdjIndex);
                 spikeBuffer(1:nSpikes,((nPoints-2)*(elAdjIndex-1)+1):((nPoints-2)*elAdjIndex)) =...
                     reshape(dataSource.interpolant{elAdj}(interpPointsLin),s);
             end
@@ -151,7 +131,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             %%
                 clf
                 for elAdjIndex = 1:numel(adjacent{el})
-                    elAdj = adjacent{el}(elAdjIndex) + 1;
+                    elAdj = adjacent{el}(elAdjIndex);
                     hold on
                     plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
                     plot(1:0.05:size(dataSource.rawData,2),...

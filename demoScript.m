@@ -27,15 +27,15 @@ javaaddpath('./vision');
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-10)';
-saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev3'
+timeCommand = '(0-100)';
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev4100sec'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
-% DEBUG - additional saved file datset name extension
+% DEBUG - additional saved file dataset name extension
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 3;
+force = 4;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -48,6 +48,7 @@ end
 mkdir(saveFolder);
 [~,datasetName,~] = fileparts(dataPath); % Catching dataset name as last part of dataPath
 
+totalTime = tic;
 
 %% Process noise and make a .noise file
 if force <= 0 || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2)
@@ -178,3 +179,7 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
 else
     disp('.neurons file found - skipping saving.');
 end
+
+%%
+disp('');
+disp(['Total pipeline time ', num2str(toc(totalTime)), ' seconds']);
