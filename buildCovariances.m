@@ -129,6 +129,24 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
             averages{el} = averages{el} + sum(spikesTemp,1);
             covMatrix{el} = covMatrix{el} + spikesTemp' * spikesTemp;
             
+            if false % Alignment debug plots
+            %%
+                clf
+                for elAdjIndex = 1:numel(adjacent{el})
+                    elAdj = adjacent{el}(elAdjIndex) + 1;
+                    hold on
+                    plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
+                    plot(1:0.05:size(dataSource.rawData,2),...
+                        dataSource.interpolant{elAdj}(1:0.05:size(dataSource.rawData,2))+(elAdjIndex-1)*150,'b--')
+                    for sp = 1:nSpikes
+                        plot(interpPoints(sp,:),...
+                        spikesTemp(sp,((elAdjIndex-1)*(nPoints-2) + 1):(elAdjIndex*(nPoints-2)))+(elAdjIndex-1)*150,'r+-');
+                    end
+                    offset
+                    hold off
+                end
+            end
+            
         end % el
     end % while ~isFinished
     

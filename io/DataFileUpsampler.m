@@ -164,6 +164,8 @@ classdef DataFileUpsampler < handle
             obj.isBufferLoaded = true;
             obj.isBufferUpsampled = false;
             
+            obj.isInterpolated = false;
+            
             % Assign
             bufferStart = obj.bufferStart;
             bufferEnd = obj.bufferEnd;

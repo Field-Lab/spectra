@@ -57,7 +57,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     upSampStep = 1/upSampRatio;
     
     % interpolation bases
-    resampleBase = nLPoints:upSampStep:(nLPoints+2);
+    resampleBase = 0:upSampStep:2;
     
     % Projections storage and init
     eigenValues = cell(nElectrodes,1);
@@ -145,6 +145,25 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             projSpikes{el}(currSpike(el):(currSpike(el) + nSpikes - 1),:) = ...
                 bsxfun(@minus,spikesTemp,averages{el}) * eigenVectors{el};
             currSpike(el) = currSpike(el) + nSpikes;
+            
+            
+            if false % Alignment debug plots
+            %%
+                clf
+                for elAdjIndex = 1:numel(adjacent{el})
+                    elAdj = adjacent{el}(elAdjIndex) + 1;
+                    hold on
+                    plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
+                    plot(1:0.05:size(dataSource.rawData,2),...
+                        dataSource.interpolant{elAdj}(1:0.05:size(dataSource.rawData,2))+(elAdjIndex-1)*150,'b--')
+                    for sp = 1:nSpikes
+                        plot(interpPoints(sp,:),...
+                        spikesTemp(sp,((elAdjIndex-1)*(nPoints-2) + 1):(elAdjIndex*(nPoints-2)))+(elAdjIndex-1)*150,'r+-');
+                    end
+                    offset
+                    hold off
+                end
+            end
             
         end % el
     end % while ~isFinihed

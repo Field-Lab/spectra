@@ -35,7 +35,7 @@ saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev3'
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 0;
+force = 3;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -178,6 +178,3 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
 else
     disp('.neurons file found - skipping saving.');
 end
-
-
-profile viewer
