@@ -55,7 +55,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             %% OPTICS algorithm does the pre-clustering
             opticsTimer = tic;
             [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:dims), round(5*avDens), 0);
-            disp(['Time for optics pre-clustering ',num2str(toc(opticsTimer))]);
+%             disp(['Time for optics pre-clustering ',num2str(toc(opticsTimer))]);
             
             pc = pcPointer(projSpikesRed(:,1:dims),order);
             
@@ -112,7 +112,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                 S.ComponentProportion(clusterIndex) = cluster.numPoints./numel(order);
             end
             
-            el
+%             el
             %  R2015
             glmTimer = tic;
             clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,...
@@ -120,7 +120,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                 'Start',S,'RegularizationValue',0.01);
             %  R2014
             % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:dims),gsn,'Start',S,'Regularize',0.01);
-            disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer))]);
+%             disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer))]);
             
             %% Assigning output
             neuronEls = [neuronEls;el*ones(gsn,1)];

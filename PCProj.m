@@ -32,7 +32,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
     spikeUse = p.get('Analysis.Spike To Use');
     
     electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-    %     electrodeUsage = 2;
+    electrodeUsage = 1;
     
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
