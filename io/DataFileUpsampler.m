@@ -6,15 +6,20 @@ classdef DataFileUpsampler < handle
         % General
         nElectrodes % Number of electrodes
         samplingRate % Sampling rate
+        disconnected % disconnected electrodes
         
         % Data buffers
         rawData % nElectrodes x bufferLength buffer
         upSampData % nElectrodes x (bufferLength * upSampRatio) upsampled buffer.
         
+        % Cubic Spline interpolation
+        interpolant
+        isInterpolated@logical = false
+        
         % Buffer management
         isBufferUpsampled@logical = false % Upsampled buffer tag. For spike realignment
         isBufferLoaded@logical = false % If the first buffer has ever been loaded
-        bufferMaxSize = 4096 % Maximum buffer size - power of 2 for quick upsampling
+        bufferMaxSize % Maximum buffer size - power of 2 for quick upsampling
         
         lastSampleLoaded % Marker for continous buffers
         bufferStart % Start (inclusive) of current buffer
@@ -24,7 +29,7 @@ classdef DataFileUpsampler < handle
         nRPoints % Number of right point for spike form loading
         
         % Upsampling management
-        upSampleRatio = 16 % Precision of upsampling - power of 2 as well
+        upSampleRatio % Precision of upsampling - power of 2 as well
         
         % Data Source management
         rawDataFile % Data source path + vision style time tags (eg ".../data...(0-10)")
@@ -76,6 +81,11 @@ classdef DataFileUpsampler < handle
             obj.nLPoints = nLPointsInput;
             obj.nRPoints = nRPointsInput;
             
+            config = mVisionConfig();
+            dataConfig = config.getDataConfig();
+            obj.bufferMaxSize = dataConfig.bufferMaxSize;
+            obj.upSampleRatio = dataConfig.upSampleRatio;
+            
             obj.bufferMaxSize = obj.bufferMaxSize - obj.nLPoints - obj.nRPoints;
             
             parser = DataFileStringParser(rawDataSource);
@@ -96,6 +106,7 @@ classdef DataFileUpsampler < handle
             packedArrayID = int32(header.getArrayID());
             electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
             obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
+            obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
             
             obj.filterState = zeros(1,obj.nElectrodes);
             obj.bFilter = (1-obj.alpha)*[1,-1];
@@ -153,6 +164,8 @@ classdef DataFileUpsampler < handle
             obj.isBufferLoaded = true;
             obj.isBufferUpsampled = false;
             
+            obj.isInterpolated = false;
+            
             % Assign
             bufferStart = obj.bufferStart;
             bufferEnd = obj.bufferEnd;
@@ -195,6 +208,7 @@ classdef DataFileUpsampler < handle
             end
             obj.isBufferLoaded = true;
             obj.isBufferUpsampled = false;
+            obj.isInterpolated = false;
             
             % Assign
             bufferStart = obj.bufferStart;
@@ -215,16 +229,34 @@ classdef DataFileUpsampler < handle
         % 4096 buffer length * 16 upsampling * 513 electrodes * single precision = 135 MB
         function upsampleBuffer(obj)
             if ~obj.isBufferLoaded
-                throw(MException('','DataFileUpsampler:loadNextBuffer:No Buffer Loaded'));
+                throw(MException('','DataFileUpsampler:upsampleBuffer:No Buffer Loaded'));
             end
             if ~obj.isBufferUpsampled
-                fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
-                obj.upSampData = ifft(...
-                    fftData(:,1:(ceil(size(fftData,2)/2))),...
-                    obj.upSampleRatio*size(obj.rawData,2),...
-                    2,'symmetric');
+                if obj.upSampleRatio > 1
+                    fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
+                    obj.upSampData = ifft(...
+                        fftData(:,1:(ceil(size(fftData,2)/2))),...
+                        obj.upSampleRatio*size(obj.rawData,2),...
+                        2,'symmetric');
+                else
+                    obj.upSampData = obj.rawData;
+                end
             end
             obj.isBufferUpsampled = true;
+        end
+        
+        function createInterpolant(obj)
+            if ~obj.isBufferLoaded
+                throw(MException('','DataFileUpsampler:createInterpolant:No Buffer Loaded'));
+            end
+            
+            if ~obj.isInterpolated
+                for i = obj.nElectrodes:-1:2;
+                    obj.interpolant{i} = griddedInterpolant(1:size(obj.rawData,2),obj.rawData(i,:),'spline');
+                end
+            end
+            
+            obj.isInterpolated = true;
         end
         
         % Forces refiltering of current buffer
@@ -246,4 +278,3 @@ classdef DataFileUpsampler < handle
         
     end % methods
 end % classdef
-

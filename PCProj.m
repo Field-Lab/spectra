@@ -1,59 +1,35 @@
-function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, spikesTotal, covMatrix, averages, totSpikes, nDims)
-    % Build the covariance matrix for spikes around a given electrode
-    % Input HashMap parameters should be the same given than for SpikeFindingM
+function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, timeCommand, spikesTotal, covMatrix, averages, totSpikes)
+    % Computes eigenvectors of electrode covariance matrices and computes spike projections
     
-    
-    %% Imports
-    import edu.ucsc.neurobiology.vision.electrodemap.*
-    import edu.ucsc.neurobiology.vision.io.*
-    import java.io.*
     
     %% Argument validation
-    % Argument should be a java.util.HashMap<String,String> containing all relevant parameters for spike
-    % finding
-    validateattributes(parameters,{'java.util.HashMap'},{},'','parameters');
-    p = parameters; % For concision
+    if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+        throw(MException('','CovarianceCalculation: data folder|file does not exist'));
+    end
     
+    %% Load projections configuration
+    config = mVisionConfig();
+    projConfig = config.getProjConfig();
     
-    %% Parsing and Storing Input HashMap
-    % Note: Not so much a good input strategy
-    % does not match so well CovarianceCalculator constructor
+    rawDataSource = [dataPath,timeCommand];
     
-    rawDataSource = p.get('Raw_Data_Source'); % Actually at this point includes a command concatenated under the dataFileParser format: '.../data002(0-10)'
-    sigmaPath = p.get('Sigma'); % .noise file
-    outputPath = p.get('Analysis.Output_Path'); % Output path for the .spikes file
+    meanTimeConstant = projConfig.meanTimeConstant;
     
-    meanTimeConstant = str2double(p.get('Mean Time Constant'));
-    
-    nLPoints = str2double(p.get('Analysis.Left Points'));
-    nRPoints = str2double(p.get('Analysis.Right Points'));
+    nLPoints = projConfig.nLPoints;
+    nRPoints = projConfig.nRPoints;
     nPoints = nLPoints + nRPoints + 1;
-    minError = str2double(p.get('Analysis.Minimization Error'));
-    spikeUse = p.get('Analysis.Spike To Use');
     
-    electrodeUsage = str2double(p.get('Analysis.Electrode Usage'));
-    electrodeUsage = 1;
+    nDims = projConfig.nDims;
     
     %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
     
-    
-    %% Java electrodemap setup
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
-    
-    electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-    nElectrodes = electrodeMap.getNumberOfElectrodes();
+    nElectrodes = dataSource.nElectrodes;
+    disconnected = dataSource.disconnected;
     
     %% Setting up neighbor map
-    adjacent = cell(nElectrodes,1);
-    maxAdjacent = 0;
-    for el = 0:(nElectrodes-1)
-        adjacent{el+1} = electrodeMap.getAdjacentsTo(el, electrodeUsage);
-        if numel(adjacent{el+1}) > maxAdjacent
-            maxAdjacent = numel(adjacent{el+1});
-        end
-    end
+    % Subfunction encapsulates java use
+    [adjacent,maxAdjacent] = catchAdjWJava( dataSource, projConfig.electrodeUsage);
     
     %% Data flow
     
@@ -61,7 +37,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
     upSampStep = 1/upSampRatio;
     
     % interpolation bases
-    resampleBase = nLPoints:upSampStep:(nLPoints+2);
+    resampleBase = 0:upSampStep:2;
     
     % Projections storage and init
     eigenValues = cell(nElectrodes,1);
@@ -71,6 +47,10 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
     currSpike = ones(nElectrodes,1);
     
     for el = 2:nElectrodes
+        if disconnected(el)
+            continue
+        end
+        
         [v,d] = eig(covMatrix{el});
         e = flipud(diag(d));
         eigenValues{el} = e(1:nDims);
@@ -79,15 +59,17 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
         spikeTimes{el} = zeros(1,totSpikes(el));
     end
     
+    spikeBuffer = zeros(1,(nPoints-2) * maxAdjacent);
+    
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
         [bufferStart,bufferEnd] = dataSource.loadNextBuffer();
-        dataSource.upsampleBuffer();
+        
+        dataSource.createInterpolant();
         
         %% Load Spikes
         spikesTemp = spikesTotal(and(spikesTotal(:,1) >= bufferStart + nLPoints, spikesTotal(:,1) < bufferEnd - nRPoints),:);
-        % If no spikes at all are loaded, skip iteration
-        % Required as by Matlab cast spikes is empty 513x0 and not a cell array in that case
+        % If no spikes at all are loaded, skip buffer
         if numel(spikesTemp) == 0
             continue
         end
@@ -105,34 +87,65 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(parameters, s
         % Could parallel here, but actually slower due to the IO cost of sending to each worker.
         % The better part would be to change the while loop to a smarter parfor loop.
         for el = 2:nElectrodes
-            %% Store spike times
-            spikeTimes{el}(currSpike(el):(currSpike(el)+numel(spikes{el})-1)) = spikes{el};
             
-            %% Process each spike
-            for spikeTime = spikes{el}'
-                % Load master spike
-                interpSpike = dataSource.upSampData(el,...
-                    round(upSampRatio*(resampleBase + double(spikeTime)...
-                    - bufferStart - nLPoints - 1))+1);
-                
-                % Find minimum and compute associated resample points
-                offset = (find(interpSpike == min(interpSpike),1)-1)/100;
-                interpPoints = (1:(nPoints-2)) + offset;
-                
-                % Load realigned spikes, master + neighbors
-                centeredSpike = dataSource.upSampData(adjacent{el}+1,...
-                    round(upSampRatio*(interpPoints +...
-                    double(spikeTime) - bufferStart - nLPoints - 1))+1)';
-                
-                % Compute projections
-                projSpikes{el}(currSpike(el),:) = (centeredSpike(:)' - averages{el}) * eigenVectors{el};
-                currSpike(el) = currSpike(el)+1;
-                % TODO add error cases to check number of spikes - possibly not the same as stored,
-                % etc. Possible array extension to implement, etc.
-                
-                
-            end % spikeTime
+            nSpikes = numel(spikes{el});
+            
+            if dataSource.disconnected(el) || nSpikes == 0;
+                continue
+            end
+            
+            %% Check if buffer expansion is required
+            if nSpikes > size(spikeBuffer,1);
+                spikeBuffer = zeros(nSpikes,(nPoints-2) * maxAdjacent);
+            end
+            
+            %% Store spike times
+            spikeTimes{el}(currSpike(el):(currSpike(el) + nSpikes - 1)) = spikes{el};
+            
+            %% Process all spikes
+            interpIndex = bsxfun(@plus,resampleBase,double(spikes{el}) -  bufferStart);
+            interpSpikes = dataSource.interpolant{el}(interpIndex(:));
+            interpSpikes = reshape(interpSpikes,size(interpIndex));
+            
+            [~,offset] = min(interpSpikes,[],2);
+            interpPoints = bsxfun(@plus,...
+                (offset-1)/upSampRatio + double(spikes{el}) - bufferStart - nLPoints,...
+                1:(nPoints-2));
+            interpPointsLin = interpPoints(:);
+            
+            s = size(interpPoints);
+            for elAdjIndex = 1:numel(adjacent{el})
+                elAdj = adjacent{el}(elAdjIndex);
+                spikeBuffer(1:nSpikes,((nPoints-2)*(elAdjIndex-1)+1):((nPoints-2)*elAdjIndex)) =...
+                    reshape(dataSource.interpolant{elAdj}(interpPointsLin),s);
+            end
+            
+            spikesTemp = spikeBuffer(1:nSpikes,1:(numel(adjacent{el})*(nPoints-2)));
+            
+            projSpikes{el}(currSpike(el):(currSpike(el) + nSpikes - 1),:) = ...
+                bsxfun(@minus,spikesTemp,averages{el}) * eigenVectors{el};
+            currSpike(el) = currSpike(el) + nSpikes;
+            
+            
+            if false % Alignment debug plots
+            %%
+                clf
+                for elAdjIndex = 1:numel(adjacent{el})
+                    elAdj = adjacent{el}(elAdjIndex);
+                    hold on
+                    plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
+                    plot(1:0.05:size(dataSource.rawData,2),...
+                        dataSource.interpolant{elAdj}(1:0.05:size(dataSource.rawData,2))+(elAdjIndex-1)*150,'b--')
+                    for sp = 1:nSpikes
+                        plot(interpPoints(sp,:),...
+                        spikesTemp(sp,((elAdjIndex-1)*(nPoints-2) + 1):(elAdjIndex*(nPoints-2)))+(elAdjIndex-1)*150,'r+-');
+                    end
+                    offset
+                    hold off
+                end
+            end
+            
         end % el
     end % while ~isFinihed
- 
+    
 end
