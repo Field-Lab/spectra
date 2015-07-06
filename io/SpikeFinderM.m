@@ -182,13 +182,15 @@ classdef SpikeFinderM < handle
                 end
                 
                 if numel(frames) > 0
-                    if size(frames,2) > size(frameStack,1)
-                        frameStack = Inf(size(frames,2),obj.maxSpikeWidth + 1);
+                    
+                    frameLength = frames(2,:) - frames(1,:);
+                    
+                    if size(frames,2) > size(frameStack,1) || (max(frameLength)+1) > size(frames,1) 
+                        frameStack = Inf(size(frames,2),max(frameLength)+1);
                     else
                         frameStack(:) = Inf;
                     end
                     
-                    frameLength = frames(2,:) - frames(1,:);
                     buffSeed = zeros(1,sum(frameLength)+ size(frameLength,2));
                     frameDest = zeros(1,sum(frameLength)+ size(frameLength,2));
                     ind = 1;
@@ -208,7 +210,7 @@ classdef SpikeFinderM < handle
                     keep = true(size(time));
                     
                     for f = 1:size(frames,2)
-                        if ~((frames(1,f) - frames(1,f)) <= obj.maxSpikeWidth &&...
+                        if ~(frameLength(f) <= obj.maxSpikeWidth &&...
                                 (time(f) + bs - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
                             % Spike is NOT valid inter-time-wise
                             keep(f) = false;
