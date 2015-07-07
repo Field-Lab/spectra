@@ -12,41 +12,36 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     
     rawDataSource = [dataPath,timeCommand];
     
-    meanTimeConstant = covConfig.meanTimeConstant;
-    
     nLPoints = covConfig.nLPoints;
     nRPoints = covConfig.nRPoints;
     nPoints = nLPoints + nRPoints + 1;
     
     
     %% Creating data source
-    dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints);
+    dataSource = DataFileUpsampler(rawDataSource, covConfig.meanTimeConstant, nLPoints, nRPoints);
         
     nElectrodes = dataSource.nElectrodes;
+    disconnected = dataSource.disconnected;
+    
+    aligner = spikeAligner(dataSource);
     
     %% Setting up neighbor map
     % Subfunction encapsulates java use
-    [adjacent,maxAdjacent] = catchAdjWJava( dataSource, covConfig.electrodeUsage);
+    [adjacent,~] = catchAdjWJava( dataSource, covConfig.electrodeUsage);
     
-    %% Data flow
-    
-    upSampRatio = dataSource.upSampleRatio;
-    upSampStep = 1/upSampRatio;
-    
-    % interpolation bases
-    resampleBase = 0:upSampStep:2;
-    
-    % Initializing covariance matrices
+    %% Initializing covariance matrices
     covMatrix = cell(nElectrodes,1);
     averages = cell(nElectrodes,1);
     totSpikes = zeros(nElectrodes,1);
         
-    for i = 2:nElectrodes
-        covMatrix{i} = zeros((nPoints-2) * numel(adjacent{i}));
-        averages{i} = zeros(1,(nPoints - 2) * numel(adjacent{i}));
+    for el = 2:nElectrodes
+        if disconnected(el)
+            continue
+        end
+        
+        covMatrix{el} = zeros((nPoints - 2) * numel(adjacent{el}));
+        averages{el} = zeros(1,(nPoints - 2) * numel(adjacent{el}));
     end
-    
-    spikeBuffer = zeros(1,(nPoints-2) * maxAdjacent);
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         
@@ -76,58 +71,17 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
             
             nSpikes = numel(spikes{el});
             
-            if dataSource.disconnected(el) || nSpikes == 0
+            if disconnected(el) || nSpikes == 0
                 continue
             end            
             
-            %% Check if buffer expansion is required
-            if nSpikes > size(spikeBuffer,1);
-                spikeBuffer = zeros(nSpikes,(nPoints-2) * maxAdjacent);
-            end
-            
-            
-            %% Process all spikes
-            interpIndex = bsxfun(@plus,resampleBase,double(spikes{el}) -  bufferStart);
-            interpSpikes = dataSource.interpolant{el}(interpIndex(:));
-            interpSpikes = reshape(interpSpikes,size(interpIndex));
-            
-            [~,offset] = min(interpSpikes,[],2);
-            interpPoints = bsxfun(@plus,...
-                (offset-1)/upSampRatio + double(spikes{el}) - bufferStart - nLPoints,...
-                1:(nPoints-2));
-            interpPointsLin = interpPoints(:);
-            
-            s = size(interpPoints);
-            for elAdjIndex = 1:numel(adjacent{el})
-                elAdj = adjacent{el}(elAdjIndex);
-                spikeBuffer(1:nSpikes,((nPoints-2)*(elAdjIndex-1)+1):((nPoints-2)*elAdjIndex)) =...
-                    reshape(dataSource.interpolant{elAdj}(interpPointsLin),s);
-            end
+            %% Align all spikes with the aligner            
+            spikesTemp = aligner.alignSpikes(el,spikes{el});
             
             totSpikes(el) = totSpikes(el) + nSpikes;
             
-            spikesTemp = spikeBuffer(1:nSpikes,1:(numel(adjacent{el})*(nPoints-2)));
-            
             averages{el} = averages{el} + sum(spikesTemp,1);
             covMatrix{el} = covMatrix{el} + spikesTemp' * spikesTemp;
-            
-            if false % Alignment debug plots
-            %%
-                clf
-                for elAdjIndex = 1:numel(adjacent{el})
-                    elAdj = adjacent{el}(elAdjIndex);
-                    hold on
-                    plot(1:size(dataSource.rawData,2),dataSource.rawData(elAdj,:)+(elAdjIndex-1)*150,'k+');
-                    plot(1:0.05:size(dataSource.rawData,2),...
-                        dataSource.interpolant{elAdj}(1:0.05:size(dataSource.rawData,2))+(elAdjIndex-1)*150,'b--')
-                    for sp = 1:nSpikes
-                        plot(interpPoints(sp,:),...
-                        spikesTemp(sp,((elAdjIndex-1)*(nPoints-2) + 1):(elAdjIndex*(nPoints-2)))+(elAdjIndex-1)*150,'r+-');
-                    end
-                    offset
-                    hold off
-                end
-            end
             
         end % el
     end % while ~isFinished

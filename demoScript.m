@@ -28,7 +28,7 @@ javaaddpath('./vision');
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
 timeCommand = '(0-10)';
-saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev5'
+saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
 % DEBUG - additional saved file dataset name extension
@@ -101,13 +101,11 @@ else
     disp('.cov.mat file found - skipping covariance calculation.');
 end
 
-
 %% Eigenspikes Projections calculation
 if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2)
     %%
     disp('Starting projections calculation...');
-    tic
-    
+    tic    
     if ~exist('covMatrix')
         load([saveFolder,filesep,datasetName,'.cov.mat']);
     end    
