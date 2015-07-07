@@ -59,8 +59,8 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     dataSource.filterState = -spikeFinderM.initialize()';
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
-        throw(MException('SpikeFindingM',...
-            'Total number of samples is insufficient to initialize SpikeFinder'));
+        throw(MException('',...
+            'SpikeFindingM:Total number of samples is insufficient to initialize SpikeFinder'));
     end
     
     firstIter = true;

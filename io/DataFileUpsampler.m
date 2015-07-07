@@ -32,7 +32,9 @@ classdef DataFileUpsampler < handle
         upSampleRatio % Precision of upsampling - power of 2 as well
         
         % Data Source management
-        rawDataFile % Data source path + vision style time tags (eg ".../data...(0-10)")
+        rawDataFile % java RawDataFile object
+        dataReadThread % java DataFileReadThread object - allows asynchronous ping-pong buffering
+        
         startSample % First (inclusive) sample of data source in the data files
         stopSample % Last (exclusive) sample of data source in the data files
         isFinished@logical = false % Tag for last sample of data source reached
@@ -91,6 +93,7 @@ classdef DataFileUpsampler < handle
             parser = DataFileStringParser(rawDataSource);
             datasets = parser.getDatasets();
             obj.rawDataFile = RawDataFile(File(char(datasets(1))));
+                        
             startTimes = parser.getStartTimes();
             stopTimes = parser.getStopTimes();
             
@@ -107,6 +110,9 @@ classdef DataFileUpsampler < handle
             electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
             obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
             obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
+           
+            obj.dataReadThread = DataFileReadThread(obj.rawDataFile, obj.nElectrodes);
+            obj.dataReadThread.start();
             
             obj.filterState = zeros(1,obj.nElectrodes);
             obj.bFilter = (1-obj.alpha)*[1,-1];
@@ -132,6 +138,9 @@ classdef DataFileUpsampler < handle
             if nargin >= 2 % Can be used to force a different length buffer call.
                 validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',obj.nLPoints+obj.nRPoints},'','bufferLength',2);
                 bufferSize = varargin{1}-obj.nLPoints-obj.nRPoints;
+                
+                % Buffer size is not default, cancel pong buffer to load another one.
+                obj.dataReadThread.cancelPong();
             else
                 bufferSize = obj.bufferMaxSize;
             end
@@ -152,13 +161,17 @@ classdef DataFileUpsampler < handle
             end
             obj.lastSampleLoaded = obj.bufferEnd - obj.nRPoints - 1;
             
-            % Filter
+            % Collect data
+            try
+                obj.rawData = single(obj.dataReadThread.gatherPongBuffer()');
+            catch
+                obj.dataReadThread.setPongParam(obj.bufferStart, obj.bufferEnd - obj.bufferStart);
+                obj.rawData  = single(obj.dataReadThread.gatherPongBuffer()');
+            end
+            
             if filterTag
                 [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
-                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
-                    obj.filterState, 2);
-            else
-                obj.rawData = single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)');
+                    obj.rawData, obj.filterState, 2);
             end
             
             obj.isBufferLoaded = true;
@@ -169,6 +182,22 @@ classdef DataFileUpsampler < handle
             % Assign
             bufferStart = obj.bufferStart;
             bufferEnd = obj.bufferEnd;
+            
+            % Compute next buffer parameters and request pong
+            nextStart = max(obj.startSample, obj.lastSampleLoaded + 1 - obj.nLPoints); % Buffer beginning (inclusive)
+            nextEnd = min(obj.lastSampleLoaded + obj.bufferMaxSize + obj.nRPoints + 1, obj.stopSample); % Buffer end (exclusive)
+            % NOTE: ASSUMING NEXT BUFFER WILL BE DEFAULT SIZE
+            
+            if nextEnd == obj.stopSample
+                obj.dataReadThread.sourceFinished = true;
+            end
+            
+            if ~obj.isFinished
+                obj.dataReadThread.setPongParam(nextStart, nextEnd - nextStart);
+            else
+                obj.dataReadThread.stop();
+            end
+            
         end
         
         % Load a requested random access buffer

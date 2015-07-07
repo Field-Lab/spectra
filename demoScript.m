@@ -27,7 +27,7 @@ javaaddpath('./vision');
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-10)';
+timeCommand = '(0-10)'
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
@@ -181,3 +181,5 @@ end
 %%
 disp('');
 disp(['Total pipeline time ', num2str(toc(totalTime)), ' seconds']);
+
+profile viewer
