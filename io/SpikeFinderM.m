@@ -110,6 +110,7 @@ classdef SpikeFinderM < handle
             for el = (find(~obj.disconnected(2:end))+1)'
                 
                 elThCross = thCrossTimes(thCrossEls == el)';
+                
                 try
                     if bufferThresholded(el,elThCross(1)+1);
                        elThUp = elThCross(1:2:end);

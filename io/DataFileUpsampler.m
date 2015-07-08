@@ -111,7 +111,7 @@ classdef DataFileUpsampler < handle
             obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
             obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
            
-            obj.dataReadThread = DataFileReadThread(obj.rawDataFile, obj.nElectrodes);
+            obj.dataReadThread = DataFileReadThread(obj.rawDataFile, obj.nElectrodes, obj.alpha);
             obj.dataReadThread.start();
             
             obj.filterState = zeros(1,obj.nElectrodes);
@@ -163,15 +163,10 @@ classdef DataFileUpsampler < handle
             
             % Collect data
             try
-                obj.rawData = single(obj.dataReadThread.gatherPongBuffer()');
+                obj.rawData = obj.dataReadThread.gatherPongBuffer()';
             catch
-                obj.dataReadThread.setPongParam(obj.bufferStart, obj.bufferEnd - obj.bufferStart);
-                obj.rawData  = single(obj.dataReadThread.gatherPongBuffer()');
-            end
-            
-            if filterTag
-                [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
-                    obj.rawData, obj.filterState, 2);
+                obj.dataReadThread.setPongParam(obj.bufferStart, obj.bufferEnd - obj.bufferStart, filterTag);
+                obj.rawData  = obj.dataReadThread.gatherPongBuffer()';
             end
             
             obj.isBufferLoaded = true;
@@ -193,7 +188,7 @@ classdef DataFileUpsampler < handle
             end
             
             if ~obj.isFinished
-                obj.dataReadThread.setPongParam(nextStart, nextEnd - nextStart);
+                obj.dataReadThread.setPongParam(nextStart, nextEnd - nextStart, true);
             else
                 obj.dataReadThread.stop();
             end
@@ -298,6 +293,10 @@ classdef DataFileUpsampler < handle
                 [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
                     single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
                     obj.filterState, 2);
+                
+                obj.dataReadThread.setFilterState(-obj.filterState);
+                obj.dataReadThread.cancelPong();
+                
             else
                 [obj.rawData, ~] = filter(obj.bFilter, obj.aFilter, ...
                     single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
