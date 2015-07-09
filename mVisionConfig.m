@@ -8,6 +8,9 @@ classdef mVisionConfig
         % General
         debug = false;
         
+        % Parallel multi-file
+        nWorkers                = 4
+        
         %% Data Source management
         bufferMaxSize           = 16384  % samples
         upSampleRatio           = 16    % samples
@@ -99,6 +102,10 @@ classdef mVisionConfig
             clustConfig.maxEMIter = obj.maxEMIter;
             clustConfig.regVal = obj.regularizationValue;
         end % getClustConfig
+        
+        function parConfig = getParConfig(obj)
+            parConfig.nWorkers= obj.nWorkers;
+        end % getParconfig
         
     end % methods
     

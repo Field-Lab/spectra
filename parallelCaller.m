@@ -1,0 +1,22 @@
+%% Script file parallel caller
+% Loads a list of datasets to process in ../fileList.input
+% And processes them all in parallel on multiple cores
+%%
+config = mVisionConfig();
+parConfig = config.getParConfig();
+
+parpool(parConfig.nWorkers);
+
+
+%%
+fileList = importdata(['..',filesep,'fileList.input']);
+n = numel(fileList);
+
+parfor k = 1:n
+    demoScript(fileList(k),'');
+end
+
+
+%%
+delete(gcp);
+exit;

@@ -1,3 +1,4 @@
+function demoScript(varargin)
 %%%%%%% Demo Script %%%%%%%%%
 % This script demonstrates the data flow in mVision
 % Starting at raw data files and ending at .neurons file.
@@ -8,7 +9,9 @@
 %
 % Vincent Deo - Stanford University - 05/29/2015
 
-
+if ~(nargin == 0 || nargin == 2)
+    throw(MException('','Need 0 variables if script or 2 variables (''dataset/data00x'',timeCommand) if function mode'));
+end
 %% SETUP
 clear;
 % Add subfolders to the matlab path
@@ -25,19 +28,25 @@ end
 javaaddpath('./vision');
 
 % USER INPUT - Set up data and output folders
-dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
-% dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-30)'
-% DO NOT try to use concatenating syntaxes so far
-% (eg "data000(1700-) - data001(-100)")
-saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
-% saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
+if nargin == 0
+    dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
+    % dataPath = '/Volumes/Data/2013-04-30-3/data001'
+    timeCommand = '(0-30)'
+    % DO NOT try to use concatenating syntaxes so far
+    % (eg "data000(1700-) - data001(-100)")
+    saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
+    % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
+else
+    dataPath = ['/Volumes/Archive/',varargin{1}]
+    saveFolder = ['/home/vision/vincent/outputs/',varargin{1}]
+    timeCommand = varargin{2}
+end
 
 % DEBUG - additional saved file dataset name extension
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 0;
+force = 6;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -184,5 +193,5 @@ end
 %%
 disp('');
 disp(['Total pipeline time ', num2str(toc(totalTime)), ' seconds']);
-
-profile viewer
+disp([dataPath,timeCommand,' finished'])
+disp('-----------------------------------------------------------');
