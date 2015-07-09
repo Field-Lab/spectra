@@ -101,7 +101,8 @@ classdef DataFileUpsampler < handle
             obj.samplingRate = header.getSamplingFrequency();
             
             obj.startSample = startTimes(1) * obj.samplingRate;
-            obj.stopSample = stopTimes(1) * obj.samplingRate;
+            obj.stopSample = min (stopTimes(1) * obj.samplingRate, ...
+                header.getNumberOfSamples);
             obj.lastSampleLoaded = obj.startSample-1;
             
             obj.alpha = 1 / (meanTimeConstant * obj.samplingRate);

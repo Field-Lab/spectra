@@ -27,7 +27,9 @@ javaaddpath('./vision');
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-100)'
+timeCommand = '(0-30)'
+% DO NOT try to use concatenating syntaxes so far
+% (eg "data000(1700-) - data001(-100)")
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
@@ -41,10 +43,13 @@ force = 0;
 % 6 force none
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
-    throw(MException('demoScript','data source folder|file does not exist'));
+    throw(MException('','demoScript: data source folder|file does not exist'));
 end
 mkdir(saveFolder);
 [~,datasetName,~] = fileparts(dataPath); % Catching dataset name as last part of dataPath
+if exist(dataPath,'file') == 2
+    datasetName = datasetName(1:7);
+end
 
 totalTime = tic;
 
@@ -66,7 +71,6 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     %%
     disp('Starting spike finding...');
     tic
-%     profile on
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     
@@ -76,7 +80,6 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
 %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
     
     disp(['Time for spike finding ', num2str(toc), ' seconds']);
-%     profile viewer
 else
     disp('.spikes.mat file found - skipping spike finding.');
 end
