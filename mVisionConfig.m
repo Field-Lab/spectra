@@ -9,7 +9,7 @@ classdef mVisionConfig
         debug = false;
         
         %% Data Source management
-        bufferMaxSize           = 65536 % samples
+        bufferMaxSize           = 16384  % samples
         upSampleRatio           = 16    % samples
         
         %% Raw Data Noise Evaluation

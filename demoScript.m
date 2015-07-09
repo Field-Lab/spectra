@@ -27,7 +27,7 @@ javaaddpath('./vision');
 % USER INPUT - Set up data and output folders
 dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
 % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-timeCommand = '(0-10)'
+timeCommand = '(0-100)'
 saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
 % saveFolder = '/home/vision/Vincent/mvision_outputs/2013-04-30-3/data001'
 
@@ -39,8 +39,6 @@ force = 0;
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
-
-
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('demoScript','data source folder|file does not exist'));
@@ -68,7 +66,7 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     %%
     disp('Starting spike finding...');
     tic
-    profile on
+%     profile on
     
     sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
     
@@ -78,7 +76,7 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
 %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
     
     disp(['Time for spike finding ', num2str(toc), ' seconds']);
-    profile viewer
+%     profile viewer
 else
     disp('.spikes.mat file found - skipping spike finding.');
 end

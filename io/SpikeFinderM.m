@@ -220,6 +220,7 @@ classdef SpikeFinderM < handle
                     end
                     
                     spikesEl = [spikesEl; [time(keep)+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
+            
                 end
                 
                 if numel(lastUp) > 0
@@ -234,6 +235,17 @@ classdef SpikeFinderM < handle
                 end
                 
                 spikes = [spikes;spikesEl];
+            
+                if false % Alignment debug plots
+                    %%
+                    clf
+                    plot(obj.dataFileUpsampler.rawData(el,:),'b+-');
+                    hold on
+                    plot([0,size(obj.dataFileUpsampler.rawData,2)],-obj.spikeThresholds(el)*[1,1],'r-');
+                    stem(spikesEl(:,1)-bs,-spikesEl(:,3),'r');
+                    hold off
+                end
+            
             end
             
             % Sorting spikes

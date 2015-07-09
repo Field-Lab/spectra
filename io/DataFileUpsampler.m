@@ -139,8 +139,8 @@ classdef DataFileUpsampler < handle
                 validateattributes(varargin{1},{'numeric'},{'scalar','integer','>',obj.nLPoints+obj.nRPoints},'','bufferLength',2);
                 bufferSize = varargin{1}-obj.nLPoints-obj.nRPoints;
                 
-                % Buffer size is not default, cancel pong buffer to load another one.
-                obj.dataReadThread.cancelPong();
+                % Buffer is not default size. We must clear preloaded default size buffer.
+                obj.dataReadThread.clearBuffers();
             else
                 bufferSize = obj.bufferMaxSize;
             end
@@ -162,11 +162,15 @@ classdef DataFileUpsampler < handle
             obj.lastSampleLoaded = obj.bufferEnd - obj.nRPoints - 1;
             
             % Collect data
-            try
-                obj.rawData = obj.dataReadThread.gatherPongBuffer()';
-            catch
-                obj.dataReadThread.setPongParam(obj.bufferStart, obj.bufferEnd - obj.bufferStart, filterTag);
-                obj.rawData  = obj.dataReadThread.gatherPongBuffer()';
+            obj.rawData = obj.dataReadThread.getFilteredBuffer()';
+            if numel(obj.rawData) == 0 % First (initialization buffer)
+                obj.dataReadThread.loadNextBuffer(obj.bufferStart, obj.bufferEnd - obj.bufferStart, filterTag);
+                if filterTag
+                    obj.dataReadThread.filterBuffer();
+                    obj.rawData = obj.dataReadThread.getFilteredBuffer()';
+                else
+                    obj.rawData = obj.dataReadThread.getShortBuffer()';
+                end               
             end
             
             obj.isBufferLoaded = true;
@@ -181,16 +185,12 @@ classdef DataFileUpsampler < handle
             % Compute next buffer parameters and request pong
             nextStart = max(obj.startSample, obj.lastSampleLoaded + 1 - obj.nLPoints); % Buffer beginning (inclusive)
             nextEnd = min(obj.lastSampleLoaded + obj.bufferMaxSize + obj.nRPoints + 1, obj.stopSample); % Buffer end (exclusive)
-            % NOTE: ASSUMING NEXT BUFFER WILL BE DEFAULT SIZE
-            
-            if nextEnd == obj.stopSample
-                obj.dataReadThread.sourceFinished = true;
-            end
+            % NOTE: ASSUMING NEXT BUFFER WILL BE DEFAULT SIZE AND FILTERED
             
             if ~obj.isFinished
-                obj.dataReadThread.setPongParam(nextStart, nextEnd - nextStart, true);
+                obj.dataReadThread.loadNextBuffer(nextStart, nextEnd - nextStart, true);
             else
-                obj.dataReadThread.stop();
+                obj.dataReadThread.setQuit();
             end
             
         end
@@ -289,18 +289,21 @@ classdef DataFileUpsampler < handle
         % Tracking tag sets if the filter state currently stored is to be used and resaved after
         % filtering
         function forceFilter(obj,trackingTag)
-            if trackingTag
+            if ~isfloat(obj.rawData)
+                obj.rawData = single(obj.rawData);
+            end
+            
+            if trackingTag                
                 [obj.rawData, obj.filterState] = filter(obj.bFilter, obj.aFilter, ...
-                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
-                    obj.filterState, 2);
+                    obj.rawData, obj.filterState, 2);
                 
                 obj.dataReadThread.setFilterState(-obj.filterState);
-                obj.dataReadThread.cancelPong();
-                
+                % We pass the filter state to the IO thread and force refiltering of the NEXT buffer
+                % to the one just filtered in Matlab here, which is already preloaded
+                obj.dataReadThread.filterBuffer();
             else
                 [obj.rawData, ~] = filter(obj.bFilter, obj.aFilter, ...
-                    single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)'),...
-                    [], 2);
+                    single(obj.rawData),[], 2);
             end
         end
         
