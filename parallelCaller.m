@@ -13,7 +13,11 @@ fileList = importdata(['..',filesep,'fileList.input']);
 n = numel(fileList);
 
 parfor k = 1:n
-    demoScript(fileList(k),'');
+    try
+        demoScript(fileList{k},'');
+    catch error
+        error
+    end
 end
 
 

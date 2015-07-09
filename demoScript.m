@@ -13,7 +13,7 @@ if ~(nargin == 0 || nargin == 2)
     throw(MException('','Need 0 variables if script or 2 variables (''dataset/data00x'',timeCommand) if function mode'));
 end
 %% SETUP
-clear;
+% clear;
 % Add subfolders to the matlab path
 addpath(genpath('./'));
 
@@ -195,3 +195,5 @@ disp('');
 disp(['Total pipeline time ', num2str(toc(totalTime)), ' seconds']);
 disp([dataPath,timeCommand,' finished'])
 disp('-----------------------------------------------------------');
+
+end
