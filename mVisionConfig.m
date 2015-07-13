@@ -4,7 +4,7 @@ classdef mVisionConfig
     %   Without using a java/xml vision config object/file
     
     
-    properties (SetAccess = immutable, GetAccess = public)
+    properties (SetAccess = immutable, GetAccess = private)
         % General
         debug = false;
         
@@ -44,6 +44,13 @@ classdef mVisionConfig
         maxGaussians            = 8     %
         maxEMIter               = 300   %
         regularizationValue     = 0.01  %
+        
+        % Neuron cleaning properties
+        minSpikes               = 100   % spikes
+        maxContamination        = 0.1   %
+        coincidenceTime         = 10    % samples
+        maxCorrelation          = 0.25  %
+        
         
     end % properties
     
@@ -106,6 +113,13 @@ classdef mVisionConfig
         function parConfig = getParConfig(obj)
             parConfig.nWorkers= obj.nWorkers;
         end % getParconfig
+        
+        function cleanConfig = getCleanConfig(obj)
+            cleanConfig.minSpikes = obj.minSpikes;
+            cleanConfig.maxCont = obj.maxContamination;
+            cleanConfig.coincTime = obj.coincidenceTime;
+            cleanConfig.maxCorr = obj.maxCorrelation;
+        end
         
     end % methods
     

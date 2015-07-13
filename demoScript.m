@@ -31,7 +31,7 @@ javaaddpath('./vision');
 if nargin == 0
     dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
     % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-    timeCommand = '(0-30)'
+    timeCommand = '(0-2)'
     % DO NOT try to use concatenating syntaxes so far
     % (eg "data000(1700-) - data001(-100)")
     saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
@@ -46,7 +46,7 @@ end
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 6;
+force = 6
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -130,7 +130,7 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
         PCProj(dataPath, timeCommand, ...
         double(spikeSave), covMatrix, averages, totSpikes);
     
-    save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes');
+    save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes','-v7.3');
     
     disp(['Time for projections calculation ', num2str(toc), ' seconds']);
 else
@@ -152,8 +152,7 @@ if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') =
     % Write a .model.mat containing the clustering information
     
     % Separate the neurons in format [neuronID, neuronSpikeTimes]
-    % Do some neuron cleaning if wanted
- 
+    
     [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] =...
         PCClustering(projSpikes, spikeTimes);
     
@@ -167,7 +166,7 @@ else
 end
 
 
-%% Saving neurons in Vision compatible neuron file
+%% Cleaning and saving neurons in Vision compatible neuron file
 if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2)
     %%
     disp('Saving a vision-compatible .neurons file...')
@@ -185,7 +184,14 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
             neuronSpikeTimes{i});
     end
     
-    disp(['Time for saving ', num2str(toc), ' seconds']);
+    disp('Starting vision''s neuron cleaning...');
+    
+    neuronFileName = [saveFolder,filesep,datasetName,'.neurons'];
+    neuronCleaning(neuronFileName);
+    
+    disp('Neuron cleaning done.');
+    
+    disp(['Time for cleaning and saving ', num2str(toc), ' seconds']);
 else
     disp('.neurons file found - skipping saving.');
 end
