@@ -1,5 +1,20 @@
+# Clean Matlab
 *.asv
 *.mat
 test*.m
 buildTree.m
 *.fig
+
+# Clean Visual Studio crap
+*.vcxproj*
+*.sdf
+*.sln
+*.log
+*.tlog
+*.lastbuildstate
+*.suo
+*.obj
+*.idb
+*.pdb
+*.dll
+*.ilk
