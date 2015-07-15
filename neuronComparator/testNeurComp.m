@@ -1,4 +1,4 @@
-% parpool(8);
+parpool(4);
 
 %%
 fileList = importdata(['..',filesep,'fileList.input']);

@@ -4,8 +4,6 @@ function diaged = neuronComparator(varargin)
 % Loads 2 neuron file and compares matching fractions of spike times
 
 javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
-javaaddpath([pwd,filesep,'neuronComparator',filesep]);
-import .*
 
 %%
 if nargin == 0
@@ -37,35 +35,26 @@ neurNum2 = zeros(numel(neurList2),1)';
 
 
 %%
-neurCat1 = [];
-neurCat2 = [];
-
 for i = 1:numel(neurList1)
     neurTimes1{i} = neurFile1.getSpikeTimes(neurList1(i));
     neurNum1(i) = numel(neurTimes1{i});
-    neurCat1 = [neurCat1;neurTimes1{i}];
 end
 for i = 1:numel(neurList2)
     neurTimes2{i} = neurFile2.getSpikeTimes(neurList2(i));
     neurNum2(i) = numel(neurTimes2{i});
-    neurCat2 = [neurCat2;neurTimes2{i}];
 end
 %%
-% setInters = zeros(numel(neurList1),numel(neurList2));
-% tic
-% for i = 1:numel(neurList1)
-%     for j = 1:numel(neurList2)
-%         if numel(intersect(neurTimes1{i}(1:99),neurTimes2{j}(1:99))) > 0
-%             setInters(i,j) = numel(intersect(neurTimes1{i},neurTimes2{j}));
-%         end
-%     end
-% end
-% toc
+setInters = zeros(numel(neurList1),numel(neurList2));
 tic
-setInters = neuronCompLoop.computeIntersects(neurCat1,neurCat2,neurNum1,neurNum2);
-% setInters = double(neuronCompLoop.computeIntersects(0,0,1,1));
+for i = 1:numel(neurList1)
+    for j = 1:numel(neurList2)
+        if numel(intersect(neurTimes1{i}(1:99),neurTimes2{j}(1:99))) > 0
+            setInters(i,j) = numel(intersect(neurTimes1{i},neurTimes2{j}));
+        end
+    end
+end
 toc
-return
+
 %%
 img = cat(3,bsxfun(@rdivide,setInters,neurNum1),repmat(bsxfun(@rdivide,setInters,neurNum2),[1,1,2]));
 
