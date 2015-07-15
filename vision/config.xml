@@ -43,9 +43,9 @@
     <ParametersGroup name="Vision Parameters">
         <StringParameter name="Plot Panel Folder" value="F:\vision5"/>
         <StringParameter name="folder" value="X:\EJgroup_data"/>
-        <IntegerParameter name="X" value="-8"/>
-        <IntegerParameter name="Y" value="-8"/>
-        <IntegerParameter name="W" value="1382"/>
+        <IntegerParameter name="X" value="0"/>
+        <IntegerParameter name="Y" value="0"/>
+        <IntegerParameter name="W" value="1366"/>
         <IntegerParameter name="H" value="754"/>
     </ParametersGroup>
         

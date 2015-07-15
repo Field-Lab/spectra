@@ -1,13 +1,14 @@
 #ifndef __RAWDATAFILE__
 #define __RAWDATAFILE__
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <fstream>
 #include "RawDataHeader512.h"
 
 class RawDataFile {
 
-public:
+private:
+	RawDataHeader512 header;
 
 	RawDataFile ();
 	

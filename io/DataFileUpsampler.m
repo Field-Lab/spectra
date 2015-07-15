@@ -240,6 +240,7 @@ classdef DataFileUpsampler < handle
             bufferEnd = obj.bufferEnd;
         end
         
+        % ---- OBSOLETE ----
         % Upsampling of currently loaded buffer
         % Method used in non-aliasing constant bandwidth upsampling
         % Instead of cubic spline interpolation as in vision

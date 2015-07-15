@@ -2,6 +2,7 @@
 *.asv
 *.mat
 test*.m
+!testNeurComp.m
 buildTree.m
 *.fig
 

@@ -1,13 +1,13 @@
 function demoScript(varargin)
 %%%%%%% Demo Script %%%%%%%%%
 % This script demonstrates the data flow in mVision
-% Starting at raw data files and ending at .neurons file.
+% Starting at raw data files and ending at cleaned .neurons file.
 %
 % Work in progress
 % Current state: clustering implemented through OPTICS + Gaussian Mixture model
-% writes (uncleaned) vision-compatible .neurons
+% writes cleaned vision-compatible .neurons
 %
-% Vincent Deo - Stanford University - 05/29/2015
+% Vincent Deo - Stanford University - 07/14/2015
 
 if ~(nargin == 0 || nargin == 2)
     throw(MException('','Need 0 variables if script or 2 variables (''dataset/data00x'',timeCommand) if function mode'));
@@ -28,10 +28,10 @@ end
 javaaddpath('./vision');
 
 % USER INPUT - Set up data and output folders
-if nargin == 0
+if nargin ~= 2
     dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
     % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-    timeCommand = '(0-2)'
+    timeCommand = '(0-10)'
     % DO NOT try to use concatenating syntaxes so far
     % (eg "data000(1700-) - data001(-100)")
     saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
@@ -46,7 +46,7 @@ end
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 6
+force = 1
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none

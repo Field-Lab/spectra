@@ -1,8 +1,6 @@
 #ifndef __RAWDATAHEADER512__
 #define __RAWDATAHEADER512__
 
-#include <stdio>
-#include <stdlib>
 #include <string>
 #include "RawDataFile.h"
 
@@ -24,13 +22,14 @@ public:
 	static const int FILE_TYPE = 0x512;
 	
 	RawDataHeader512 (long secondsTime, int nElectrodes, int frequency,
-		int nSamples, int arrayID, int format, string datasetIdentifier,
-		string comment);
+		int nSamples, int arrayID, int format, std::string datasetIdentifier,
+		std::string comment);
 
 	RawDataHeader512 ( int timeBase, long secondsTime, int nElectrodes,
 		int frequency, int nSamples, int arrayID, int format,
-		string datasetIdentifier, string comment );
+		std::string datasetIdentifier, std::string comment );
 
+	
 
 	~RawDataHeader512 ();
 };

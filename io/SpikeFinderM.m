@@ -3,17 +3,11 @@ classdef SpikeFinderM < handle
     %   Replaces the spikeFinder + spikeBuffer in the java architecture
     %   On the concept of listener called -> call listeners
     %   But processed on sample arrays.
-    properties (Constant, Access = protected)
-        delta = 50e-6; % Sampling timestep
-        minTimeSeparation = 0.25 * 20; % .25 msec separation, in samples
-        maxSpikeWidth = 2.5 * 20; % 2.5 msec maximum spike width, in samples
-    end
-    
-    %//TODO
-    %// Remove local sample counter
-    %// remove config hashmap in spikefinding - move to matlab .m config scripts.
-    
-    properties (SetAccess = immutable, GetAccess = public)
+    properties (SetAccess = immutable, GetAccess = protected)
+        delta = 50e-6     % Sampling timestep
+        minTimeSeparation % .25 msec separation, in samples
+        maxSpikeWidth     % 2.5 msec maximum spike width, in samples
+        
         nElectrodes
         disconnected @logical
         spikeThresholds
@@ -56,12 +50,21 @@ classdef SpikeFinderM < handle
             obj.maxAmplitude = zeros(obj.nElectrodes,1);
             obj.startTime = zeros(obj.nElectrodes,1);
             
+            config = mVisionConfig();
+            spConfig = config.getSpikeConfig();
+            obj.maxSpikeWidth = spConfig.maxSpikeWidth;
+            obj.minTimeSeparation = spConfig.minSpikeSeparation;
+            
             validateattributes(timeConstant,{'numeric'},{'scalar','>',0},'','timeConstant');
             obj.alpha = obj.delta / timeConstant;
             
         end % Constructor
         
         
+        % Processing of a buffer of data nElectrodes * nSamples
+        % And outputs all the finished spikes, in order
+        % No use of spike buffer anymore: spikes on buffer overlap may not be sorted
+        % Final sort required before saving.
         function spikes = processBuffer(obj)
             
             bs = obj.dataFileUpsampler.bufferStart;
@@ -256,6 +259,10 @@ classdef SpikeFinderM < handle
             
         end % processBuffer
         
+        
+        % ---- OBSOLETE ----
+        % Processing of a single sample over nElectrodes
+        % And outputs the spikes terminating at this sample.
         function spikes = processSample(obj, sample)
             validateattributes(sample,{'numeric'},{'column','nrows',obj.nElectrodes},'','sample');
             if ~obj.initialized

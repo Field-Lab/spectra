@@ -25,6 +25,9 @@ classdef mVisionConfig
         ttlThreshold            = 1000  % Amplitude factor
         meanTimeConstant        = 0.01  % Seconds
         
+        minSpikeSeparation      = 5.0   % samples
+        maxSpikeWidth           = 50.0  % samples
+        
         %% Covariance Calculation properties
         nLPoints                = 5     % samples
         nRPoints                = 15    % samples
@@ -75,6 +78,9 @@ classdef mVisionConfig
             spikeConfig.ttlThreshold = obj.ttlThreshold;
             spikeConfig.meanTimeConstant = obj.meanTimeConstant;
             spikeConfig.defaultTtlSigma = obj.defaultTtlSigma;
+            
+            spikeConfig.minSpikeSeparation = obj.minSpikeSeparation;
+            spikeConfig.maxSpikeWidth = obj.maxSpikeWidth;
         end % getSpikeConfig
     
         function covConfig = getCovConfig(obj)
