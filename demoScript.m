@@ -45,11 +45,12 @@ end
 % DEBUG - additional saved file dataset name extension
 nameExt = '';
 
-% USER input - FORCE rewriting output even if files are found
-force = 5
-% 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
-% 4 force from clustering and cleaning - 5 force vision .neuron rewrite
-% 6 force none
+% USER input - tryToDo -- won't do any task unless stated here
+% --------- noise - spike - cov - prj - clust - save ----------------------
+tryToDo =  [  1   ,   1   ,  1  ,  1  ,   0   ,   0  ];
+% USER input - force -- rewriting output even if files are found
+% --------- noise - spike - cov - prj - clust - save ----------------------
+force =    [  0   ,   0   ,  0  ,  1  ,   0   ,   0  ];
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('','demoScript: data source folder|file does not exist'));
@@ -63,7 +64,8 @@ end
 totalTime = tic;
 
 %% Process noise and make a .noise file
-if force <= 0 || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2)
+if tryToDo(1) &&...
+        (force(1) || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2))
     %%
     disp('Starting noise finding...');
     tic
@@ -71,12 +73,13 @@ if force <= 0 || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2)
     
     disp(['Time for noise evaluation ', num2str(toc), ' seconds.']);
 else
-    disp('.noise file found - skipping raw data noise evaluation.');
+    disp('Noise not requested or .noise file found - skipping raw data noise evaluation.');
 end
 
 
 %% Find spikes and make a .spikes file
-if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2)
+if tryToDo(2) &&...
+        (force(2) || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2))
     %%
     disp('Starting spike finding...');
     tic
@@ -90,12 +93,13 @@ if force <= 1 || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') 
     
     disp(['Time for spike finding ', num2str(toc), ' seconds']);
 else
-    disp('.spikes.mat file found - skipping spike finding.');
+    disp('Spike not requested or .spikes.mat file found - skipping spike finding.');
 end
 
 
 %% Covariance calculation
-if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 2)
+if tryToDo(3) &&...
+        (force(3) || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 2))
     %%
     disp('Starting covariance calculation...');
     tic
@@ -110,11 +114,12 @@ if force <= 2 || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 
     
     disp(['Time for covariance calculation ', num2str(toc), ' seconds']);
 else
-    disp('.cov.mat file found - skipping covariance calculation.');
+    disp('Cov not requested or .cov.mat file found - skipping covariance calculation.');
 end
 
 %% Eigenspikes Projections calculation
-if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2)
+if tryToDo(4) &&...
+        (force(4) || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2))
     %%
     disp('Starting projections calculation...');
     tic    
@@ -134,13 +139,14 @@ if force <= 3 || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 
     
     disp(['Time for projections calculation ', num2str(toc), ' seconds']);
 else
-    disp('.prj.mat file found - skipping projections calculation.');
+    disp('Prj not requested or .prj.mat file found - skipping projections calculation.');
 end
 
 
 %% Clustering
-if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
-        exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2)
+if tryToDo(5) &&...
+        (force(5) || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
+        exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2))
     %%
     disp('Starting clustering and neuron cleaning...')
     tic
@@ -162,12 +168,13 @@ if force <= 4 || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') =
     
     disp(['Time for clustering ', num2str(toc), ' seconds']);
 else
-    disp('.neurons|model.mat files found - skipping projections calculation.');
+    disp('Clust not requested or .neurons|model.mat files found - skipping projections calculation.');
 end
 
 
 %% Cleaning and saving neurons in Vision compatible neuron file
-if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2)
+if tryToDo(6) &&...
+        (force(6) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2))
     %%
     disp('Saving a vision-compatible .neurons file...')
     tic
@@ -193,7 +200,7 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
     
     disp(['Time for cleaning and saving ', num2str(toc), ' seconds']);
 else
-    disp('.neurons file found - skipping saving.');
+    disp('Clean|Save not requested or .neurons file found - skipping saving.');
 end
 
 %%
