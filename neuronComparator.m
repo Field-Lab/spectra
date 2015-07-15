@@ -62,10 +62,9 @@ end
 % end
 % toc
 tic
-setInters = neuronCompLoop.computeIntersects(neurCat1,neurCat2,neurNum1,neurNum2);
-% setInters = double(neuronCompLoop.computeIntersects(0,0,1,1));
+setInters = double(neuronCompLoop.computeIntersects(neurCat1,neurCat2,neurNum1,neurNum2));
 toc
-return
+
 %%
 img = cat(3,bsxfun(@rdivide,setInters,neurNum1),repmat(bsxfun(@rdivide,setInters,neurNum2),[1,1,2]));
 
