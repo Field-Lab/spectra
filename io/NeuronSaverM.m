@@ -12,7 +12,7 @@ classdef NeuronSaverM < handle
     
     methods
         function obj = NeuronSaverM(dataPath,saveFolder,datasetName)
-            obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons'];
+            obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons-raw'];
             spikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
             
             load(spikeFilePath,'ttlTimes');

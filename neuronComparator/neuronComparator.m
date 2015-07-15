@@ -4,10 +4,13 @@ function diaged = neuronComparator(varargin)
 % Loads 2 neuron file and compares matching fractions of spike times
 
 javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
+javaaddpath([pwd,filesep,'neuronComparator',filesep]);
+import .*
 
 %%
 if nargin == 0
-    neurPath1 = 'X:\EJgroup_data\TestOut\2005-04-26-0\data002\data002.neurons';
+    aName = '';
+    neurPath1 = 'X:\EJgroup_data\TestOut\2005-04-26-0\data002Matlab\data002.neurons';
     neurPath2 = 'X:\EJgroup_data\Analysis\2005-04-26-0\data002\vision_processing\vision_processing.neurons';
 end
 if nargin == 1
@@ -35,24 +38,32 @@ neurNum2 = zeros(numel(neurList2),1)';
 
 
 %%
+neurCat1 = [];
+neurCat2 = [];
+
 for i = 1:numel(neurList1)
     neurTimes1{i} = neurFile1.getSpikeTimes(neurList1(i));
     neurNum1(i) = numel(neurTimes1{i});
+    neurCat1 = [neurCat1;neurTimes1{i}];
 end
 for i = 1:numel(neurList2)
     neurTimes2{i} = neurFile2.getSpikeTimes(neurList2(i));
     neurNum2(i) = numel(neurTimes2{i});
+    neurCat2 = [neurCat2;neurTimes2{i}];
 end
 %%
-setInters = zeros(numel(neurList1),numel(neurList2));
+% setInters = zeros(numel(neurList1),numel(neurList2));
+% tic
+% for i = 1:numel(neurList1)
+%     for j = 1:numel(neurList2)
+%         if numel(intersect(neurTimes1{i}(1:99),neurTimes2{j}(1:99))) > 0
+%             setInters(i,j) = numel(intersect(neurTimes1{i},neurTimes2{j}));
+%         end
+%     end
+% end
+% toc
 tic
-for i = 1:numel(neurList1)
-    for j = 1:numel(neurList2)
-        if numel(intersect(neurTimes1{i}(1:99),neurTimes2{j}(1:99))) > 0
-            setInters(i,j) = numel(intersect(neurTimes1{i},neurTimes2{j}));
-        end
-    end
-end
+setInters = double(neuronCompLoop.computeIntersects(neurCat1,neurCat2,neurNum1,neurNum2));
 toc
 
 %%
@@ -70,11 +81,11 @@ diaged = img(x,y,:);
 
 %%
 % figure(numb)
-% imshow(diaged)
+imshow(diaged);
 
 bName = aName(1:(end-8));
 bName(bName == filesep) = '-';
-imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
+% imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
 % imwrite(diaged,['/home/vision/vincent/pngCompares/',bName,'.png'],'png');
 disp([aName(1:(end-8)),' done.']);
 pause(0.1);

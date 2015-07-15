@@ -29,12 +29,12 @@ javaaddpath('./vision');
 
 % USER INPUT - Set up data and output folders
 if nargin ~= 2
-    dataPath = 'X:\EJGroup_data\Data\2008-06-10-1\data000'
+    dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
     % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-    timeCommand = '(0-10)'
+    timeCommand = '(0-50)'
     % DO NOT try to use concatenating syntaxes so far
     % (eg "data000(1700-) - data001(-100)")
-    saveFolder = 'X:\EJGroup_data\TestOut\2008-06-10-1\data000MatlabDev2'
+    saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002Matlab'
     % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
 else
     dataPath = ['/Volumes/Archive/',varargin{1}]
@@ -46,7 +46,7 @@ end
 nameExt = '';
 
 % USER input - FORCE rewriting output even if files are found
-force = 1
+force = 5
 % 0 force all - 1 force from spikes - 2 force from cov - 3 force from proj
 % 4 force from clustering and cleaning - 5 force vision .neuron rewrite
 % 6 force none
@@ -186,7 +186,7 @@ if force <= 5 || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 
     
     disp('Starting vision''s neuron cleaning...');
     
-    neuronFileName = [saveFolder,filesep,datasetName,'.neurons'];
+    neuronFileName = [saveFolder,filesep,datasetName,'.neurons-raw'];
     neuronCleaning(neuronFileName);
     
     disp('Neuron cleaning done.');
