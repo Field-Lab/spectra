@@ -3,7 +3,7 @@ function diaged = neuronComparator(varargin)
 %% Script neuron comparator
 % Loads 2 neuron file and compares matching fractions of spike times
 
-javaaddpath([pwd,'\vision\Vision.jar']);
+javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
 
 %%
 if nargin == 0
@@ -12,8 +12,11 @@ if nargin == 0
 end
 if nargin == 1
     aName = [varargin{1}(1:12),filesep,varargin{1}(14:20),filesep,varargin{1}(14:20)];
-    neurPath1 = ['X:\EJgroup_data\TestOut\matlab_neurons\',aName,'.neurons'];
-    neurPath2 = ['X:\EJgroup_data\TestOut\vision_neurons\',aName,'.neurons'];
+    neurPath1 = ['/home/vision/vincent/out_neur_only/',aName,'.neurons'];
+    neurPath2 = ['/home/vision/vincent/ref_neur_only/',aName,'.neurons'];
+
+    % neurPath1 = ['X:\EJgroup_data\TestOut\matlab_neurons\',aName,'.neurons'];
+    % neurPath2 = ['X:\EJgroup_data\TestOut\vision_neurons\',aName,'.neurons'];
 end
     
 
@@ -68,7 +71,8 @@ diaged = img(x,y,:);
 
 bName = aName(1:(end-8));
 bName(bName == filesep) = '-';
-imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
+% imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
+imwrite(diaged,['/home/vision/vincent/pngCompares/',bName,'.png'],'png');
 disp([aName(1:(end-8)),' done.']);
 pause(0.1);
 end
