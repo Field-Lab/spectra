@@ -6,13 +6,13 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = false;
+        debug = true;
         
         % Parallel multi-file
-        nWorkers                = 4
+        nWorkers                = 3
         
         %% Data Source management
-        bufferMaxSize           = 16384  % samples
+        bufferMaxSize           = 32768 % samples
         upSampleRatio           = 16    % samples
         
         %% Raw Data Noise Evaluation
@@ -44,7 +44,7 @@ classdef mVisionConfig
         binsPerDimension        = 30    % N-dimensional bins
         opticsDensityFactor     = 5     %
         overlapFactorForDiscard = 2     % Distance between means in sigmas
-        maxGaussians            = 8     %
+        maxGaussians            = 12    %
         maxEMIter               = 300   %
         regularizationValue     = 0.01  %
         
@@ -125,6 +125,14 @@ classdef mVisionConfig
             cleanConfig.maxCont = obj.maxContamination;
             cleanConfig.coincTime = obj.coincidenceTime;
             cleanConfig.maxCorr = obj.maxCorrelation;
+        end
+        
+        function pools = buildElPools(obj,nElectrodes)
+            cuts = round((0:obj.nWorkers) .* nElectrodes ./ obj.nWorkers) + 1;
+            pools = cell(obj.nWorkers,1);
+            for p = 1:obj.nWorkers
+               pools{p} = cuts(p):(cuts(p+1)-1); 
+            end
         end
         
     end % methods

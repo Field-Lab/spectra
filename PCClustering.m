@@ -28,7 +28,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     clustConfig = config.getClustConfig();
     
     nDims = clustConfig.nDims;
-    
+    maxGsn = clustConfig.maxGaussians;
     
     nElectrodes = numel(projSpikes);
     clusterParams = cell(nElectrodes,1);
@@ -41,102 +41,36 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             continue
         end
         try
-            %% Reduction of projSpikes for optics, which is quadratic in complexity
-            nOptics = min(clustConfig.opticsSubsetMaxSize,size(projSpikes{el},1));
-            subset = randsample(size(projSpikes{el},1),nOptics);
-            projSpikesRed = projSpikes{el}(subset,:);
-            
-            %% Quick density computation by n-D binning
-            dimMax = max(projSpikesRed,[],1);
-            dimMin = min(projSpikesRed,[],1);
-            dimBins = clustConfig.binsPerDimension;
-            binSpace = (dimMax-dimMin)/dimBins;
-            binned = floor(bsxfun(@rdivide,projSpikesRed,binSpace));
-            occupiedBins = size(unique(binned(:,1:nDims),'rows'),1);
-            
-            avDens = size(projSpikesRed,1)./occupiedBins;
-            
-            %% OPTICS algorithm does the pre-clustering
-            opticsTimer = tic;
-            [ SetOfClusters, RD, CD, order ] = cluster_optics(projSpikesRed(:,1:nDims),...
-                round(clustConfig.opticsDensityFactor*avDens), 0);
-            opticsTime = toc(opticsTimer);
-            
-            pc = pcPointer(projSpikesRed(:,1:nDims),order);
-            
-            store = [];
-            % linear = zeros(1,numel(order));
-            n = size(SetOfClusters,2);
-            for k = 1:n
-                store = [store,[SetOfClusters(k).start;SetOfClusters(k).end;...
-                    SetOfClusters(k).end-SetOfClusters(k).start+1]];
-            end
-            
-            %% OPTICS hierarchical clusters post-processing
-            tree = clusterTree(store(1,:),store(2,:),pc);
-            tree.reduce();
-            
-            [nodeArray,~] = tree.enumLeaves();
-            
-            relativeAvs = zeros(numel(nodeArray));
-            
-            for clusterIndex = 1:numel(nodeArray)
-                cluster = nodeArray(clusterIndex);
-                [v,d] = eig(cluster.covMat);
-                for cl = 1:numel(nodeArray)
-                    relativeAvs(clusterIndex,cl) = ...
-                        norm(v' * ((nodeArray(cl).av'-cluster.av')./ sqrt(diag(d))));
-                end
-            end
-            
-            %% Discarding intersecting clusters
-            relativeAvs(eye(numel(nodeArray)) == 1) = Inf;
-            discard = false(1, numel(nodeArray));
-            
-            for cl = 1:numel(nodeArray)
-                discard(cl) = any(relativeAvs(cl,:) <= clustConfig.overlapFactorForDiscard);
-                relativeAvs(cl:end,discard) = Inf;
-            end
-            
-            nodeArrayRed = nodeArray(~discard);
-            
-            %% Gaussian mixture model
-            gsn = numel(nodeArrayRed);
-            if gsn > clustConfig.maxGaussians % Vision fuckup to expect if we go over the config limit (default 8)
-                % which is set in config.xml
-                gsn = clustConfig.maxGaussians;
-            end
-            S.mu = zeros(gsn,nDims);
-            S.Sigma = zeros(nDims,nDims,gsn);
-            S.ComponentProportion = zeros(1,gsn);
-            
-            for clusterIndex = 1:gsn
-                cluster = nodeArrayRed(clusterIndex);
-                S.mu(clusterIndex,:) = cluster.av';
-                S.Sigma(:,:,clusterIndex) = cluster.covMat;
-                S.ComponentProportion(clusterIndex) = cluster.numPoints./numel(order);
-            end
-            
-            %  R2015
+            %%
             glmTimer = tic;
-            clusterParams{el} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
-                'Options',statset('MaxIter',clustConfig.maxEMIter),...
-                'Start',S,'RegularizationValue',clustConfig.regVal);
-            %  R2014
-            % clusterParams{el} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,'Start',S,'Regularize',0.01);
-            glmTime = toc(glmTimer);
+            
+            GMmodels = cell(maxGsn,1);
+            aic = zeros(1,maxGsn);
+            bic = zeros(1,maxGsn);
+            
+            for gsn = 1:maxGsn
+                GMmodels{gsn} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
+                    'Options',statset('MaxIter',500),...
+                    'Start','plus','RegularizationValue',0.001);
+                aic(gsn) = GMmodels{gsn}.AIC;
+                bic(gsn) = GMmodels{gsn}.BIC;
+            end
+            
+            gsnBest = find(bic > (bic(maxGsn) + 0.1 * (bic(1) - bic(maxGsn))),1,'last')+1;
+            clusterParams{el} = GMmodels{gsnBest};
             
             %% Assigning output
-            neuronEls = [neuronEls;el*ones(gsn,1)];
-            neuronClusters = [neuronClusters;(1:gsn)'];
+            neuronEls = [neuronEls;el*ones(gsnBest,1)];
+            neuronClusters = [neuronClusters;(1:gsnBest)'];
             
-            spikeClust = clusterParams{el}.posterior(projSpikes{el}(:,1:nDims)) >= 0.8;
+            spikeClust = clusterParams{el}.cluster(projSpikes{el}(:,1:nDims));
             
-            temp = cell(gsn,1);
-            for i = 1:gsn
-                temp{i} = spikeTimesEl{el}(spikeClust(:,i));
+            temp = cell(gsnBest,1);
+            for gsn = 1:gsnBest
+                temp{gsn} = spikeTimesEl{el}(spikeClust == gsn);
             end
             spikeTimesNeuron = [spikeTimesNeuron;temp];
+            
         catch error
             error
             disp(['Error at electrode ',num2str(el),', skipping.']);
@@ -144,8 +78,46 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         
         if clustConfig.debug
             disp(['Electrode ',num2str(el),':']);
-            disp(['Time for optics pre-clustering ',num2str(opticsTime)]);
-            disp(['Time for Gaussian Mixture Clustering ',num2str(glmTime)]);
-        end
+            disp([num2str(gsnBest),' neurons found.']);
+            disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer)),' seconds']);
+            disp('-----------------------');
+            
+            if false % Debug plots
+                %%
+                figure(1)
+                plotyy(1:maxGsn,bic,1:maxGsn,aic);
+                legend('BIC','AIC');
+                
+                for gsn = 1:maxGsn
+                    
+                    GMmodel = GMmodels{gsn};
+                    idx = GMmodel.cluster(projSpikes{el}(:,1:nDims));
+                    
+                    figure(2)
+                    scatter3(projSpikes{el}(:,1),projSpikes{el}(:,2),projSpikes{el}(:,3),9,idx);
+                    title('Gaussian mixture')
+                    
+                    for g = 1:gsn
+                        covMat = GMmodel.Sigma(1:3,1:3,g);
+                        center = GMmodel.mu(g,1:3);
+                        [v,d] = eig(covMat);
+                        
+                        kSig = 1;
+                        lineMat = [1,-1,-1,1,1,-1,-1,1,1,1,-1,-1,1,1,-1,-1,1;...
+                            -1,-1,1,1,1,1,-1,-1,-1,1,-1,-1,1,-1,1,1,-1;...
+                            -1,-1,-1,-1,1,1,1,1,-1,-1,1,-1,1,1,-1,1,-1];
+                        cube = bsxfun(@plus,center',v * kSig * bsxfun(@times,sqrt(diag(d)),lineMat));
+                        
+                        hold on
+                        plot3(cube(1,:),cube(2,:),cube(3,:),'k-','linewidth',2);
+                        axis tight
+                        hold off
+                    end
+                    ind
+                    gsn
+                end
+            end % debug plots
+        end % if debug
+        
     end % el
 end % function

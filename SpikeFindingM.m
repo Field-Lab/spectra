@@ -54,8 +54,11 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     %% Spike Finding
     
     % Initialization
-    dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
-
+    [s,f] = dataSource.loadNextBuffer(dataSource.samplingRate,false); % Get a read of 1 second
+    if spikeConfig.debug
+        disp(['Buffer ',num2str(s),' - ',num2str(f)]);
+    end
+            
     dataSource.filterState = -spikeFinderM.initialize()';
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
@@ -69,14 +72,16 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
         if ~firstIter
-            dataSource.loadNextBuffer();
+            [s,f] = dataSource.loadNextBuffer();
+            if spikeConfig.debug
+                disp(['Buffer ',num2str(s),' - ',num2str(f)]);
+            end
         else
             firstIter = false;
             dataSource.forceFilter(true);
         end
         
         spikes = [spikes;spikeFinderM.processBuffer()];
-        
     end
     
     spikes = sortrows(spikes,1);

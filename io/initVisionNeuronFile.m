@@ -49,7 +49,7 @@ rawDataFile.close();
 %   edu.ucsc.neurobiology.vision.util.VisionParams.NEURONS_HEADER_CAPACITY
 % in the Vision source code. Not sure how to link to it directly from
 % Matlab as there is no public constructor for this class.
-NEURONS_HEADER_CAPACITY = 5000;
+NEURONS_HEADER_CAPACITY = 10000;
 % Same with the Vision Version value (also found in VisionParams)
 VISION_VERSION = 8001010;
 % Now the neurons file header version is hidden in:

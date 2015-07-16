@@ -31,10 +31,10 @@ javaaddpath('./vision');
 if nargin ~= 2
     dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
     % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-    timeCommand = '(0-50)'
+    timeCommand = '(0-100)'
     % DO NOT try to use concatenating syntaxes so far
     % (eg "data000(1700-) - data001(-100)")
-    saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002Matlab'
+    saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestParallel'
     % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
 else
     dataPath = ['/Volumes/Archive/',varargin{1}]
@@ -47,10 +47,10 @@ nameExt = '';
 
 % USER input - tryToDo -- won't do any task unless stated here
 % --------- noise - spike - cov - prj - clust - save ----------------------
-tryToDo =  [  1   ,   1   ,  1  ,  1  ,   0   ,   0  ];
+tryToDo =  [  1   ,   1   ,  0  ,  0  ,   0   ,   0  ];
 % USER input - force -- rewriting output even if files are found
 % --------- noise - spike - cov - prj - clust - save ----------------------
-force =    [  0   ,   0   ,  0  ,  1  ,   0   ,   0  ];
+force =    [  0   ,   1   ,  0  ,  0  ,   1   ,   1  ];
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('','demoScript: data source folder|file does not exist'));
@@ -148,7 +148,7 @@ if tryToDo(5) &&...
         (force(5) || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
         exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2))
     %%
-    disp('Starting clustering and neuron cleaning...')
+    disp('Starting clustering...')
     tic
     if ~exist('projSpikes','var')
         load([saveFolder,filesep,datasetName,'.prj.mat']);
@@ -168,7 +168,7 @@ if tryToDo(5) &&...
     
     disp(['Time for clustering ', num2str(toc), ' seconds']);
 else
-    disp('Clust not requested or .neurons|model.mat files found - skipping projections calculation.');
+    disp('Clust not requested or .neurons|model.mat files found - skipping clustering.');
 end
 
 
@@ -200,7 +200,7 @@ if tryToDo(6) &&...
     
     disp(['Time for cleaning and saving ', num2str(toc), ' seconds']);
 else
-    disp('Clean|Save not requested or .neurons file found - skipping saving.');
+    disp('Clean|Save not requested or .neurons file found - skipping cleaning|saving.');
 end
 
 %%
