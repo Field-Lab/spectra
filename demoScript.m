@@ -31,7 +31,7 @@ javaaddpath('./vision');
 if nargin ~= 2
     dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
     % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-    timeCommand = '(0-100)'
+    timeCommand = '(0-50)'
     % DO NOT try to use concatenating syntaxes so far
     % (eg "data000(1700-) - data001(-100)")
     saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestParallel'

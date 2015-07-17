@@ -69,6 +69,8 @@ classdef SpikeFinderM < handle
             
             bs = obj.dataFileUpsampler.bufferStart;
             
+            spikeStore = cell(obj.nElectrodes,1);
+            
             if ~obj.initialized
                 throw(MException('SpikeFinderM.processSample: not initialized'));
             end
@@ -100,19 +102,20 @@ classdef SpikeFinderM < handle
                 obj.buildingSpike(1) = obj.buildingSpike(1) && numel(ttlThDown) == 0;
             end
             
-            spikes = ttlSpike;
+            spikeStore{1} = ttlSpike;
+            
             %%%
             % processing of all other electrodes
             bufferThresholded = [obj.buildingSpike(1:end),bsxfun(@lt,obj.dataFileUpsampler.rawData(1:end,:),-obj.spikeThresholds)];
             
-            [thCrossEls,thCrossTimes] = find(xor(bufferThresholded(:,2:end),bufferThresholded(:,1:(end-1))));
+            xorBuff = xor(bufferThresholded(:,2:end),bufferThresholded(:,1:(end-1)));
             
             % Allocation - extension of num rows done further down if needed
             frameStack = Inf(1,obj.maxSpikeWidth + 1);
             
             for el = (find(~obj.disconnected(2:end))+1)'
                 
-                elThCross = thCrossTimes(thCrossEls == el)';
+                elThCross = find(xorBuff(el,:));
                 
                 try
                     if bufferThresholded(el,elThCross(1)+1);
@@ -190,39 +193,54 @@ classdef SpikeFinderM < handle
                     frameLength = frames(2,:) - frames(1,:);
                     
                     if size(frames,2) > size(frameStack,1) || (max(frameLength)+1) > size(frames,1) 
-                        frameStack = Inf(size(frames,2),max(frameLength)+1);
+                        frameStack = Inf(max(size(frames,2),size(frameStack,1)),max(max(frameLength)+1,size(frames,1)));
                     else
                         frameStack(:) = Inf;
                     end
+%                     mFl = max(frameLength);
+%                     
+%                     frameStack = arrayfun(@(s,l)...
+%                         {horzcat(obj.dataFileUpsampler.rawData(el,s+(0:l)),Inf(1,mFl-l))},...
+%                         frames(1,:)',...
+%                         frameLength',...
+%                         'UniformOutput',true);
+                    
                     
                     buffSeed = zeros(1,sum(frameLength)+ size(frameLength,2));
                     frameDest = zeros(1,sum(frameLength)+ size(frameLength,2));
-                    ind = 1;
-                    nEl = double(obj.nElectrodes);
+                    ind = [1,cumsum(frameLength+1)+1];
                     
                     for f = 1:size(frames,2)
-                        buffSeed(ind:(ind+frameLength(f))) = ((0:frameLength(f)) + frames(1,f) - 1) * nEl + el;
-                        frameDest(ind:(ind+frameLength(f))) = (0:frameLength(f)) * size(frameStack,1) + f;
-                        ind = ind + frameLength(f) + 1;
+                        buffSeed(ind(f):(ind(f)+frameLength(f))) = (0:frameLength(f)) + frames(1,f);
+                        frameDest(ind(f):(ind(f)+frameLength(f))) = (0:frameLength(f)) * size(frameStack,1) + f;
+%                         ind = ind + frameLength(f) + 1;
                     end
                     
-                    frameStack(frameDest) = obj.dataFileUpsampler.rawData(buffSeed);
-                    
+                    frameStack(frameDest) = obj.dataFileUpsampler.rawData(el,buffSeed);
+               
+%                     [amp,I] = arrayfun(@(k) min(frameStack{k},[],2), (1:size(frameStack,1))');
                     [amp,I] = min(frameStack,[],2);
-                    time = frames(1,:)' - 1 + I(1:size(frames,2));
+                    time = frames(1,:) - 1 + I(1:size(frames,2))';
                     
-                    keep = true(size(time));
+%                     keep = true(size(time));
                     
-                    for f = 1:size(frames,2)
-                        if ~(frameLength(f) <= obj.maxSpikeWidth &&...
-                                (time(f) + bs - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
-                            % Spike is NOT valid inter-time-wise
-                            keep(f) = false;
-                        end
-                        obj.previousSpikeTime(el) = time(f) + bs - 1;
-                    end
+                    % TODO: loop below in arrays - doable with computing maxTimes, then 1 offset
+                    % diff.
+                    % --------------------------
+                    timeSpacing = time - [obj.previousSpikeTime(el) - bs + 1, time(1:(end-1))] + 1;
+                    keep = and(frameLength <= obj.maxSpikeWidth, timeSpacing > obj.minTimeSeparation);
+                    % --------------------------
+%                     for f = 1:size(frames,2)
+%                         if ~(frameLength(f) <= obj.maxSpikeWidth &&...
+%                                 (time(f) + bs - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
+%                             % Spike is NOT valid inter-time-wise
+%                             keep(f) = false;
+%                         end
+%                         obj.previousSpikeTime(el) = time(f) + bs - 1;
+%                     end
+                    % --------------------------
                     
-                    spikesEl = [spikesEl; [time(keep)+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
+                    spikesEl = [spikesEl; [time(keep)'+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
             
                 end
                 
@@ -237,7 +255,7 @@ classdef SpikeFinderM < handle
                     obj.buildingSpike(el) = true;
                 end
                 
-                spikes = [spikes;spikesEl];
+                spikeStore{el} = spikesEl;
             
                 if false % Alignment debug plots
                     %%
@@ -251,7 +269,8 @@ classdef SpikeFinderM < handle
             
             end
             
-            % Sorting spikes
+            % Merging and sorting spikes
+            spikes = vertcat(spikeStore{:});
             spikes = sortrows(spikes,1);
             
             % Updating spikes counter
