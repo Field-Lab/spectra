@@ -111,7 +111,7 @@ classdef SpikeFinderM < handle
             xorBuff = xor(bufferThresholded(:,2:end),bufferThresholded(:,1:(end-1)));
             
             % Allocation - extension of num rows done further down if needed
-            frameStack = Inf(1,obj.maxSpikeWidth + 1);
+            frameStack = nan(1,obj.maxSpikeWidth + 1);
             
             for el = (find(~obj.disconnected(2:end))+1)'
                 
@@ -195,16 +195,8 @@ classdef SpikeFinderM < handle
                     if size(frames,2) > size(frameStack,1) || (max(frameLength)+1) > size(frames,1) 
                         frameStack = Inf(max(size(frames,2),size(frameStack,1)),max(max(frameLength)+1,size(frames,1)));
                     else
-                        frameStack(:) = Inf;
+                        frameStack(:) = nan;
                     end
-%                     mFl = max(frameLength);
-%                     
-%                     frameStack = arrayfun(@(s,l)...
-%                         {horzcat(obj.dataFileUpsampler.rawData(el,s+(0:l)),Inf(1,mFl-l))},...
-%                         frames(1,:)',...
-%                         frameLength',...
-%                         'UniformOutput',true);
-                    
                     
                     buffSeed = zeros(1,sum(frameLength)+ size(frameLength,2));
                     frameDest = zeros(1,sum(frameLength)+ size(frameLength,2));
@@ -213,33 +205,16 @@ classdef SpikeFinderM < handle
                     for f = 1:size(frames,2)
                         buffSeed(ind(f):(ind(f)+frameLength(f))) = (0:frameLength(f)) + frames(1,f);
                         frameDest(ind(f):(ind(f)+frameLength(f))) = (0:frameLength(f)) * size(frameStack,1) + f;
-%                         ind = ind + frameLength(f) + 1;
                     end
                     
                     frameStack(frameDest) = obj.dataFileUpsampler.rawData(el,buffSeed);
                
-%                     [amp,I] = arrayfun(@(k) min(frameStack{k},[],2), (1:size(frameStack,1))');
-                    [amp,I] = min(frameStack,[],2);
+                    [amp,I] = min(frameStack,[],2,'omitnan');
                     time = frames(1,:) - 1 + I(1:size(frames,2))';
                     
-%                     keep = true(size(time));
-                    
-                    % TODO: loop below in arrays - doable with computing maxTimes, then 1 offset
-                    % diff.
-                    % --------------------------
                     timeSpacing = time - [obj.previousSpikeTime(el) - bs + 1, time(1:(end-1))] + 1;
                     keep = and(frameLength <= obj.maxSpikeWidth, timeSpacing > obj.minTimeSeparation);
-                    % --------------------------
-%                     for f = 1:size(frames,2)
-%                         if ~(frameLength(f) <= obj.maxSpikeWidth &&...
-%                                 (time(f) + bs - obj.previousSpikeTime(el)) > obj.minTimeSeparation)
-%                             % Spike is NOT valid inter-time-wise
-%                             keep(f) = false;
-%                         end
-%                         obj.previousSpikeTime(el) = time(f) + bs - 1;
-%                     end
-                    % --------------------------
-                    
+
                     spikesEl = [spikesEl; [time(keep)'+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
             
                 end

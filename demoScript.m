@@ -21,11 +21,11 @@ addpath(genpath('./'));
 repoPath = pwd;
 
 % USER INPUT - Path to vision jar - add to java path
-visionPath = [repoPath,'/vision/Vision.jar'];
+visionPath = [repoPath,filesep,'vision',filesep,'Vision.jar'];
 if ~exist('edu/ucsc/neurobiology/vision/io/RawDataFile','class')
     javaaddpath(visionPath)
 end
-javaaddpath('./vision');
+javaaddpath(['.',filesep,'vision']);
 
 % USER INPUT - Set up data and output folders
 if nargin ~= 2
@@ -50,7 +50,7 @@ nameExt = '';
 tryToDo =  [  1   ,   1   ,  0  ,  0  ,   0   ,   0  ];
 % USER input - force -- rewriting output even if files are found
 % --------- noise - spike - cov - prj - clust - save ----------------------
-force =    [  0   ,   1   ,  0  ,  0  ,   1   ,   1  ];
+force =    [  0   ,   1   ,  0  ,  0  ,   0   ,   0  ];
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('','demoScript: data source folder|file does not exist'));
