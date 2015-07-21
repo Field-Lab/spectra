@@ -48,7 +48,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             aic = zeros(1,maxGsn);
             bic = zeros(1,maxGsn);
             
-            for gsn = 1:maxGsn
+            for gsn = 8:8 %1:maxGsn
                 GMmodels{gsn} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
                     'Options',statset('MaxIter',500),...
                     'Start','plus','RegularizationValue',0.001);
@@ -57,6 +57,9 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             end
             
             gsnBest = find(bic > (bic(maxGsn) + 0.1 * (bic(1) - bic(maxGsn))),1,'last')+1;
+            %%%
+            gsnBest = 8;
+            %%%
             clusterParams{el} = GMmodels{gsnBest};
             
             %% Assigning output
