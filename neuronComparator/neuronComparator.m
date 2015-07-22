@@ -10,8 +10,8 @@ import .*
 %%
 if nargin == 0
     aName = '';
-    neurPath1 = 'X:\EJgroup_data\TestOut\2005-04-26-0\data002Matlab\data002.neurons';
-    neurPath2 = 'X:\EJgroup_data\Analysis\2005-04-26-0\data002\vision_processing\vision_processing.neurons';
+    neurPath1 = 'X:\EJgroup_data\TestOut\vision_neurons\2005-04-26-0\data002\data002.neurons';
+    neurPath2 = 'X:\EJgroup_data\TestOut\matlab_neurons\2005-04-26-0\data002\data002.neurons';
 end
 if nargin == 1
     aName = [varargin{1}(1:12),filesep,varargin{1}(14:20),filesep,varargin{1}(14:20)];

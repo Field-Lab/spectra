@@ -15,7 +15,7 @@ end
 %% SETUP
 % clear;
 % Add subfolders to the matlab path
-addpath(genpath('./'));
+addpath(genpath(['.',filesep]));
 
 % generate repository path
 repoPath = pwd;

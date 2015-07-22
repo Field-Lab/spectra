@@ -44,7 +44,7 @@ classdef mVisionConfig
         binsPerDimension        = 30    % N-dimensional bins
         opticsDensityFactor     = 5     %
         overlapFactorForDiscard = 2     % Distance between means in sigmas
-        maxGaussians            = 12    %
+        maxGaussians            = 8     %
         maxEMIter               = 300   %
         regularizationValue     = 0.01  %
         
