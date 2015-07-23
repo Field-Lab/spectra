@@ -93,10 +93,14 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                 for gsn = 1:maxGsn
                     
                     GMmodel = GMmodels{gsn};
-                    idx = GMmodel.cluster(projSpikes{el}(:,1:nDims));
+%                   idx = GMmodel.cluster(projSpikes{el}(:,1:nDims));
+                    idx = (GMmodel.posterior(projSpikes{el}(:,1:nDims)) > 0.9)*(1:gsn)';
+                    
                     
                     figure(2)
                     scatter3(projSpikes{el}(:,1),projSpikes{el}(:,2),projSpikes{el}(:,3),9,idx);
+                    colormap jet
+                    colorbar
                     title('Gaussian mixture')
                     
                     for g = 1:gsn
@@ -115,7 +119,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                         axis tight
                         hold off
                     end
-                    ind
+                    gsnBest
                     gsn
                 end
             end % debug plots

@@ -81,11 +81,11 @@ diaged = img(x,y,:);
 
 %%
 % figure(numb)
-imshow(diaged);
+% imshow(diaged);
 
 bName = aName(1:(end-8));
 bName(bName == filesep) = '-';
-% imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
+imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
 % imwrite(diaged,['/home/vision/vincent/pngCompares/',bName,'.png'],'png');
 disp([aName(1:(end-8)),' done.']);
 pause(0.1);
