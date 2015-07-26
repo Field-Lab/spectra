@@ -42,11 +42,11 @@
 
     <ParametersGroup name="Vision Parameters">
         <StringParameter name="Plot Panel Folder" value="F:\vision5"/>
-        <StringParameter name="folder" value="X:\EJgroup_data"/>
+        <StringParameter name="folder" value="/Volumes/Lab/Projects/spikesorting"/>
         <IntegerParameter name="X" value="0"/>
         <IntegerParameter name="Y" value="0"/>
         <IntegerParameter name="W" value="1366"/>
-        <IntegerParameter name="H" value="754"/>
+        <IntegerParameter name="H" value="750"/>
     </ParametersGroup>
         
     <ParametersGroup name="Calculation Globals">
@@ -416,8 +416,8 @@
 
     <ParametersGroup name="Neuron Viewer 1">
         <BooleanParameter name="showNeuronsInSubclasses" value="true"/>
-        <IntegerParameter name="leftDividerSize" value="621"/>
-        <IntegerParameter name="rightDividerSize" value="621"/>
+        <IntegerParameter name="leftDividerSize" value="409"/>
+        <IntegerParameter name="rightDividerSize" value="647"/>
     </ParametersGroup>
 
 
@@ -470,7 +470,7 @@
             <BooleanParameter name="normalize" value="true"/>
         </ParametersGroup>
 
-        <ParametersGroup name="EIPlotMaker" value="true">
+        <ParametersGroup name="EIPlotMaker" value="false">
            <BooleanParameter name="showAmplitudeSpinner" value="true"/>
            <BooleanParameter name="showAnimationDelaySpinner" value="false"/>
            <BooleanParameter name="showFrameSlider" value="true"/>
