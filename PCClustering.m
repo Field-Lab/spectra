@@ -32,11 +32,13 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     nElectrodes = numel(projSpikes);
     clusterParams = cell(nElectrodes,1);
-    neuronEls = [];
-    neuronClusters = [];
-    spikeTimesNeuron = [];
     
-    for el = 2:nElectrodes
+    
+    neuronEls = cell(nElectrodes,1);
+    neuronClusters = cell(nElectrodes,1);
+    spikeTimesNeuron = cell(nElectrodes,1);
+    
+    parfor el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -62,16 +64,15 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             clusterParams{el} = GMmodels{gsnBest};
             
             %% Assigning output
-            neuronEls = [neuronEls;el*ones(gsnBest,1)];
-            neuronClusters = [neuronClusters;(1:gsnBest)'];
+            neuronEls{el} = el*ones(gsnBest,1);
+            neuronClusters{el} = (1:gsnBest)';
             
             spikeClust = clusterParams{el}.cluster(projSpikes{el}(:,1:nDims));
             
-            temp = cell(gsnBest,1);
+            spikeTimesNeuron{el} = cell(gsnBest,1);
             for gsn = 1:gsnBest
-                temp{gsn} = spikeTimesEl{el}(spikeClust == gsn);
+                spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(spikeClust == gsn);
             end
-            spikeTimesNeuron = [spikeTimesNeuron;temp];
             
         catch error
             error
@@ -79,10 +80,10 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         end
         
         if clustConfig.debug
-            disp(['Electrode ',num2str(el),':']);
-            disp([num2str(gsnBest),' neurons found.']);
-            disp(['Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer)),' seconds']);
-            disp('-----------------------');
+            disp(sprintf(['Electrode ',num2str(el),':\n',...
+            num2str(gsnBest),' neurons found.\n',...
+            'Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer)),' seconds\n',...
+            '-----------------------\n']));
             
             if false % Debug plots
                 %%
@@ -94,7 +95,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                     
                     GMmodel = GMmodels{gsn};
 %                   idx = GMmodel.cluster(projSpikes{el}(:,1:nDims));
-                    idx = (GMmodel.posterior(projSpikes{el}(:,1:nDims)) > 0.9)*(1:gsn)';
+                    idx = (GMmodel.posterior(projSpikes{el}(:,1:nDims)) > 0.6)*(1:gsn)';
                     
                     
                     figure(2)
@@ -126,4 +127,10 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         end % if debug
         
     end % el
+    
+    % Concatenating all neurons found
+    neuronEls = vertcat(neuronEls{:});
+    neuronClusters = vertcat(neuronClusters{:});
+    spikeTimesNeuron = vertcat(spikeTimesNeuron{:});
+    
 end % function

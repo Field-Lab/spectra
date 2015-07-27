@@ -9,7 +9,7 @@ classdef mVisionConfig
         debug = true;
         
         % Parallel multi-file
-        nWorkers                = 3
+        nWorkers                = 4
         
         %% Data Source management
         bufferMaxSize           = 65536 % samples
@@ -40,10 +40,6 @@ classdef mVisionConfig
         projNDimensions         = 3
         
         %% Clustering properties
-        opticsSubsetMaxSize     = 2500  % PC space points
-        binsPerDimension        = 30    % N-dimensional bins
-        opticsDensityFactor     = 5     %
-        overlapFactorForDiscard = 2     % Distance between means in sigmas
         maxGaussians            = 8     %
         maxEMIter               = 300   %
         regularizationValue     = 0.01  %
@@ -107,10 +103,6 @@ classdef mVisionConfig
             clustConfig.debug = obj.debug;
             
             clustConfig.nDims = obj.projNDimensions;
-            clustConfig.opticsSubsetMaxSize = obj.opticsSubsetMaxSize;
-            clustConfig.binsPerDimension = obj.binsPerDimension;
-            clustConfig.opticsDensityFactor = obj.opticsDensityFactor;
-            clustConfig.overlapFactorForDiscard = obj.overlapFactorForDiscard;
             clustConfig.maxGaussians = obj.maxGaussians;
             clustConfig.maxEMIter = obj.maxEMIter;
             clustConfig.regVal = obj.regularizationValue;
