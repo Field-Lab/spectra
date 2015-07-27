@@ -38,7 +38,7 @@ if nargin ~= 2
     % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
 else
     dataPath = ['/Volumes/Archive/',varargin{1}]
-    saveFolder = ['/home/vision/vincent/outputs/',varargin{1}]
+    saveFolder = ['/Volumes/Lab/Projects/spikesorting/mvision/outputs/',varargin{1}]
     timeCommand = varargin{2}
 end
 
@@ -50,7 +50,7 @@ nameExt = '';
 tryToDo =  [  1   ,   1   ,  1  ,  1  ,   1   ,   1  ];
 % USER input - force -- rewriting output even if files are found
 % --------- noise - spike - cov - prj - clust - save ----------------------
-force =    [  0   ,   0   ,  0  ,  1  ,   0   ,   0  ];
+force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
 
 if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
     throw(MException('','demoScript: data source folder|file does not exist'));
@@ -160,7 +160,9 @@ if tryToDo(5) &&...
     % Separate the neurons in format [neuronID, neuronSpikeTimes]
     
     [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] =...
-        PCClustering(projSpikes, spikeTimes);
+        PCClustering(projSpikes, spikeTimes,...
+        [saveFolder,filesep,datasetName,'.model.mat']...
+    );
     
     save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
     

@@ -6,10 +6,10 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = true;
+        debug = false;
         
         % Parallel (multi-file at parallelCaller level)
-        nWorkers                = 4
+        nWorkers                = 6
         
         %% Data Source management
         bufferMaxSize           = 65536 % samples
@@ -43,7 +43,7 @@ classdef mVisionConfig
         maxGaussians            = 8     %
         maxEMIter               = 300   %
         regularizationValue     = 0.001 %
-        belongProbability       = 0.6   %
+        belongProbability       = 0.99   %
         
         % Neuron cleaning properties
         minSpikes               = 100   % spikes
