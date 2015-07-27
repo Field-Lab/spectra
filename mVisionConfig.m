@@ -8,7 +8,7 @@ classdef mVisionConfig
         % General
         debug = true;
         
-        % Parallel multi-file
+        % Parallel (multi-file at parallelCaller level)
         nWorkers                = 4
         
         %% Data Source management
@@ -37,12 +37,13 @@ classdef mVisionConfig
         covSpikeBufferSize      = 100;
         
         %% Projections properties
-        projNDimensions         = 3
+        projNDimensions         = 5
         
         %% Clustering properties
         maxGaussians            = 8     %
         maxEMIter               = 300   %
-        regularizationValue     = 0.01  %
+        regularizationValue     = 0.001 %
+        belongProbability       = 0.6   %
         
         % Neuron cleaning properties
         minSpikes               = 100   % spikes
@@ -106,6 +107,7 @@ classdef mVisionConfig
             clustConfig.maxGaussians = obj.maxGaussians;
             clustConfig.maxEMIter = obj.maxEMIter;
             clustConfig.regVal = obj.regularizationValue;
+            clustConfig.clusterProb = obj.belongProbability;
         end % getClustConfig
         
         function parConfig = getParConfig(obj)
