@@ -425,7 +425,7 @@
     
         <ParametersGroup name="MosaicPlotMaker" value="true">            
             <BooleanParameter name="showGaussians" value="true"/>
-            <BooleanParameter name="showIDs" value="true"/>
+            <BooleanParameter name="showIDs" value="false"/>
             <BooleanParameter name="showEIGaussians" value="false"/>
             <BooleanParameter name="showDisplacements" value="false"/>
             <BooleanParameter name="showContours" value="false"/>

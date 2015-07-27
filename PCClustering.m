@@ -40,40 +40,41 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     %%%
     if nargin == 3
-        load(varargin{1}) % reload model mode
+    %    load(varargin{1}) % reload model mode
     end
     %%%
     
+    % Optional parfor here - don't put if already parallelizing on files - put if single file processing
     for el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
         if size(projSpikes{el},2) < nDims
-            MException('','PCClustering: insufficient dimensions saved in .prj.mat - please recompute projections.');
+           throw(MException('',['PCClustering: insufficient dimensions (',num2str(size(projSpikes{el},2)),')saved in .prj.mat - please recompute projections.']));
         end
         
-%         try
+         try
             %%
             glmTimer = tic;
             
-%             GMmodels = cell(maxGsn,1);
-%             aic = zeros(1,maxGsn);
-%             bic = zeros(1,maxGsn);
-%             
-%             for gsn = 1:maxGsn
-%                 GMmodels{gsn} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
-%                     'Options',statset('MaxIter',clustConfig.maxEMIter),...
-%                     'Start','plus','RegularizationValue',clustConfig.regVal);
-%                 aic(gsn) = GMmodels{gsn}.AIC;
-%                 bic(gsn) = GMmodels{gsn}.BIC;
-%             end
-%             
-%             thr = 0.1;
-%             gsnBest = find(bic < (1-thr)*bic(end)+thr*bic(1),1);
-%             
-%             clusterParams{el} = GMmodels{gsnBest};
+             GMmodels = cell(maxGsn,1);
+             aic = zeros(1,maxGsn);
+             bic = zeros(1,maxGsn);
+             
+             for gsn = 1:maxGsn
+                 GMmodels{gsn} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
+                     'Options',statset('MaxIter',clustConfig.maxEMIter),...
+                     'Start','plus','RegularizationValue',clustConfig.regVal);
+                 aic(gsn) = GMmodels{gsn}.AIC;
+                 bic(gsn) = GMmodels{gsn}.BIC;
+             end
+             
+             thr = 0.1;
+             gsnBest = find(bic < (1-thr)*bic(end)+thr*bic(1),1);
+             
+             clusterParams{el} = GMmodels{gsnBest};
             
-            gsnBest = clusterParams{el}.NumComponents;
+%            gsnBest = clusterParams{el}.NumComponents;
             
             %% Assigning output
             neuronEls{el} = el*ones(gsnBest,1);
@@ -133,10 +134,10 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
 %                 end % if false
             end % if debug
             
-%         catch error
-%             error
-%             disp(['Error at electrode ',num2str(el),', skipping.']);
-%         end
+         catch error
+             error
+             disp(['Error at electrode ',num2str(el),', skipping.']);
+         end
     end % el
     
     % Concatenating all neurons found
