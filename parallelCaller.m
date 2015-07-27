@@ -12,12 +12,13 @@ parpool(parConfig.nWorkers);
 fileList = importdata(['..',filesep,'fileList.input']);
 n = numel(fileList);
 
-parfor k = 1:n
-    try
+% parfor
+for k = 1:n
+%     try
         demoScript(fileList{k},'');
-    catch error
-        error
-    end
+%     catch error
+%         error
+%     end
 end
 
 
