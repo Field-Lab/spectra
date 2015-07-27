@@ -52,7 +52,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             MException('','PCClustering: insufficient dimensions saved in .prj.mat - please recompute projections.');
         end
         
-        try
+%         try
             %%
             glmTimer = tic;
             
@@ -133,10 +133,10 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
 %                 end % if false
             end % if debug
             
-        catch error
-            error
-            disp(['Error at electrode ',num2str(el),', skipping.']);
-        end
+%         catch error
+%             error
+%             disp(['Error at electrode ',num2str(el),', skipping.']);
+%         end
     end % el
     
     % Concatenating all neurons found
