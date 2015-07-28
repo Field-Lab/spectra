@@ -12,6 +12,8 @@ parpool(parConfig.nWorkers);
 fileList = importdata(['..',filesep,'fileList.input']);
 n = numel(fileList);
 
+disp('Entering parfor');
+% parfor
 parfor k = 1:n
      try
         demoScript(fileList{k},'');
