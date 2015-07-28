@@ -417,7 +417,7 @@
     <ParametersGroup name="Neuron Viewer 1">
         <BooleanParameter name="showNeuronsInSubclasses" value="true"/>
         <IntegerParameter name="leftDividerSize" value="409"/>
-        <IntegerParameter name="rightDividerSize" value="647"/>
+        <IntegerParameter name="rightDividerSize" value="1"/>
     </ParametersGroup>
 
 
