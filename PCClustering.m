@@ -28,7 +28,6 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     clustConfig = config.getClustConfig();
     
     nDims = clustConfig.nDims;
-    maxGsn = clustConfig.maxGaussians;
     
     nElectrodes = numel(projSpikes);
     clusterParams = cell(nElectrodes,1);
@@ -40,7 +39,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     %%%
     if nargin == 3
-    %    load(varargin{1}) % reload model mode
+        %    load(varargin{1}) % reload model mode
     end
     %%%
     
@@ -50,94 +49,77 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             continue
         end
         if size(projSpikes{el},2) < nDims
-           throw(MException('',['PCClustering: insufficient dimensions (',num2str(size(projSpikes{el},2)),')saved in .prj.mat - please recompute projections.']));
+            throw(MException('',['PCClustering: insufficient dimensions (',num2str(size(projSpikes{el},2)),')saved in .prj.mat - please recompute projections.']));
         end
         
-         try
+        try
             %%
             glmTimer = tic;
             
-             GMmodels = cell(maxGsn,1);
-             aic = zeros(1,maxGsn);
-             bic = zeros(1,maxGsn);
-             
-             for gsn = 1:maxGsn
-                 GMmodels{gsn} = fitgmdist(projSpikes{el}(:,1:nDims),gsn,...
-                     'Options',statset('MaxIter',clustConfig.maxEMIter),...
-                     'Start','plus','RegularizationValue',clustConfig.regVal);
-                 aic(gsn) = GMmodels{gsn}.AIC;
-                 bic(gsn) = GMmodels{gsn}.BIC;
-             end
-             
-             thr = 0.1;
-             gsnBest = find(bic < (1-thr)*bic(end)+thr*bic(1),1);
-             
-             clusterParams{el} = GMmodels{gsnBest};
             
-%            gsnBest = clusterParams{el}.NumComponents;
-            
-            %% Assigning output
-            neuronEls{el} = el*ones(gsnBest,1);
-            neuronClusters{el} = (1:gsnBest)';
-            
-            spikeClust = (clusterParams{el}.posterior(projSpikes{el}(:,1:nDims)) > clustConfig.clusterProb)*(1:gsnBest)';
-            
-            spikeTimesNeuron{el} = cell(gsnBest,1);
-            for gsn = 1:gsnBest
-                spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(spikeClust == gsn);
+            if size(projSpikes{el},1) > clustConfig.maxSpikes
+                spikesToCluster = datasample(projSpikes{el}(:,1:nDims),clustConfig.maxSpikes,1);
+            else
+                spikesToCluster = projSpikes{el}(:,1:nDims);
             end
             
+            %% Clustering function
+            
+            [clusterIndexes, model, numClusters] = gaussianMixture(spikesToCluster);
+%             [clusterIndexes, model] = spectralClustering(spikesToCluster);
+            clusterParams{el} = model;
+            
+            % model should have a method assign - and we must do posterior assignments for spikes
+            % not used in the clustering.
+            
+            neuronEls{el} = el*ones(numClusters,1);
+            neuronClusters{el} = (1:numClusters)';
+            
+            spikeTimesNeuron{el} = cell(numClusters,1);
+            
+            for gsn = 1:numClusters
+                spikeTimesNeuron{el}{gsn} = clusterIndexes(clusterIndexes == gsn);
+            end
+            
+            %% Debug - plots
             if clustConfig.debug
                 disp(sprintf(['Electrode ',num2str(el),':\n',...
-                    num2str(gsnBest),' neurons found.\n',...
+                    num2str(numClusters),' neurons found.\n',...
                     'Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer)),' seconds\n',...
-                    '-----------------------\n']));
+                    '-----------------------']));
                 
-%                 if false % Debug plots
-%                     %%
-%                     figure(1)
-%                     plotyy(1:maxGsn,bic,1:maxGsn,aic);
-%                     legend('BIC','AIC');
-%                     
-%                     for gsn = 1:maxGsn
-%                         
-%                         GMmodel = GMmodels{gsn};
-%                         %                   idx = GMmodel.cluster(projSpikes{el}(:,1:nDims));
-%                         idx = (GMmodel.posterior(projSpikes{el}(:,1:nDims)) > clustConfig.clusterProb)*(1:gsn)';
-%                         
-%                         
-%                         figure(2)
-%                         scatter3(projSpikes{el}(:,1),projSpikes{el}(:,2),projSpikes{el}(:,3),9,idx);
-%                         colormap jet
-%                         colorbar
-%                         title('Gaussian mixture')
-%                         
-%                         for g = 1:gsn
-%                             covMat = GMmodel.Sigma(1:3,1:3,g);
-%                             center = GMmodel.mu(g,1:3);
-%                             [v,d] = eig(covMat);
-%                             
-%                             kSig = 1;
-%                             lineMat = [1,-1,-1,1,1,-1,-1,1,1,1,-1,-1,1,1,-1,-1,1;...
-%                                 -1,-1,1,1,1,1,-1,-1,-1,1,-1,-1,1,-1,1,1,-1;...
-%                                 -1,-1,-1,-1,1,1,1,1,-1,-1,1,-1,1,1,-1,1,-1];
-%                             cube = bsxfun(@plus,center',v * kSig * bsxfun(@times,sqrt(diag(d)),lineMat));
-%                             
-%                             hold on
-%                             plot3(cube(1,:),cube(2,:),cube(3,:),'k-','linewidth',2);
-%                             axis tight
-%                             hold off
-%                         end
-%                         gsnBest
-%                         gsn
-%                     end
-%                 end % if false
+                if false % Debug plots
+                    %%
+                    figure(1)
+                    scatter3(projSpikes{el}(:,1),projSpikes{el}(:,2),projSpikes{el}(:,3),9,clusterIndexes);
+                    colormap jet
+                    colorbar
+                    title('Gaussian mixture')
+                    
+                    for g = 1:numClusters
+                        covMat = clusterParams{el}.Sigma(1:3,1:3,g);
+                        center = clusterParams{el}.mu(g,1:3);
+                        [v,d] = eig(covMat);
+                        
+                        kSig = 1;
+                        lineMat = [1,-1,-1,1,1,-1,-1,1,1,1,-1,-1,1,1,-1,-1,1;...
+                            -1,-1,1,1,1,1,-1,-1,-1,1,-1,-1,1,-1,1,1,-1;...
+                            -1,-1,-1,-1,1,1,1,1,-1,-1,1,-1,1,1,-1,1,-1];
+                        cube = bsxfun(@plus,center',v * kSig * bsxfun(@times,sqrt(diag(d)),lineMat));
+                        
+                        hold on
+                        plot3(cube(1,:),cube(2,:),cube(3,:),'k-','linewidth',2);
+                        axis tight
+                        hold off
+                    end
+                    numClusters
+                end % if false
             end % if debug
             
-         catch error
-             error
-             disp(['Error at electrode ',num2str(el),', skipping.']);
-         end
+        catch error
+            error
+            disp(['Error at electrode ',num2str(el),', skipping.']);
+        end
     end % el
     
     % Concatenating all neurons found

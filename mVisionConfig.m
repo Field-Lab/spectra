@@ -6,7 +6,7 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = false;
+        debug = true;
         
         % Parallel (multi-file at parallelCaller level)
         nWorkers                = 15
@@ -39,13 +39,24 @@ classdef mVisionConfig
         %% Projections properties
         projNDimensions         = 5
         
-        %% Clustering properties
+        %% Gaussian mixture model Clustering properties
         maxGaussians            = 8     %
         maxEMIter               = 500   %
         regularizationValue     = 0.001 %
-        belongProbability       = 0.99   %
+        belongProbability       = 0.99  %
+        maxEMSpikesUsed         = 20000 %
         
-        % Neuron cleaning properties
+        %% Spectral clustering properties
+        spectralClustMaxSpikes  = 500  %
+        sigmaDistance           = 500   % 1-sigma distance in PC space for gaussian affinity metric
+        maxDistance             = Inf   % cutoff distance in affinity metric % Doesn't do anything good so far...
+        eigenValueThreshold     = 0.05  % Cutoff for discarding pregap kernel eigenvalue of graph Laplacian
+        subspaceDimension       = 15    % Maximum dimension of the eigenvector subspace in which we cluster
+        kmeansReplicas          = 10    %
+        kmeansMaxIter           = 500   %
+        
+        
+        %% Neuron cleaning properties
         minSpikes               = 100   % spikes
         maxContamination        = 0.1   %
         coincidenceTime         = 10    % samples
@@ -108,7 +119,18 @@ classdef mVisionConfig
             clustConfig.maxEMIter = obj.maxEMIter;
             clustConfig.regVal = obj.regularizationValue;
             clustConfig.clusterProb = obj.belongProbability;
+            clustConfig.maxSpikes = obj.maxEMSpikesUsed;
         end % getClustConfig
+        
+        function specConfig = getSpectralConfig(obj)
+            specConfig.nSpikes = obj.spectralClustMaxSpikes;
+            specConfig.sigmaDist = obj.sigmaDistance;
+            specConfig.maxDistance = obj.maxDistance;
+            specConfig.eigThreshold = obj.eigenValueThreshold;
+            specConfig.subspaceDim = obj.subspaceDimension;
+            specConfig.kmeansRep = obj.kmeansReplicas;
+            specConfig.maxIter = obj.kmeansMaxIter;
+        end % getSpectralConfig
         
         function parConfig = getParConfig(obj)
             parConfig.nWorkers= obj.nWorkers;

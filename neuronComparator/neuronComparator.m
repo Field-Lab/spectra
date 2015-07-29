@@ -18,7 +18,7 @@ if nargin == 1
 %     neurPath1 = ['/home/vision/vincent/out_neur_only/',aName,'.neurons'];
 %     neurPath2 = ['/home/vision/vincent/ref_neur_only/',aName,'.neurons'];
 
-    neurPath1 = ['X:\EJgroup_data\TestOut\matlab_neurons\',aName,'.neurons'];
+    neurPath1 = ['X:\EJgroup_data\TestOut\matlab_neurons_3\',aName,'.neurons'];
     neurPath2 = ['X:\EJgroup_data\TestOut\vision_neurons\',aName,'.neurons'];
 end
     
