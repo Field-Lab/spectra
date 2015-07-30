@@ -8,7 +8,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     
     config = mVisionConfig();
     specConfig = config.getSpectralConfig();
-    
+        
     % subsampling, reassigning should be done IN the function - same for GMM clustering
     % add for iter = 1:specConfig.repeatTimes
     if specConfig.nSpikes < size(spikes,1)
@@ -17,12 +17,14 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         spikesToCluster = spikes;
     end
     
-    sigma2 = specConfig.sigmaDist ^ 2;
-    dthr = specConfig.maxDistance;
+    specConfig.sigmaDist
     
-    thr = exp(-dthr^2./(2*sigma2));
+    sigmaNorm =  specConfig.sigmaDist^ 2 ;
+    dthr = specConfig.maxDistance ;
     
-    metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigma2))-thr) ./ (1-thr);
+    thr = exp(-dthr^2./(2*sigmaNorm));
+    
+    metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
     
     wmat = metric(sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
         permute(spikesToCluster,[3 1 2])).^2,3));
@@ -40,6 +42,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     dinv = dvector .^ (-0.5);
     
     laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
+%     laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',wmat);
     
     [evectors, evalues] = eig(laplacian);
     
@@ -50,21 +53,40 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     gaps = sortedEigs(2:end)-sortedEigs(1:(end-1));
     [~,eigIndex] = max(gaps);
     
-    numClusters = eigIndex + 1
+    numClusters = eigIndex
     
-    skip = find(sortedEigs > specConfig.eigThreshold, 1, 'first')-1;
     
-    PCs = wmat * evectors(:,skip:min(size(evectors,2),...
-        (skip+specConfig.subspaceDim-1)));
+%     skip = find(sortedEigs > specConfig.eigThreshold, 1, 'first')-1;
     
-    figure(1)
-    plot(sortedEigs(1:30),'+');
     
-    clusterIndexes = kmeans(PCs,numClusters,...
+    % PCs = wmat * evectors(:,skip:min(size(evectors,2),...
+    %    (skip+specConfig.subspaceDim-1)));
+    
+    evectorsNorm = evectors(:,1:min(size(evectors,2),specConfig.subspaceDim));
+    evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
+    
+    
+    PCs = metric(sum(bsxfun(@minus, permute(spikes,[1 3 2]),...
+        permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
+    
+    
+%     figure(1)
+%     plot(sortedEigs(1:30),'+');
+    
+    PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
+%     PCNorm = PCs;
+    
+    [clusterIndexes,model] = kmeans(PCNorm,numClusters,...
         'replicates',specConfig.kmeansRep,...
         'MaxIter',specConfig.maxIter);
     
-    figure(2)
-    scatter3(spikesToCluster(:,1),spikesToCluster(:,2),spikesToCluster(:,3),9,clusterIndexes);
-    colorbar;
+%     figure(2)
+%     scatter3(spikes(:,1),spikes(:,2),spikes(:,3),9,clusterIndexes);
+%     xlabel('x'),ylabel('y'),zlabel('z');
+%     colorbar;
+%     
+%     figure(3);
+%     scatter3(PCNorm(:,5),PCNorm(:,4),PCNorm(:,3),9,clusterIndexes);
+%     xlabel('x'),ylabel('y'),zlabel('z');
+    
 end

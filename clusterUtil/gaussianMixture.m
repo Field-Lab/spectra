@@ -1,4 +1,4 @@
-function [clusterIndexes, model, numClusters] = gaussianMixture( spikesToCluster )
+function [clusterIndexes, model, numClusters] = gaussianMixture( spikes )
     %GAUSSIANMIXTURE Clusters input data using variable k gaussian mixture model 
     %
     %   Input data should be nSpikes x nDims
@@ -13,10 +13,18 @@ function [clusterIndexes, model, numClusters] = gaussianMixture( spikesToCluster
     
     maxGsn = clustConfig.maxGaussians;
     
+    
+    if size(spikes,1) > clustConfig.maxSpikes
+        spikesToCluster = datasample(spikes,clustConfig.maxSpikes,1);
+    else
+        spikesToCluster = spikes;
+    end
+    
+    
     GMmodels = cell(maxGsn,1);
     aic = zeros(1,maxGsn);
     bic = zeros(1,maxGsn);
-            
+    
     for gsn = 1:maxGsn
         GMmodels{gsn} = fitgmdist(spikesToCluster,gsn,...
             'Options',statset('MaxIter',clustConfig.maxEMIter),...
@@ -32,7 +40,6 @@ function [clusterIndexes, model, numClusters] = gaussianMixture( spikesToCluster
             
     %% Assigning output
             
-    clusterIndexes = (model.posterior(spikesToCluster) > clustConfig.clusterProb)*(1:numClusters)';
+    clusterIndexes = (model.posterior(spikes) > clustConfig.clusterProb)*(1:numClusters)';
     
 end
-

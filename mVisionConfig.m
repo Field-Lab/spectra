@@ -47,13 +47,16 @@ classdef mVisionConfig
         maxEMSpikesUsed         = 20000 %
         
         %% Spectral clustering properties
-        spectralClustMaxSpikes  = 500  %
-        sigmaDistance           = 500   % 1-sigma distance in PC space for gaussian affinity metric
-        maxDistance             = Inf   % cutoff distance in affinity metric % Doesn't do anything good so far...
+        spectralClustMaxSpikes  = 1500  %
+        sigmaDistance           = 100  % 1-sigma distance in PC space for gaussian affinity metric
+        % should be normalized - by dim and by spikes
+        maxDistance             = 300   % cutoff distance in affinity metric % Doesn't do anything good so far...
+        % identically
+        
         eigenValueThreshold     = 0.05  % Cutoff for discarding pregap kernel eigenvalue of graph Laplacian
-        subspaceDimension       = 15    % Maximum dimension of the eigenvector subspace in which we cluster
-        kmeansReplicas          = 10    %
-        kmeansMaxIter           = 500   %
+        subspaceDimension       = 5    % Maximum dimension of the eigenvector subspace in which we cluster
+        kmeansReplicas          = 5     %
+        kmeansMaxIter           = 200   %
         
         
         %% Neuron cleaning properties

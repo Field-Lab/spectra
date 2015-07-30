@@ -56,17 +56,10 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             %%
             glmTimer = tic;
             
-            
-            if size(projSpikes{el},1) > clustConfig.maxSpikes
-                spikesToCluster = datasample(projSpikes{el}(:,1:nDims),clustConfig.maxSpikes,1);
-            else
-                spikesToCluster = projSpikes{el}(:,1:nDims);
-            end
-            
             %% Clustering function
             
-            [clusterIndexes, model, numClusters] = gaussianMixture(spikesToCluster);
-%             [clusterIndexes, model] = spectralClustering(spikesToCluster);
+%             [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims));
+            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
             clusterParams{el} = model;
             
             % model should have a method assign - and we must do posterior assignments for spikes
@@ -85,7 +78,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             if clustConfig.debug
                 disp(sprintf(['Electrode ',num2str(el),':\n',...
                     num2str(numClusters),' neurons found.\n',...
-                    'Time for Gaussian Mixture Clustering ',num2str(toc(glmTimer)),' seconds\n',...
+                    'Time for Electrode Clustering ',num2str(toc(glmTimer)),' seconds\n',...
                     '-----------------------']));
                 
                 if false % Debug plots
