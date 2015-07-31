@@ -29,7 +29,7 @@ classdef DataFileUpsampler < handle
         nRPoints % Number of right point for spike form loading
         
         % Upsampling management
-        upSampleRatio % Precision of upsampling - power of 2 as well
+        upSampleRatio % Precision of upsampling - power of 2 as well - OBSOLETE
         
         % Data Source management
         rawDataFile % java RawDataFile object

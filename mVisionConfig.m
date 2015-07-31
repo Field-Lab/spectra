@@ -47,17 +47,14 @@ classdef mVisionConfig
         maxEMSpikesUsed         = 20000 %
         
         %% Spectral clustering properties
-        spectralClustMaxSpikes  = 1500  %
-        sigmaDistance           = 100  % 1-sigma distance in PC space for gaussian affinity metric
-        % should be normalized - by dim and by spikes
-        maxDistance             = 300   % cutoff distance in affinity metric % Doesn't do anything good so far...
-        % identically
-        
-        eigenValueThreshold     = 0.05  % Cutoff for discarding pregap kernel eigenvalue of graph Laplacian
-        subspaceDimension       = 5    % Maximum dimension of the eigenvector subspace in which we cluster
+        specMaxSpikeskMeans     = 1500  %
+        specMaxSpikesLapl       = 100   %
+        sigmaDistance           = 1.0 % 0.66  % 100
+        maxDistance             = 2.5 % 2.00  % 300
+        subspaceDimension       = 20    % Maximum dimension of the eigenvector subspace in which we cluster
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %
-        
+        convergeLaplacianIter   = 500  %
         
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
@@ -126,13 +123,14 @@ classdef mVisionConfig
         end % getClustConfig
         
         function specConfig = getSpectralConfig(obj)
-            specConfig.nSpikes = obj.spectralClustMaxSpikes;
+            specConfig.nSpikesK = obj.specMaxSpikeskMeans;
+            specConfig.nSpikesL = obj.specMaxSpikesLapl;
             specConfig.sigmaDist = obj.sigmaDistance;
             specConfig.maxDistance = obj.maxDistance;
-            specConfig.eigThreshold = obj.eigenValueThreshold;
             specConfig.subspaceDim = obj.subspaceDimension;
             specConfig.kmeansRep = obj.kmeansReplicas;
             specConfig.maxIter = obj.kmeansMaxIter;
+            specConfig.lapAvIter = obj.convergeLaplacianIter;
         end % getSpectralConfig
         
         function parConfig = getParConfig(obj)
