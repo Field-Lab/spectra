@@ -17,7 +17,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         subsampleTag = 1;
     end
     
-    specConfig.sigmaDist
+    specConfig.sigmaDist;
     
     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2));
     sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2 ;
@@ -106,7 +106,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         'replicates',specConfig.kmeansRep,...
         'MaxIter',specConfig.maxIter);
     
-    if true
+    if false
         %%
         figure(1)
         plot(sortedEigs(1:30),'-o');
