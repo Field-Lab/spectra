@@ -29,6 +29,9 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     
     eigStack = zeros(subsampleTag,30);
     
+    failTag = true;
+    
+    while failTag
     for iterIndex = 1:subsampleTag
         
         if subsampleTag == 1
@@ -102,12 +105,25 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     
     
     PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
-    PCNorm(isnan(PCNorm(:,1)),:) = [];
+    discard = isnan(PCNorm(:,1));
+    PCNorm(discard,:) = []; 
     %     PCNorm = PCs;
     
-    [clusterIndexes,model] = kmeans(PCNorm,numClusters,...
+    if nnz(discard) > 0.001*size(PCs,1);
+        if specConfig.debug
+            disp('Failure at 0.1% max outlier criterion.');
+        end
+    else
+        failTag = false;
+    end
+end
+
+    [clusterIn,model] = kmeans(PCNorm,numClusters,...
         'replicates',specConfig.kmeansRep,...
         'MaxIter',specConfig.maxIter);
+    
+    clusterIndexes = zeros(size(PCs,1),1);
+    clusterIndexes(~discard) = clusterIn;
     
     if false
         %%
@@ -120,8 +136,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         colorbar;
         
         figure(3);
-        scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIndexes);
+        scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
         xlabel('x'),ylabel('y'),zlabel('z');
     end
-    
+%     numel(find(discard))
 end

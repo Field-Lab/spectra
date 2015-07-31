@@ -47,9 +47,9 @@ classdef mVisionConfig
         maxEMSpikesUsed         = 20000 %
         
         %% Spectral clustering properties
-        specMaxSpikeskMeans     = 1000  %
+        specMaxSpikeskMeans     = 1500  %
         specMaxSpikesLapl       = 100   %
-        sigmaDistance           = 1.0 % 0.66  % 100
+        sigmaDistance           = 1.1 % 0.66  % 100
         maxDistance             = 2.5 % 2.00  % 300
         subspaceDimension       = 20    % Maximum dimension of the eigenvector subspace in which we cluster
         kmeansReplicas          = 5     %

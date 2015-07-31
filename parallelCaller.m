@@ -5,24 +5,27 @@
 config = mVisionConfig();
 parConfig = config.getParConfig();
 
-parpool(parConfig.nWorkers);
+% parpool(parConfig.nWorkers);
 
 
 %%
 fileList = importdata(['..',filesep,'fileList.input']);
 n = numel(fileList);
 
-disp('Entering parfor');
+disp('Entering file loop...');
 % parfor
-for k = 1:1 %n
-%     try
+for k = 1:n
+    try
         demoScript(fileList{k},'');
-%     catch error
-       error
-%     end
+    catch error
+       disp(error);
+       for i = 1:numel(error.stack)
+           disp(error.stack(i));
+       end
+    end
 end
 
 
 %%
-delete(gcp);
+% delete(gcp);
 exit;
