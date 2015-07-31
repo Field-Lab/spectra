@@ -44,7 +44,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     %%%
     
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
-    for el = 2:nElectrodes
+    parfor el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -71,7 +71,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             spikeTimesNeuron{el} = cell(numClusters,1);
             
             for gsn = 1:numClusters
-                spikeTimesNeuron{el}{gsn} = clusterIndexes(clusterIndexes == gsn);
+                spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(clusterIndexes == gsn);
             end
             
             %% Debug - plots

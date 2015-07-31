@@ -20,12 +20,8 @@ classdef NeuronSaverM < handle
             %% Creating data source and catching nElectrodes
             dataSource = DataFileUpsampler(dataPath);
             
-            header = dataSource.rawDataFile.getHeader();
-            packedArrayID = int32(header.getArrayID());
+            obj.nElectrodes = dataSource.nElectrodes;
            
-            electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(packedArrayID);
-            obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
-            
             %% Adjusting bin path to catch header properly
             if strcmp(dataPath((end-3):end),'.bin')
                 binPath = dataPath;

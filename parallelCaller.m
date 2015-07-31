@@ -14,12 +14,12 @@ n = numel(fileList);
 
 disp('Entering parfor');
 % parfor
-parfor k = 1:n
-     try
+for k = 1:1 %n
+%     try
         demoScript(fileList{k},'');
-     catch error
-         error
-     end
+%     catch error
+       error
+%     end
 end
 
 

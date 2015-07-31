@@ -47,7 +47,7 @@ nameExt = '';
 
 % USER input - tryToDo -- won't do any task unless stated here
 % --------- noise - spike - cov - prj - clust - save ----------------------
-tryToDo =  [  1   ,   1   ,  1  ,  1  ,   1   ,   1  ];
+tryToDo =  [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
 % USER input - force -- rewriting output even if files are found
 % --------- noise - spike - cov - prj - clust - save ----------------------
 force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];

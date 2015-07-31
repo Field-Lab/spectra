@@ -82,7 +82,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     gaps = sortedEigs(2:end)-sortedEigs(1:(end-1));
     [~,eigIndex] = max(gaps);
     
-    numClusters = eigIndex
+    numClusters = eigIndex;
     %     skip = find(sortedEigs > specConfig.eigThreshold, 1, 'first')-1;
     
     
@@ -96,10 +96,13 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     PCs = metric(sum(bsxfun(@minus, permute(spikes,[1 3 2]),...
         permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
     
-    
+    if numClusters > 15
+        numClusters = 15;
+    end
     
     
     PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
+    PCNorm(isnan(PCNorm(:,1)),:) = [];
     %     PCNorm = PCs;
     
     [clusterIndexes,model] = kmeans(PCNorm,numClusters,...
