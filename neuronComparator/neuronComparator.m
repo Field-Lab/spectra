@@ -1,92 +1,88 @@
-function diaged = neuronComparator(varargin)
-
-%% Script neuron comparator
-% Loads 2 neuron file and compares matching fractions of spike times
-
-javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
-javaaddpath([pwd,filesep,'neuronComparator',filesep]);
-import .*
-
-%%
-if nargin == 0
-    aName = '';
-    neurPath1 = 'X:\EJgroup_data\TestOut\vision_neurons\2005-04-26-0\data002\data002.neurons';
-    neurPath2 = 'X:\EJgroup_data\TestOut\matlab_neurons\2005-04-26-0\data002\data002.neurons';
-end
-if nargin == 1
-    aName = [varargin{1}(1:12),filesep,varargin{1}(14:20),filesep,varargin{1}(14:20)];
-%     neurPath1 = ['/home/vision/vincent/out_neur_only/',aName,'.neurons'];
-%     neurPath2 = ['/home/vision/vincent/ref_neur_only/',aName,'.neurons'];
-
-    neurPath1 = ['X:\EJgroup_data\TestOut\matlab_neurons_3\',aName,'.neurons'];
-    neurPath2 = ['X:\EJgroup_data\TestOut\vision_neurons\',aName,'.neurons'];
-end
+function score = neuronComparator(varargin)
+    %NEURONCOMPARATOR loads 2 neurons-raw file and provides the clustering score
+    %
+    % Loads a reference and a to-compare .neurons-raw files
+    % Provides the score of the new clustering
+    % versus the reference one by matching sets of clustered spikes
+    % Computes matching spikes fraction and maximizes over cluster permutations
     
-
-
-neurFile1 = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPath1);
-neurFile2 = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPath2);
-
-neurList1 = neurFile1.getIDList();
-neurList2 = neurFile2.getIDList();
-
-neurTimes1 = cell(numel(neurList1),1);
-neurTimes2 = cell(numel(neurList2),1);
-
-neurNum1 = zeros(numel(neurList1),1);
-neurNum2 = zeros(numel(neurList2),1)';
-
-
-%%
-neurCat1 = [];
-neurCat2 = [];
-
-for i = 1:numel(neurList1)
-    neurTimes1{i} = neurFile1.getSpikeTimes(neurList1(i));
-    neurNum1(i) = numel(neurTimes1{i});
-    neurCat1 = [neurCat1;neurTimes1{i}];
-end
-for i = 1:numel(neurList2)
-    neurTimes2{i} = neurFile2.getSpikeTimes(neurList2(i));
-    neurNum2(i) = numel(neurTimes2{i});
-    neurCat2 = [neurCat2;neurTimes2{i}];
-end
-%%
-% setInters = zeros(numel(neurList1),numel(neurList2));
-% tic
-% for i = 1:numel(neurList1)
-%     for j = 1:numel(neurList2)
-%         if numel(intersect(neurTimes1{i}(1:99),neurTimes2{j}(1:99))) > 0
-%             setInters(i,j) = numel(intersect(neurTimes1{i},neurTimes2{j}));
-%         end
-%     end
-% end
-% toc
-tic
-setInters = double(neuronCompLoop.computeIntersects(neurCat1,neurCat2,neurNum1,neurNum2));
-toc
-
-%%
-img = cat(3,bsxfun(@rdivide,setInters,neurNum1),repmat(bsxfun(@rdivide,setInters,neurNum2),[1,1,2]));
-
-compare = max(img(:,:,1),img(:,:,2));
-%%
-[elem,index] = sort(compare(:),'descend');
-[row,col] = ind2sub(size(compare),index);
-
-x = unique(row,'stable');
-y = unique(col,'stable');
-
-diaged = img(x,y,:);
-
-%%
-% figure(numb)
-% imshow(diaged);
-
-bName = aName(1:(end-8));
-bName(bName == filesep) = '-';
-imwrite(diaged,['X:\EJgroup_data\TestOut\comp_neurons_img\',bName,'.png'],'png');
-% imwrite(diaged,['/home/vision/vincent/pngCompares/',bName,'.png'],'png');
-disp([aName(1:(end-8)),' done.']);
-pause(0.1);
+    javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
+    javaaddpath([pwd,filesep,'neuronComparator',filesep]);
+    import .*
+    
+    %%
+    if nargin == 0 % Script mode - testing
+        %%
+        aName = '';
+        neurPathRef = 'X:\EJgroup_data\NeurRawTest\vision\data000.neurons-raw';
+        neurPathComp = 'X:\EJgroup_data\NeurRawtest\matlab\data000.neurons-raw';
+    end
+    if nargin == 1 % function mode
+        %%
+        aName = [varargin{1}(1:12),filesep,varargin{1}(14:20),filesep,varargin{1}(14:20)];
+        % aName = 'yyyy-mm-dd-xx/data00x/data00x/' or identical with '\'
+        
+        % My own file system
+        % neurPath1 = ['/home/vision/vincent/out_neur_only/',aName,'.neurons'];
+        % neurPath2 = ['/home/vision/vincent/ref_neur_only/',aName,'.neurons'];
+        
+        % Lab file system
+        refFolder = '/Volumes/Lab/Projects/spikesorting/eis-datasets/';
+        compFolder = '/Volumes/Lab/Projects/spikesorting/mvision/outputsSpectral/';
+        neurPathRef = [refFolder,aName,'.neurons-raw'];
+        neurPathComp = [compFolder,aName,'.neurons-raw'];
+    end
+    
+    neurFileRef = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPathRef);
+    neurFileComp = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPathComp);
+    
+    neurListRef = neurFileRef.getIDList();
+    neurListComp = neurFileComp.getIDList();
+    
+    neurTimesRef = cell(numel(neurListRef),1);
+    neurTimesComp = cell(numel(neurListComp),1);
+    
+    neurNumRef = zeros(numel(neurListRef),1);
+    neurNumComp = zeros(numel(neurListComp),1)';
+    
+    neurElRef = zeros(numel(neurListRef),1);
+    neurElComp = zeros(numel(neurListComp),1)';
+    
+    %%
+    
+    for i = 1:numel(neurListRef)
+        neurTimesRef{i} = neurFileRef.getSpikeTimes(neurListRef(i));
+        neurNumRef(i) = numel(neurTimesRef{i});
+        neurElRef(i) = neurFileRef.getElectrode(neurListRef(i));
+    end
+    for i = 1:numel(neurListComp)
+        neurTimesComp{i} = neurFileComp.getSpikeTimes(neurListComp(i));
+        neurNumComp(i) = numel(neurTimesComp{i});
+        neurElComp(i) = neurFileComp.getElectrode(neurListComp(i));
+    end
+    
+    %%
+    maxEl = max(max(neurElRef),max(neurElComp)) + 1;
+    score = zeros(1,maxEl);
+    
+    for el = 2:maxEl
+        %%
+        seekRef = find(neurElRef == el);
+        seekComp = find(neurElComp == el);
+        
+        if numel(seekRef) == 0 || numel(seekComp) == 0
+            continue
+        end
+        
+        setInters = double(neuronCompLoop.computeIntersects(...
+            vertcat(neurTimesRef{seekRef}),...
+            vertcat(neurTimesComp{seekComp}),...
+            neurNumRef(seekRef),...
+            neurNumComp(seekComp)));
+        
+        setInters = bsxfun(@rdivide,setInters,neurNumRef(seekRef));
+        setInters(setInters > 1) = 1./setInters(setInters > 1).^2;
+        
+        score(el) = neuronCompLoop.maxMetric(setInters)/numel(seekRef);
+    end
 end

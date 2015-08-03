@@ -12,12 +12,13 @@ parConfig = config.getParConfig();
 fileList = importdata(['..',filesep,'fileList.input']);
 n = numel(fileList);
 
-disp('Entering file loop...');
+disp('parallelCaller: Entering file loop...');
 % parfor
 for k = 1:n
     try
         demoScript(fileList{k},'');
     catch error
+       disp(['Error in file ',fileList{k}]);
        disp(error);
        for i = 1:numel(error.stack)
            disp(error.stack(i));
