@@ -123,6 +123,8 @@ classdef mVisionConfig
         end % getClustConfig
         
         function specConfig = getSpectralConfig(obj)
+            specConfig.debug = obj.debug;
+            
             specConfig.nSpikesK = obj.specMaxSpikeskMeans;
             specConfig.nSpikesL = obj.specMaxSpikesLapl;
             specConfig.sigmaDist = obj.sigmaDistance;
