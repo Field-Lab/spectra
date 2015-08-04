@@ -23,9 +23,12 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2 ;
     dthr = (specConfig.maxDistance * boxVolNorm );
     
-    thr = exp(-dthr^2./(2*sigmaNorm));
+    % thr = exp(-dthr^2./(2*sigmaNorm));
+    thr = sigmaNorm / (dthr.^2 + sigmaNorm);
+    % metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
+    metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
     
-    metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
+    tic
     
     eigStack = zeros(subsampleTag,30);
     
@@ -95,9 +98,20 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         evectorsNorm = evectors(:,1:min(size(evectors,2),specConfig.subspaceDim));
         evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
         
-        
-        PCs = metric(sum(bsxfun(@minus, permute(spikes,[1 3 2]),...
+        numPerBuff = 1000;
+        PCs = cell(ceil(size(spikes,1)/numPerBuff),1);
+        for buff = 1:(size(PCs,1)-1)
+            PCs{buff} = metric(sum(bsxfun(@minus,...
+                permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
+                permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
+        end
+        PCs{end} = metric(sum(bsxfun(@minus,...
+            permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
             permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
+        
+        PCs = vertcat(PCs{:});
+        
+        
         
         if numClusters > 15
             numClusters = 15;
@@ -113,10 +127,11 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             if specConfig.debug
                 disp('Failure at 1% max outlier criterion.');
             end
+            failCounter = failCounter + 1;
         else
             failTag = false;
         end
-        if failTag >= 10
+        if failCounter >= 10
             throw(MException('','spectralClustering: Could not meet 1% outlier rule.'))
         end
     end
@@ -128,7 +143,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
     
-    if false
+    toc
+    if true
         %%
         figure(1)
         plot(sortedEigs(1:30),'-o');
@@ -142,5 +158,4 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
         xlabel('x'),ylabel('y'),zlabel('z');
     end
-    %     numel(find(discard))
 end
