@@ -27,8 +27,8 @@ function score = neuronComparator(varargin)
         % neurPath2 = ['/home/vision/vincent/ref_neur_only/',aName,'.neurons'];
         
         % Lab file system
-        refFolder = '/Volumes/Lab/Projects/spikesorting/eis-datasets/';
-        compFolder = '/Volumes/Lab/Projects/spikesorting/mvision/outputsSpectral/';
+        refFolder = '/Volumes/Lab/Projects/spikesorting/mvision/outputsVision/';
+        compFolder = '/Volumes/Lab/Projects/spikesorting/mvision/outputs/';
         neurPathRef = [refFolder,aName,'.neurons-raw'];
         neurPathComp = [compFolder,aName,'.neurons-raw'];
     end
@@ -81,7 +81,7 @@ function score = neuronComparator(varargin)
             neurNumComp(seekComp)));
         
         setInters = bsxfun(@rdivide,setInters,neurNumRef(seekRef));
-        setInters(setInters > 1) = 1./setInters(setInters > 1).^2;
+        % setInters(setInters > 1) = 1./setInters(setInters > 1).^2;
         
         score(el) = neuronCompLoop.maxMetric(setInters)/numel(seekRef);
     end

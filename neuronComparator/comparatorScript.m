@@ -37,7 +37,7 @@ resultTable = ...
     table([fileList;'Global'],m,s,m2,s2,...
     'VariableNames',{'Dataset','avScores','std','avScoresNoZeros','stdNoZeros'})
 %%
-save('/Volumes/Lab/Projects/spikesorting/mvision/scores/scoresSpectralClustering.mat','scores','resultTable','-v7.3');
+save('/Volumes/Lab/Projects/spikesorting/mvision/scores/scoresGaussianClustering.mat','scores','resultTable','-v7.3');
 
 %%
 % delete(gcp);

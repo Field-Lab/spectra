@@ -42,11 +42,11 @@
 
     <ParametersGroup name="Vision Parameters">
         <StringParameter name="Plot Panel Folder" value="F:\vision5"/>
-        <StringParameter name="folder" value="X:\EJgroup_data"/>
-        <IntegerParameter name="X" value="-1481"/>
-        <IntegerParameter name="Y" value="-277"/>
-        <IntegerParameter name="W" value="1366"/>
-        <IntegerParameter name="H" value="750"/>
+        <StringParameter name="folder" value="/Volumes/Lab/Projects/spikesorting"/>
+        <IntegerParameter name="X" value="0"/>
+        <IntegerParameter name="Y" value="22"/>
+        <IntegerParameter name="W" value="1920"/>
+        <IntegerParameter name="H" value="1178"/>
     </ParametersGroup>
         
     <ParametersGroup name="Calculation Globals">
@@ -118,9 +118,9 @@
     </ParametersGroup>
 
     <ParametersGroup name="StaAnalysis">
-        <FileParameter extension="+" name="Analysis Folder" value="/Volumes/Stars/Data/Machado/2000-12-14-1/test"/>
-        <FileParameter extension="xml" name="Movie XML File" value="/Volumes/Stars/Data/Machado/2000-12-14-1/data051.xml"/>
-        <FileParameter extension="xml" name="Config File" value="/netapp/snle/home/tamachado/eclipse-workspace/vision7/config.xml"/>
+        <FileParameter extension="+" name="Analysis Folder" value="/Volumes/Lab/Projects/spikesorting/mvision/outputsVision/2005-05-26-0/data001"/>
+        <FileParameter extension="xml" name="Movie XML File" value="/Volumes/Analysis/stimuli/white-noise-xml/RGB-10-1-0.48-11111.xml"/>
+        <FileParameter extension="xml" name="Config File" value="/Volumes/Lab/Projects/spikesorting/mvision/primate.xml"/>
     </ParametersGroup>
 
     <ParametersGroup name="Neuron Identification">
@@ -416,7 +416,7 @@
 
     <ParametersGroup name="Neuron Viewer 1">
         <BooleanParameter name="showNeuronsInSubclasses" value="true"/>
-        <IntegerParameter name="leftDividerSize" value="409"/>
+        <IntegerParameter name="leftDividerSize" value="516"/>
         <IntegerParameter name="rightDividerSize" value="1"/>
     </ParametersGroup>
 
