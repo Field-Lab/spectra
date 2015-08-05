@@ -9,7 +9,7 @@ parConfig = config.getParConfig();
 
 
 %%
-fileList = importdata(['..',filesep,'fileList.input']);
+fileList = textread(['..',filesep,'fileList.input'],'%s');
 n = numel(fileList);
 
 disp('parallelCaller: Entering file loop...');

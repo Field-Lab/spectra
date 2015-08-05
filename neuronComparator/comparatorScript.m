@@ -8,7 +8,7 @@ parConfig = config.getParConfig();
 % parpool(parConfig.nWorkers);
 
 %%
-fileList = importdata(['..',filesep,'fileList.input']);
+fileList = textread(['..',filesep,'fileList.input'],'%s');
 n = numel(fileList);
 scores = cell(n,1);
 

@@ -30,7 +30,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     
     tic
     
-    eigStack = zeros(subsampleTag,30);
+    eigStack = zeros(subsampleTag,20);
     
     failTag = true;
     failCounter = 0;
@@ -71,8 +71,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             %     laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',wmat);
             
             %     [evectors, evalues] = eig(laplacian);
-            options.issym = true;
-            [evectors, evalues] = eigs(laplacian,30,'lm',options);
+            options.issym = true; options.isreal = true;
+            [evectors, evalues] = eigs(laplacian,20,'lm',options);
             evalues = 1 - evalues;
             
             [evalues,perm] = sort(diag(evalues));
@@ -89,28 +89,25 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         [~,eigIndex] = max(gaps);
         
         numClusters = eigIndex;
-        %     skip = find(sortedEigs > specConfig.eigThreshold, 1, 'first')-1;
         
-        
-        % PCs = wmat * evectors(:,skip:min(size(evectors,2),...
-        %    (skip+specConfig.subspaceDim-1)));
         
         evectorsNorm = evectors(:,1:min(size(evectors,2),specConfig.subspaceDim));
         evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
         
         numPerBuff = 1000;
         PCs = cell(ceil(size(spikes,1)/numPerBuff),1);
+        
         for buff = 1:(size(PCs,1)-1)
             PCs{buff} = metric(sum(bsxfun(@minus,...
                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
                 permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
         end
+        
         PCs{end} = metric(sum(bsxfun(@minus,...
             permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
             permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
         
         PCs = vertcat(PCs{:});
-        
         
         
         if numClusters > 15
@@ -121,7 +118,6 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
         discard = isnan(PCNorm(:,1));
         PCNorm(discard,:) = [];
-        %     PCNorm = PCs;
         
         if nnz(discard) > 0.01*size(PCs,1);
             if specConfig.debug
@@ -132,13 +128,24 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             failTag = false;
         end
         if failCounter >= 10
-            throw(MException('','spectralClustering: Could not meet 1% outlier rule.'))
+            disp('SpectralClustering: Could not meet 1% outlier rule.');
+            failTag = false;
         end
     end
     
-    [clusterIn,model] = kmeans(PCNorm,numClusters,...
-        'replicates',specConfig.kmeansRep,...
-        'MaxIter',specConfig.maxIter);
+    
+    if size(PCNorm,1) > specConfig.maxPts
+        [PCNormRed,~] = datasample(PCNorm,specConfig.maxPts,1);
+        [~,model] = kmeans(PCNormRed,numClusters,...
+            'replicates',specConfig.kmeansRep,...
+            'MaxIter',specConfig.maxIter);
+        [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
+                permute(model,[3 1 2])).^2,3),[],2);       
+    else
+        [clusterIn,model] = kmeans(PCNorm,numClusters,...
+            'replicates',specConfig.kmeansRep,...
+            'MaxIter',specConfig.maxIter);
+    end
     
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
@@ -147,7 +154,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     if true
         %%
         figure(1)
-        plot(sortedEigs(1:30),'-o');
+        plot(sortedEigs(1:20),'-o');
         
         figure(2)
         scatter3(spikes(:,1),spikes(:,2),spikes(:,3),9,clusterIndexes);

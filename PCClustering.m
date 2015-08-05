@@ -44,7 +44,8 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     %%%
     
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
-    parfor el = 2:nElectrodes
+    % parfor
+    for el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -77,7 +78,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             %% Debug - plots
             if clustConfig.debug
                 disp(sprintf(['Electrode ',num2str(el),':\n',...
-                    num2str(numClusters),' neurons found.\n',...
+                    num2str(numClusters),' neurons found over ',num2str(size(projSpikes{el},1)),' spikes\n',...
                     'Time for Electrode Clustering ',num2str(toc(glmTimer)),' seconds\n',...
                     '-----------------------']));
                 
