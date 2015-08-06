@@ -19,3 +19,6 @@ buildTree.m
 *.pdb
 *.dll
 *.ilk
+
+util/loadAndPrintScores.m
+util/printpdf.m
