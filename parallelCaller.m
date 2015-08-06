@@ -1,18 +1,23 @@
 %% Script file parallel caller
+%
 % Loads a list of datasets to process in ../fileList.input
-% And processes them all in parallel on multiple cores
-%%
+% And processes them all in sequential or parallel
+%
+% Warning: A parfor should not be used here if another (more efficient) is used
+% in subroutines (e.g. in PCClustering).
+%
+% Author -- Vincent Deo -- Stanford University -- August 5, 2015
+
+%% Load mVision configuration - start parallel pool if needed
 config = mVisionConfig();
 parConfig = config.getParConfig();
 
 % parpool(parConfig.nWorkers);
 
-
 %%
 fileList = textread(['..',filesep,'fileList.input'],'%s');
 n = numel(fileList);
 
-disp('parallelCaller: Entering file loop...');
 % parfor
 for k = 1:n
     try
@@ -26,7 +31,6 @@ for k = 1:n
     end
 end
 
-
-%%
+%% Clean and close
 % delete(gcp);
 exit;
