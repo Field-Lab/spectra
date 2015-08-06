@@ -5,7 +5,7 @@
 config = mVisionConfig();
 parConfig = config.getParConfig();
 
-% parpool(parConfig.nWorkers);
+parpool(parConfig.nWorkers);
 
 
 %%
@@ -28,5 +28,5 @@ end
 
 
 %%
-% delete(gcp);
+delete(gcp);
 exit;

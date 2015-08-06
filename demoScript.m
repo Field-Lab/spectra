@@ -38,7 +38,7 @@ if nargin ~= 2
     % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
 else
     dataPath = ['/Volumes/Archive/',varargin{1}]
-    saveFolder = ['/Volumes/Lab/Projects/spikesorting/mvision/outputsSpectral/',varargin{1}]
+    saveFolder = ['/Volumes/Lab/Projects/spikesorting/mvision/outputs/',varargin{1}]
     timeCommand = varargin{2}
 end
 
