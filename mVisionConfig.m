@@ -9,7 +9,7 @@ classdef mVisionConfig
         debug = true;
         
         % Parallel (multi-file at parallelCaller level)
-        nWorkers                = 12
+        nWorkers                = 32
         
         %% Data Source management
         bufferMaxSize           = 16384 % samples
@@ -40,7 +40,7 @@ classdef mVisionConfig
         projNDimensions         = 5
         
         %% Gaussian mixture model Clustering properties
-        maxGaussians            = 8     %
+        maxGaussians            = 15    %
         maxEMIter               = 500   %
         regularizationValue     = 0.001 %
         belongProbability       = 0.51  %

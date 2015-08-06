@@ -45,7 +45,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
     % parfor
-    for el = 2:nElectrodes
+    parfor el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -59,8 +59,8 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             
             %% Clustering function
             
-%             [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims));
-            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
+            [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims));
+%            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
             clusterParams{el} = model;
             
             % model should have a method assign - and we must do posterior assignments for spikes
