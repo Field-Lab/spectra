@@ -50,8 +50,8 @@ classdef mVisionConfig
         specMaxSpikeskMeansSeed = 750   %
         specMaxSpikeskMeansPts  = 20000 %
         specMaxSpikesLapl       = 100   %
-        sigmaDistance           = 1.1 % 0.66  % 100
-        maxDistance             = 2.5 % 2.00  % 300
+        sigmaDistance           = 0.75  % 1.1
+        maxDistance             = 10.0   % 2.5
         subspaceDimension       = 15    % Maximum dimension of the eigenvector subspace in which we cluster
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %

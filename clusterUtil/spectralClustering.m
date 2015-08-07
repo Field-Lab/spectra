@@ -28,17 +28,17 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % are given as constant provided data is normalized so that the 1-sigma
     % box has n-dimensional volume 1.
     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
-    sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2 ; % Normalized sigma
+    sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2 % Normalized sigma
     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
     
     % Define affinity metric 
     % Gaussian
-    % thr = exp(-dthr^2./(2*sigmaNorm));
-    % metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
+    thr = exp(-dthr^2./(2*sigmaNorm));
+    metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
     % Inverse square
-    thr = sigmaNorm / (dthr.^2 + sigmaNorm);
-    metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
-    
+%     thr = sigmaNorm / (dthr.^2 + sigmaNorm);
+%     metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
+     
     % eigenvalues storage preallocation
     eigStack = zeros(subsampleTag,20);
     
@@ -148,10 +148,16 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         end
     end % while failTag
     
+%     % Whitening PCnorm
+%     [v,d] = eig(1/(size(PCNorm,1)) *...
+%         (PCNorm' * PCNorm));
+%     PCNorm = PCNorm * v * diag(diag(d).^-0.5) * v';
+    
     % K-means
     if size(PCNorm,1) > specConfig.maxPts
         % Dataset subsampling for k-means
         [PCNormRed,~] = datasample(PCNorm,specConfig.maxPts,1);
+        
         [~,model] = kmeans(PCNormRed,numClusters,...
             'replicates',specConfig.kmeansRep,...
             'MaxIter',specConfig.maxIter);
@@ -168,7 +174,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
     
-    if false % Debug plots
+    if true % Debug plots
         %%
         figure(1) % Laplacian spectrum
         plot(sortedEigs(1:20),'-o');
@@ -177,6 +183,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         scatter3(spikes(:,1),spikes(:,2),spikes(:,3),9,clusterIndexes);
         xlabel('x'),ylabel('y'),zlabel('z');
         colorbar;
+        title('Spectral');
         
         figure(3); % Clusters in laplacian PC space.
         % Not very meaningful as PCs beyond 3 are still very significative

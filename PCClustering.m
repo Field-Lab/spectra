@@ -45,7 +45,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
     % parfor
-    parfor el = 2:nElectrodes
+    for el = 2:nElectrodes
         if numel(projSpikes{el}) == 0
             continue
         end
@@ -59,9 +59,18 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             
             %% Clustering function
             
-            [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims));
-%            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
+            % Whitening
+            [v,d] = eig(1/(size(projSpikes{el},1)) *...
+                projSpikes{el}(:,1:nDims)' * projSpikes{el}(:,1:nDims));
+            
+           
+            [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims) *...
+                v * diag(diag(d).^-0.5) * v');
+            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims) *...
+                v * diag(diag(d).^-0.5) * v');
+            
             clusterParams{el} = model;
+            
             
             % model should have a method assign - and we must do posterior assignments for spikes
             % not used in the clustering.
@@ -81,33 +90,6 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                     num2str(numClusters),' neurons found over ',num2str(size(projSpikes{el},1)),' spikes\n',...
                     'Time for Electrode Clustering ',num2str(toc(glmTimer)),' seconds\n',...
                     '-----------------------']));
-                
-                if false % Debug plots
-                    %%
-                    figure(1)
-                    scatter3(projSpikes{el}(:,1),projSpikes{el}(:,2),projSpikes{el}(:,3),9,clusterIndexes);
-                    colormap jet
-                    colorbar
-                    title('Gaussian mixture')
-                    
-                    for g = 1:numClusters
-                        covMat = clusterParams{el}.Sigma(1:3,1:3,g);
-                        center = clusterParams{el}.mu(g,1:3);
-                        [v,d] = eig(covMat);
-                        
-                        kSig = 1;
-                        lineMat = [1,-1,-1,1,1,-1,-1,1,1,1,-1,-1,1,1,-1,-1,1;...
-                            -1,-1,1,1,1,1,-1,-1,-1,1,-1,-1,1,-1,1,1,-1;...
-                            -1,-1,-1,-1,1,1,1,1,-1,-1,1,-1,1,1,-1,1,-1];
-                        cube = bsxfun(@plus,center',v * kSig * bsxfun(@times,sqrt(diag(d)),lineMat));
-                        
-                        hold on
-                        plot3(cube(1,:),cube(2,:),cube(3,:),'k-','linewidth',2);
-                        axis tight
-                        hold off
-                    end
-                    numClusters
-                end % if false
             end % if debug
             
         catch error

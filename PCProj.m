@@ -35,6 +35,8 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     spikeTimes = cell(nElectrodes,1);
     currSpike = ones(nElectrodes,1);
     
+    whitener = cell(nElectrodes,1);
+    
     for el = 2:nElectrodes
         if disconnected(el)
             continue
@@ -46,6 +48,8 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
         eigenVectors{el} = fliplr(v(:,(end-nDims+1):end));
         projSpikes{el} = zeros(totSpikes(el),nDims);
         spikeTimes{el} = zeros(1,totSpikes(el));
+        
+        whitener{el} = fliplr(v) * diag(e.^-0.5) * fliplr(v)';
     end
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
@@ -87,8 +91,14 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             %% Align all spikes with the aligner            
             spikesTemp = aligner.alignSpikes(el,spikes{el});
             
+            % Standard
             projSpikes{el}(currSpike(el):(currSpike(el) + nSpikes - 1),:) = ...
                 bsxfun(@minus,spikesTemp,averages{el}) * eigenVectors{el};
+            
+%             % Whitened
+%             spikesTemp2 = sqrt(nSpikes) * bsxfun(@minus,spikesTemp,averages{el}) * whitener{el};
+%             projSpikes{el}(currSpike(el):(currSpike(el) + nSpikes - 1),:) = spikesTemp2(:,1:nDims);
+                
             currSpike(el) = currSpike(el) + nSpikes;
             
             

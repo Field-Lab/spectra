@@ -49,7 +49,7 @@ function demoScript(varargin)
         
         timeCommand = '(0-50)'
         
-        saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestParallel'
+        saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestWhitening'
         % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
     else % function mode
         % USER - Sethere root folder for data/output of your list of datasets
