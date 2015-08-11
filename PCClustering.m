@@ -43,6 +43,8 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     end
     %%%
     
+%     tmp = neuronViewer('X:\EJgroup_data\NeurRawTest\vision\');
+    
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
     % parfor
     for el = 2:nElectrodes
@@ -63,11 +65,16 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             [v,d] = eig(1/(size(projSpikes{el},1)) *...
                 projSpikes{el}(:,1:nDims)' * projSpikes{el}(:,1:nDims));
             
-           
-            [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims) *...
-                v * diag(diag(d).^-0.5) * v');
-            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims) *...
-                v * diag(diag(d).^-0.5) * v');
+            
+            %             [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims) *...
+            %                 v * diag(diag(d).^-0.5) * v');
+            %             [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims) *...
+            %                 v * diag(diag(d).^-0.5) * v');
+            
+%             figure(4);
+%             [colorRef,spTimesRef] = tmp.drawClustersColor(el-1,15000,0);
+            
+            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
             
             clusterParams{el} = model;
             
@@ -96,6 +103,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             disp(error);
             disp(['Error at electrode ',num2str(el),', skipping.']);
         end
+        
     end % el
     
     % Concatenating all neurons found

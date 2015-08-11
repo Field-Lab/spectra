@@ -65,7 +65,7 @@ function score = neuronComparator(varargin)
     maxEl = max(max(neurElRef),max(neurElComp)) + 1;
     score = zeros(1,maxEl);
     
-    for el = 2:maxEl
+    for el = 1:maxEl
         %%
         seekRef = find(neurElRef == el);
         seekComp = find(neurElComp == el);
@@ -85,8 +85,6 @@ function score = neuronComparator(varargin)
      		
 	% Inclusion AND excess metric
 	% setInters = sqrt(bsxfun(@rdivide,setInters,neurNumRef(seekRef)).*bsxfun(@rdivide,setInters,neurNumComp(seekComp)));
-
-	% setInters(setInters > 1) = 1./setInters(setInters > 1).^2;
         
         score(el) = neuronCompLoop.maxMetric(setInters)/numel(seekRef);
     end

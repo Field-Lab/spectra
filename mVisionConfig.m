@@ -2,14 +2,15 @@ classdef mVisionConfig
     %MVISIONCONFIG Configuration class for mvision scripts
     %   Contains parameters to run ANF pipeline
     %   Without using a java/xml vision config object/file
-    
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 7, 2015
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = true;
+        debug = false;
         
         % Parallel (multi-file at parallelCaller level)
-        nWorkers                = 32
+        nWorkers                = 15
         
         %% Data Source management
         bufferMaxSize           = 16384 % samples
@@ -21,7 +22,7 @@ classdef mVisionConfig
         
         %% Spike Finding properties
         defaultTtlSigma         = 100   % Amplitude
-        spikeThreshold          = 3     % Amplitude factor
+        spikeThreshold          = 4     % Amplitude factor
         ttlThreshold            = 1000  % Amplitude factor
         meanTimeConstant        = 0.01  % Seconds
         
@@ -52,7 +53,7 @@ classdef mVisionConfig
         specMaxSpikesLapl       = 100   %
         sigmaDistance           = 0.75  % 1.1
         maxDistance             = 10.0   % 2.5
-        subspaceDimension       = 15    % Maximum dimension of the eigenvector subspace in which we cluster
+        subspaceDimension       = 25    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %
         convergeLaplacianIter   = 300  %

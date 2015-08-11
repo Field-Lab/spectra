@@ -12,14 +12,14 @@
 config = mVisionConfig();
 parConfig = config.getParConfig();
 
-% parpool(parConfig.nWorkers);
+parpool(parConfig.nWorkers);
 
 %%
 fileList = textread(['..',filesep,'fileList.input'],'%s');
 n = numel(fileList);
 
 % parfor
-for k = 1:n
+parfor k = 1:n
     try
         demoScript(fileList{k},'');
     catch error
@@ -32,5 +32,5 @@ for k = 1:n
 end
 
 %% Clean and close
-% delete(gcp);
+delete(gcp);
 exit;

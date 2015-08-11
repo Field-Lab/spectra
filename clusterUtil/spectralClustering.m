@@ -17,6 +17,10 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     config = mVisionConfig();
     specConfig = config.getSpectralConfig();
     
+    %%
+    spikes = double(spikes);
+    %%
+    
     % Determine if subsampling the data is necessary
     if specConfig.nSpikesL < size(spikes,1)
         subsampleTag = specConfig.lapAvIter;
@@ -40,7 +44,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
 %     metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
      
     % eigenvalues storage preallocation
-    eigStack = zeros(subsampleTag,20);
+    eigStack = zeros(subsampleTag,specConfig.subspaceDim);
     
     % Tags and counter for outlier criterion
     failTag = true;
@@ -80,7 +84,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             
             % Extraction of dominant eigenvalues and eigenvectors
             options.issym = true; options.isreal = true;
-            [evectors, evalues] = eigs(laplacian,20,'lm',options);
+            [evectors, evalues] = eigs(laplacian,specConfig.subspaceDim,'lm',options);
             evalues = 1 - evalues;
             
             [evalues,perm] = sort(diag(evalues)); % Sometimes, they come unsorted?
@@ -96,8 +100,14 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         gaps = sortedEigs(2:end)-sortedEigs(1:(end-1));
         [~,numClusters] = max(gaps);
         
+        % Vision compatibily and avoid loophole of bad laplacian giving >> 10
+        % number of clusters
+        if numClusters > 15
+            numClusters = 15;
+        end
+        
         % Dimensionality reduction and normalization of eigenvectors component by component
-        evectorsNorm = evectors(:,1:min(size(evectors,2),specConfig.subspaceDim));
+        evectorsNorm = evectors(:,1:min(size(evectors,2),numClusters));
         evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
         
         % Computing affinities of ALL points relative to subset used for laplacian
@@ -117,12 +127,6 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
             permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
         PCs = vertcat(PCs{:});
-        
-        % Vision compatibily and avoid loophole of bad laplacian giving >> 10
-        % number of clusters
-        if numClusters > 15
-            numClusters = 15;
-        end
         
         % Normalize PCs on unit hypersphere
         % Discard outliers (unconnected to any laplacian-building point, hence
@@ -174,14 +178,16 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
     
-    if true % Debug plots
+    if false % Debug plots
         %%
         figure(1) % Laplacian spectrum
-        plot(sortedEigs(1:20),'-o');
-        
+        plot(sortedEigs(1:specConfig.subspaceDim),'-o');
+
         figure(2) % Clusters in spike PC space
-        scatter3(spikes(:,1),spikes(:,2),spikes(:,3),9,clusterIndexes);
+        dispsubset = randsample(size(spikes,1),10000);
+        scatter3(spikes(dispsubset,1),spikes(dispsubset,2),spikes(dispsubset,3),9,clusterIndexes(dispsubset));
         xlabel('x'),ylabel('y'),zlabel('z');
+        colormap hsv
         colorbar;
         title('Spectral');
         
