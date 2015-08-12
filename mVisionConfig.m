@@ -35,6 +35,10 @@ classdef mVisionConfig
         % 0 - 1 electrode || 1 - 7 electrodes || 2 - 19 electrodes
         electrodeUsage          = 1
         
+        whitening               = true  % whiten relative to noise floor on electrodes
+        expectedNoiseEvents     = 10000;
+        
+        
         covSpikeBufferSize      = 100;
         
         %% Projections properties
@@ -101,6 +105,9 @@ classdef mVisionConfig
             covConfig.nRPoints = obj.nRPoints;
             covConfig.electrodeUsage = obj.electrodeUsage;
             covConfig.spikeBufferSize = obj.covSpikeBufferSize;
+            
+            covConfig.whitening = obj.whitening;
+            covConfig.noiseEvents = obj.expectedNoiseEvents;
         end % getCovConfig
         
         function projConfig = getProjConfig(obj)

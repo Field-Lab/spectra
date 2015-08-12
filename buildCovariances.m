@@ -87,6 +87,7 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     end % while ~isFinished
     
     %% Normalize averages and covmatrix
+    
     for el = 2:nElectrodes
         if dataSource.disconnected(el) || totSpikes(el) == 0
             continue;
@@ -97,5 +98,4 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
             averages{el} = averages{el}/totSpikes(el);
         end
     end
-    
 end

@@ -43,13 +43,14 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
         end
         
         [v,d] = eig(covMatrix{el});
-        e = flipud(diag(d));
+        [e,perm] = sort(diag(d),'descend');
+        v = v(:,perm);
         eigenValues{el} = e(1:nDims);
-        eigenVectors{el} = fliplr(v(:,(end-nDims+1):end));
+        eigenVectors{el} = v(:,1:nDims);
         projSpikes{el} = zeros(totSpikes(el),nDims);
         spikeTimes{el} = zeros(1,totSpikes(el));
         
-        whitener{el} = fliplr(v) * diag(e.^-0.5) * fliplr(v)';
+        whitener{el} = v * diag(e.^-0.5) * v';
     end
     
     while ~dataSource.isFinished % stopSample should be the first sample not loaded

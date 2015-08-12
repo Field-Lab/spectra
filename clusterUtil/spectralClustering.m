@@ -32,7 +32,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % are given as constant provided data is normalized so that the 1-sigma
     % box has n-dimensional volume 1.
     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
-    sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2 % Normalized sigma
+    sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2; % Normalized sigma
     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
     
     % Define affinity metric 
@@ -164,14 +164,16 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         
         [~,model] = kmeans(PCNormRed,numClusters,...
             'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter);
+            'MaxIter',specConfig.maxIter,...
+            'EmptyAction','drop');
         % Assigning nearest centroid to all points (even not used in k-means)
         [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
                 permute(model,[3 1 2])).^2,3),[],2);       
     else % Computing k-means directly on all points
         [clusterIn,model] = kmeans(PCNorm,numClusters,...
             'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter);
+            'MaxIter',specConfig.maxIter,...
+            'EmptyAction','drop');
     end
     
     % Assigning cluster 0 to outliers
@@ -187,14 +189,16 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         dispsubset = randsample(size(spikes,1),10000);
         scatter3(spikes(dispsubset,1),spikes(dispsubset,2),spikes(dispsubset,3),9,clusterIndexes(dispsubset));
         xlabel('x'),ylabel('y'),zlabel('z');
-        colormap hsv
-        colorbar;
+        caxis([0 max(clusterIndexes)]); colormap hsv; colorbar;
         title('Spectral');
         
         figure(3); % Clusters in laplacian PC space.
         % Not very meaningful as PCs beyond 3 are still very significative
         scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
         xlabel('x'),ylabel('y'),zlabel('z');
-        colorbar
+        caxis([0 max(clusterIndexes)]); colormap hsv; colorbar;
+        title('Laplacian eigenspace');
+        
+        numClusters
     end % Debug plots
 end % function

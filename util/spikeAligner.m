@@ -61,7 +61,7 @@ classdef spikeAligner < handle
             
             interpPoints = bsxfun(@plus,...
                 (offset-1)/obj.upSampRatio + double(spikes) - obj.dataSource.bufferStart - obj.nLPoints,...
-                1:(obj.nPoints-2));
+                0:(obj.nPoints-3));
             interpPointsLin = interpPoints(:);
             
             s = size(interpPoints);

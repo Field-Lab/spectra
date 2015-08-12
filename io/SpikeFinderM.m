@@ -212,7 +212,7 @@ classdef SpikeFinderM < handle
                     [amp,I] = min(frameStack,[],2,'omitnan');
                     time = frames(1,:) - 1 + I(1:size(frames,2))';
                     
-                    timeSpacing = time - [obj.previousSpikeTime(el) - bs + 1, time(1:(end-1))] + 1;
+                    timeSpacing = time - [obj.previousSpikeTime(el) - bs + 1, time(1:(end-1))];
                     keep = and(frameLength <= obj.maxSpikeWidth, timeSpacing > obj.minTimeSeparation);
 
                     spikesEl = [spikesEl; [time(keep)'+ bs - 1,repmat(el,nnz(keep),1),-amp(keep)]];
