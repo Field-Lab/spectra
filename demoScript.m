@@ -63,10 +63,10 @@ function demoScript(varargin)
     
     % USER input - tryToDo -- won't do any task unless stated here
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    tryToDo =  [  0   ,   0   ,  1  ,  1  ,   1   ,   1  ];
+    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
     % USER input - force -- rewriting output even if files are found
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    force =    [  0   ,   0   ,  1  ,  1  ,   1   ,   1  ];
+    force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
     
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','demoScript: data source folder|file does not exist'));

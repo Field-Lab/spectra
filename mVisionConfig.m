@@ -52,15 +52,15 @@ classdef mVisionConfig
         maxEMSpikesUsed         = 20000 %
         
         %% Spectral clustering properties
-        specMaxSpikeskMeansSeed = 750   %
+        specMaxSpikeskMeansSeed = 2500   %
         specMaxSpikeskMeansPts  = 20000 %
-        specMaxSpikesLapl       = 100   %
-        sigmaDistance           = 0.75  % 1.1
-        maxDistance             = 10.0   % 2.5
+        specMaxSpikesLapl       = 200   %
+        sigmaDistance           = 1     % 1.1
+        maxDistance             = 2   % 2.5
         subspaceDimension       = 25    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %
-        convergeLaplacianIter   = 300  %
+        convergeLaplacianIter   = 300   %
         
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes

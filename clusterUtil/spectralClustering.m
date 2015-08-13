@@ -38,7 +38,9 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % Define affinity metric 
     % Gaussian
     thr = exp(-dthr^2./(2*sigmaNorm));
-    metric = @(euclDist2) max(0, exp(-euclDist2./(2*sigmaNorm))-thr) ./ (1-thr);
+    
+    metric = @(euclDist2Norm) exp(-euclDist2Norm);
+    % metric = @(euclDist2) euclDist2 <= dthr^2;
     % Inverse square
 %     thr = sigmaNorm / (dthr.^2 + sigmaNorm);
 %     metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
@@ -70,8 +72,17 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             end % subsampleTag == 1
             
             % Affinity matrix
-            wmat = metric(sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3));
+            wmat = sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
+                permute(spikesToCluster,[3 1 2])).^2,3);
+            
+            sigmas = 1./sqrt(UtilSpectral.nthSmallest(0.03 * size(wmat,1),wmat));
+%             sigmas = sqrt(UtilSpectral.nthSmallest(7,wmat));
+            
+            
+%             sigprod = bsxfun(@times,sigmas',sigmas);
+%             wmat = sigprod./(wmat+sigprod);
+            wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
+            
             
             % Row weights
             dvector = sum(wmat,2);
@@ -83,7 +94,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',wmat);
             
             % Extraction of dominant eigenvalues and eigenvectors
-            options.issym = true; options.isreal = true;
+            options.issym = true; options.isreal = true; options.maxit = 1000;
             [evectors, evalues] = eigs(laplacian,specConfig.subspaceDim,'lm',options);
             evalues = 1 - evalues;
             
@@ -118,14 +129,22 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         PCs = cell(ceil(size(spikes,1)/numPerBuff),1);
         
         for buff = 1:(size(PCs,1)-1)
-            PCs{buff} = metric(sum(bsxfun(@minus,...
+            PCs{buff} = exp(-bsxfun(@times,sigmas'.^2,sum(bsxfun(@minus,...
                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
+                permute(spikesToCluster,[3 1 2])).^2,3))) * evectorsNorm;
+            
+%             PCs{buff} = bsxfun(@times,sigmas'.^2,1./bsxfun(@plus,sigmas'.^2,(sum(bsxfun(@minus,...
+%                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
+%                 permute(spikesToCluster,[3 1 2])).^2,3)))) * evectorsNorm;
         end
+        PCs{end} = exp(-bsxfun(@times,sigmas'.^2,sum(bsxfun(@minus,...
+                permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
+                permute(spikesToCluster,[3 1 2])).^2,3))) * evectorsNorm;
         
-        PCs{end} = metric(sum(bsxfun(@minus,...
-            permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
-            permute(spikesToCluster,[3 1 2])).^2,3)) * evectorsNorm;
+%         PCs{end} = bsxfun(@times,sigmas'.^2,1./bsxfun(@plus,sigmas'.^2,(sum(bsxfun(@minus,...
+%                 permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
+%                 permute(spikesToCluster,[3 1 2])).^2,3)))) * evectorsNorm;
+            
         PCs = vertcat(PCs{:});
         
         % Normalize PCs on unit hypersphere
@@ -134,7 +153,6 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
         discard = isnan(PCNorm(:,1));
         PCNorm(discard,:) = [];
-        
         % Check for outlier fraction
         % If too high, then subset is unsatisfying, start over.
         if nnz(discard) > 0.01*size(PCs,1);
@@ -164,16 +182,14 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         
         [~,model] = kmeans(PCNormRed,numClusters,...
             'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter,...
-            'EmptyAction','drop');
+            'MaxIter',specConfig.maxIter);
         % Assigning nearest centroid to all points (even not used in k-means)
         [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
                 permute(model,[3 1 2])).^2,3),[],2);       
     else % Computing k-means directly on all points
         [clusterIn,model] = kmeans(PCNorm,numClusters,...
             'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter,...
-            'EmptyAction','drop');
+            'MaxIter',specConfig.maxIter);
     end
     
     % Assigning cluster 0 to outliers
@@ -185,20 +201,37 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         figure(1) % Laplacian spectrum
         plot(sortedEigs(1:specConfig.subspaceDim),'-o');
 
+        figure(1);hold off;plot(eigStack');hold on; plot(eigStack(end,:),'r-*'); plot(sortedEigs,'b-*');
+        %%
         figure(2) % Clusters in spike PC space
-        dispsubset = randsample(size(spikes,1),10000);
+        if size(spikes,1) > 10000
+            dispsubset = randsample(size(spikes,1),10000);
+        else
+            dispsubset = 1:size(spikes,1);
+        end
         scatter3(spikes(dispsubset,1),spikes(dispsubset,2),spikes(dispsubset,3),9,clusterIndexes(dispsubset));
         xlabel('x'),ylabel('y'),zlabel('z');
-        caxis([0 max(clusterIndexes)]); colormap hsv; colorbar;
+        f = gca;
+        f.DataAspectRatio = [1 1 1];
+        caxis([-1 max(clusterIndexes)]); colormap hsv; colorbar;
         title('Spectral');
-        
+        %%
         figure(3); % Clusters in laplacian PC space.
         % Not very meaningful as PCs beyond 3 are still very significative
         scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
         xlabel('x'),ylabel('y'),zlabel('z');
-        caxis([0 max(clusterIndexes)]); colormap hsv; colorbar;
+        caxis([-1 max(clusterIndexes)]); colormap hsv; colorbar;
         title('Laplacian eigenspace');
-        
+        %%
+        figure(4)
+        tmat = sqrt(sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
+                permute(spikesToCluster,[3 1 2])).^2,3));
+        hist(tmat(:),1000);
+        hold on;
+        x = min(tmat(:)):0.01:max(tmat(:));
+        plot(x,1000*metric(x.^2),'r');
+        hold off
+        sigmaNorm
         numClusters
     end % Debug plots
 end % function
