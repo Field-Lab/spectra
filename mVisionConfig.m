@@ -10,7 +10,7 @@ classdef mVisionConfig
         debug = true;
         
         % Parallel (multi-file at parallelCaller level)
-        nWorkers                = 15
+        nWorkers                = 32
         
         %% Data Source management
         bufferMaxSize           = 16384 % samples

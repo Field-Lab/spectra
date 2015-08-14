@@ -29,7 +29,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
 %     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
     
     thrVal = 0.05;
-    nNeighbors = 10;
+    nNeighbors = 5;
     
     % Tags and counter for outlier criterion
     failTag = true;
@@ -57,8 +57,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
 %         wmat = sigprod./(wmat+sigprod);
         
         % Locally scaled affinity matrix
-        % wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
-        wmat = 1./(1+bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas).^2);
+        wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
+        % wmat = 1./(1+bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
 %         wmat(wmat < thrVal) = 0;
         
         % Row weights
@@ -88,7 +88,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
             currVectors = [alignedVectors{C-1},evectors(:,C+1)];
         end
-        numClusters = find((max(quality)-quality) < 0.005,1,'last') + 1;
+        numClusters = find((max(quality)-quality) < 0.02,1,'last') + 1;
         
         % Dimensionality reduction and normalization of eigenvectors component by component
         % evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
@@ -109,7 +109,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(nNeighbors,adj)); % 0.03 * size(wmat,1)
             
             % PCs{buff} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
-            adj = 1./(1+bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)).^2);
+            adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)));
 %             adj(adj < thrVal) = 0;
             PCs{buff} = adj * evectors;
         end
@@ -118,7 +118,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
                 permute(spikesToCluster,[3 1 2])).^2,3);
         
         sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(10,adj)); % 0.03 * size(wmat,1)
-        adj = 1./(1+bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)).^2);
+        adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)));
 %         adj(adj < thrVal) = 0;
         PCs{end} = adj * evectors;
         % PCs{end} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
@@ -178,9 +178,9 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
     
-    if true % Debug plots
+    if false % Debug plots
         %%
-        figure(1) % Laplacian spectrum
+        figure(1) % nClusters Quality
         plot(quality,'+-');
         % plot(sortedEigs,'-o');
 
@@ -217,6 +217,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         x = min(tmat(:)):0.01:max(tmat(:));
 %         plot(x,1000*metric(x.^2),'r');
         hold off
-        numClusters
+        fprintf('%u clusters found\n',numClusters);
+        fprintf('%u spikes processed\n',size(spikes,1));
     end % Debug plots
 end % function
