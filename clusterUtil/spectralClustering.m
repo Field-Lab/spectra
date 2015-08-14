@@ -17,135 +17,120 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     config = mVisionConfig();
     specConfig = config.getSpectralConfig();
     
-    %%
-    spikes = double(spikes);
-    %%
-    
-    % Determine if subsampling the data is necessary
-    if specConfig.nSpikesL < size(spikes,1)
-        subsampleTag = specConfig.lapAvIter;
-    else
-        subsampleTag = 1;
+    if ~strcmp(class(spikes),'double')
+        spikes = double(spikes);
     end
     
     % sigma and max distance threshold of gaussian/inverse square metrics
     % are given as constant provided data is normalized so that the 1-sigma
     % box has n-dimensional volume 1.
-    boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
-    sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2; % Normalized sigma
-    dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
+%     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
+%     sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2; % Normalized sigma
+%     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
     
-    % Define affinity metric 
-    % Gaussian
-    thr = exp(-dthr^2./(2*sigmaNorm));
-    
-    metric = @(euclDist2Norm) exp(-euclDist2Norm);
-    % metric = @(euclDist2) euclDist2 <= dthr^2;
-    % Inverse square
-%     thr = sigmaNorm / (dthr.^2 + sigmaNorm);
-%     metric = @(euclDist2) max(0, sigmaNorm./(euclDist2 + sigmaNorm) - thr) ./ (1-thr);
-     
-    % eigenvalues storage preallocation
-    eigStack = zeros(subsampleTag,specConfig.subspaceDim);
+    thrVal = 0.05;
+    nNeighbors = 10;
     
     % Tags and counter for outlier criterion
     failTag = true;
     failCounter = 0;
     
     while failTag
-        
-        % Iterations to generate smoothed spectrum of graph laplacian
-        % The eigenvalue gap is too unstable for a single data subset
-        for iterIndex = 1:subsampleTag            
-            if subsampleTag == 1 % data is small, not subsampling
-                spikesToCluster = spikes;
-            else % Subsampling
-                if iterIndex < subsampleTag
-                    spikesToCluster = datasample(spikes,specConfig.nSpikesL,1);
-                else % At last iteration, pick larger subset for k-means precision
-                    if specConfig.nSpikesK < size(spikes,1)
-                        spikesToCluster = datasample(spikes,specConfig.nSpikesK,1);
-                    else
-                        spikesToCluster = spikes;
-                    end
-                end % iterIndex < subsampleTag
-            end % subsampleTag == 1
-            
-            % Affinity matrix
-            wmat = sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3);
-            
-            sigmas = 1./sqrt(UtilSpectral.nthSmallest(0.03 * size(wmat,1),wmat));
-%             sigmas = sqrt(UtilSpectral.nthSmallest(7,wmat));
-            
-            
-%             sigprod = bsxfun(@times,sigmas',sigmas);
-%             wmat = sigprod./(wmat+sigprod);
-            wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
-            
-            
-            % Row weights
-            dvector = sum(wmat,2);
-            dinv = dvector .^ (-0.5);
-            
-            % Normalized graph (Id - Laplacian)
-            % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
-            laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
-            % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',wmat);
-            
-            % Extraction of dominant eigenvalues and eigenvectors
-            options.issym = true; options.isreal = true; options.maxit = 1000;
-            [evectors, evalues] = eigs(laplacian,specConfig.subspaceDim,'lm',options);
-            evalues = 1 - evalues;
-            
-            [evalues,perm] = sort(diag(evalues)); % Sometimes, they come unsorted?
-            evectors = evectors(:,perm);
-            
-            eigStack(iterIndex,:) = real(evalues); % Sometimes, eigs has imaginary residue?
-        end % iterIndex
-        
-        % Smooth out laplacian spectrum
-        sortedEigs = mean(eigStack,1);
-        
-        % Get spectrum gap index - spectral clustering best number of clusters
-        gaps = sortedEigs(2:end)-sortedEigs(1:(end-1));
-        [~,numClusters] = max(gaps);
-        
-        % Vision compatibily and avoid loophole of bad laplacian giving >> 10
-        % number of clusters
-        if numClusters > 15
-            numClusters = 15;
+        if specConfig.nSpikesK < size(spikes,1)
+            spikesToCluster = datasample(spikes,specConfig.nSpikesK,1);
+        else
+            spikesToCluster = spikes;
         end
         
+        % Distance matrix
+        wmat = sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
+            permute(spikesToCluster,[3 1 2])).^2,3);
+        
+        
+        %%%
+        % Fixed or variable Kth neighbor ? multiplier factor ?
+        sigmas = 1./sqrt(UtilSpectral.nthSmallest(nNeighbors,wmat)); % 0.03 * size(wmat,1)
+%         sigmas = sqrt(UtilSpectral.nthSmallest(7,wmat));
+        %%%
+            
+%         sigprod = bsxfun(@times,sigmas',sigmas);
+%         wmat = sigprod./(wmat+sigprod);
+        
+        % Locally scaled affinity matrix
+        % wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
+        wmat = 1./(1+bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas).^2);
+%         wmat(wmat < thrVal) = 0;
+        
+        % Row weights
+        dvector = sum(wmat,2);
+        dinv = dvector .^ (-0.5);
+            
+        % Normalized graph (Id - Laplacian)
+        % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
+        laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
+        % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',wmat);
+        
+        
+        % Extraction of dominant eigenvalues and eigenvectors
+        options.issym = true; options.isreal = true; options.maxit = 1000;
+        [evectors, evalues] = eigs(laplacian,specConfig.maxClust + 5,'lm',options);
+        evalues = 1 - evalues;
+            
+        [sortedEigs,perm] = sort(real(diag(evalues))); % Sometimes, they come unsorted, and with imaginary remainder
+        evectors = evectors(:,perm);
+        
+        
+        % Number of clusters determination
+        currVectors = evectors(:,1:2); % Starting at 2 clusters
+        quality = zeros(specConfig.maxClust-1,1);
+        alignedVectors = cell(specConfig.maxClust-1,1);
+        for C = 2:specConfig.maxClust
+            [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
+            currVectors = [alignedVectors{C-1},evectors(:,C+1)];
+        end
+        numClusters = find((max(quality)-quality) < 0.005,1,'last') + 1;
+        
         % Dimensionality reduction and normalization of eigenvectors component by component
-        evectorsNorm = evectors(:,1:min(size(evectors,2),numClusters));
-        evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
+        % evectorsNorm = bsxfun(@rdivide,evectorsNorm,sqrt(sum(evectorsNorm.^2,2)));
         
         % Computing affinities of ALL points relative to subset used for laplacian
         % Then their PCs in Laplacian eigenspace
         % Proceeding by chunks of 1000 (RAM consuming intermediate step)
         
+        evectors = evectors(:,1:numClusters);
+        
         numPerBuff = 1000;
         PCs = cell(ceil(size(spikes,1)/numPerBuff),1);
-        
+        tic
         for buff = 1:(size(PCs,1)-1)
-            PCs{buff} = exp(-bsxfun(@times,sigmas'.^2,sum(bsxfun(@minus,...
+            adj = sum(bsxfun(@minus,...
                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3))) * evectorsNorm;
+                permute(spikesToCluster,[3 1 2])).^2,3);
+            sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(nNeighbors,adj)); % 0.03 * size(wmat,1)
             
-%             PCs{buff} = bsxfun(@times,sigmas'.^2,1./bsxfun(@plus,sigmas'.^2,(sum(bsxfun(@minus,...
-%                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
-%                 permute(spikesToCluster,[3 1 2])).^2,3)))) * evectorsNorm;
+            % PCs{buff} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
+            adj = 1./(1+bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)).^2);
+%             adj(adj < thrVal) = 0;
+            PCs{buff} = adj * evectors;
         end
-        PCs{end} = exp(-bsxfun(@times,sigmas'.^2,sum(bsxfun(@minus,...
+        adj = sum(bsxfun(@minus,...
                 permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3))) * evectorsNorm;
+                permute(spikesToCluster,[3 1 2])).^2,3);
         
-%         PCs{end} = bsxfun(@times,sigmas'.^2,1./bsxfun(@plus,sigmas'.^2,(sum(bsxfun(@minus,...
-%                 permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
-%                 permute(spikesToCluster,[3 1 2])).^2,3)))) * evectorsNorm;
-            
+        sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(10,adj)); % 0.03 * size(wmat,1)
+        adj = 1./(1+bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)).^2);
+%         adj(adj < thrVal) = 0;
+        PCs{end} = adj * evectors;
+        % PCs{end} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
+        
+        clear adj
+        
         PCs = vertcat(PCs{:});
+        toc
+        
+%         tic
+%         PCs = UtilSpectral.computeSpectralProjections(nNeighbors,thrVal,spikesToCluster,sigmas,spikes,evectors);
+%         toc
         
         % Normalize PCs on unit hypersphere
         % Discard outliers (unconnected to any laplacian-building point, hence
@@ -153,6 +138,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
         discard = isnan(PCNorm(:,1));
         PCNorm(discard,:) = [];
+        
         % Check for outlier fraction
         % If too high, then subset is unsatisfying, start over.
         if nnz(discard) > 0.01*size(PCs,1);
@@ -170,10 +156,6 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         end
     end % while failTag
     
-%     % Whitening PCnorm
-%     [v,d] = eig(1/(size(PCNorm,1)) *...
-%         (PCNorm' * PCNorm));
-%     PCNorm = PCNorm * v * diag(diag(d).^-0.5) * v';
     
     % K-means
     if size(PCNorm,1) > specConfig.maxPts
@@ -196,12 +178,12 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
     
-    if false % Debug plots
+    if true % Debug plots
         %%
         figure(1) % Laplacian spectrum
-        plot(sortedEigs(1:specConfig.subspaceDim),'-o');
+        plot(quality,'+-');
+        % plot(sortedEigs,'-o');
 
-        figure(1);hold off;plot(eigStack');hold on; plot(eigStack(end,:),'r-*'); plot(sortedEigs,'b-*');
         %%
         figure(2) % Clusters in spike PC space
         if size(spikes,1) > 10000
@@ -218,7 +200,11 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         %%
         figure(3); % Clusters in laplacian PC space.
         % Not very meaningful as PCs beyond 3 are still very significative
-        scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
+        if size(PCNorm,2) >= 3
+            scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
+        else
+            scatter(PCNorm(:,1),PCNorm(:,2),9,clusterIn);
+        end
         xlabel('x'),ylabel('y'),zlabel('z');
         caxis([-1 max(clusterIndexes)]); colormap hsv; colorbar;
         title('Laplacian eigenspace');
@@ -229,9 +215,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         hist(tmat(:),1000);
         hold on;
         x = min(tmat(:)):0.01:max(tmat(:));
-        plot(x,1000*metric(x.^2),'r');
+%         plot(x,1000*metric(x.^2),'r');
         hold off
-        sigmaNorm
         numClusters
     end % Debug plots
 end % function

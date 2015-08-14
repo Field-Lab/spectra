@@ -7,7 +7,7 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = false;
+        debug = true;
         
         % Parallel (multi-file at parallelCaller level)
         nWorkers                = 15
@@ -57,7 +57,7 @@ classdef mVisionConfig
         specMaxSpikesLapl       = 200   %
         sigmaDistance           = 1     % 1.1
         maxDistance             = 2   % 2.5
-        subspaceDimension       = 25    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
+        maxClusters             = 15    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %
         convergeLaplacianIter   = 300   %
@@ -139,7 +139,7 @@ classdef mVisionConfig
             specConfig.nSpikesL = obj.specMaxSpikesLapl;
             specConfig.sigmaDist = obj.sigmaDistance;
             specConfig.maxDistance = obj.maxDistance;
-            specConfig.subspaceDim = obj.subspaceDimension;
+            specConfig.maxClust = obj.maxClusters;
             specConfig.kmeansRep = obj.kmeansReplicas;
             specConfig.maxIter = obj.kmeansMaxIter;
             specConfig.lapAvIter = obj.convergeLaplacianIter;
