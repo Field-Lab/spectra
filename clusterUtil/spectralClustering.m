@@ -21,12 +21,16 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         spikes = double(spikes);
     end
     
+    if ~exist('UtilSpectral','class')
+        javaaddpath(['.',filesep,'clusterUtil']);
+    end
+    
     % sigma and max distance threshold of gaussian/inverse square metrics
     % are given as constant provided data is normalized so that the 1-sigma
     % box has n-dimensional volume 1.
-%     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
-%     sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2; % Normalized sigma
-%     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
+    %     boxVolNorm = prod(std(spikes,1)) .^ (1/size(spikes,2)); % 1-sigma volume of data
+    %     sigmaNorm = (specConfig.sigmaDist * boxVolNorm)^ 2; % Normalized sigma
+    %     dthr = (specConfig.maxDistance * boxVolNorm ); % Normalized threshold
     
     thrVal = 0.05;
     nNeighbors = 5;
@@ -50,21 +54,21 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         %%%
         % Fixed or variable Kth neighbor ? multiplier factor ?
         sigmas = 1./sqrt(UtilSpectral.nthSmallest(nNeighbors,wmat)); % 0.03 * size(wmat,1)
-%         sigmas = sqrt(UtilSpectral.nthSmallest(7,wmat));
+        %         sigmas = sqrt(UtilSpectral.nthSmallest(7,wmat));
         %%%
-            
-%         sigprod = bsxfun(@times,sigmas',sigmas);
-%         wmat = sigprod./(wmat+sigprod);
+        
+        %         sigprod = bsxfun(@times,sigmas',sigmas);
+        %         wmat = sigprod./(wmat+sigprod);
         
         % Locally scaled affinity matrix
         wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
         % wmat = 1./(1+bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
-%         wmat(wmat < thrVal) = 0;
+        %         wmat(wmat < thrVal) = 0;
         
         % Row weights
         dvector = sum(wmat,2);
         dinv = dvector .^ (-0.5);
-            
+        
         % Normalized graph (Id - Laplacian)
         % laplacian = eye(numel(dinv)) - bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
         laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat));
@@ -75,7 +79,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         options.issym = true; options.isreal = true; options.maxit = 1000;
         [evectors, evalues] = eigs(laplacian,specConfig.maxClust + 5,'lm',options);
         evalues = 1 - evalues;
-            
+        
         [sortedEigs,perm] = sort(real(diag(evalues))); % Sometimes, they come unsorted, and with imaginary remainder
         evectors = evectors(:,perm);
         
@@ -101,36 +105,38 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         
         numPerBuff = 1000;
         PCs = cell(ceil(size(spikes,1)/numPerBuff),1);
-        tic
+        
         for buff = 1:(size(PCs,1)-1)
             adj = sum(bsxfun(@minus,...
                 permute(spikes((numPerBuff*(buff-1)+1):(numPerBuff*buff),:),[1 3 2]),...
                 permute(spikesToCluster,[3 1 2])).^2,3);
+            
             sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(nNeighbors,adj)); % 0.03 * size(wmat,1)
             
             % PCs{buff} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
             adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)));
-%             adj(adj < thrVal) = 0;
+            %             adj(adj < thrVal) = 0;
             PCs{buff} = adj * evectors;
         end
+        
         adj = sum(bsxfun(@minus,...
-                permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3);
+            permute(spikes((numPerBuff*(size(PCs,1)-1)+1):end,:),[1 3 2]),...
+            permute(spikesToCluster,[3 1 2])).^2,3);
         
         sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(10,adj)); % 0.03 * size(wmat,1)
         adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj)));
-%         adj(adj < thrVal) = 0;
+        %         adj(adj < thrVal) = 0;
         PCs{end} = adj * evectors;
         % PCs{end} = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))) * evectors;
         
         clear adj
         
         PCs = vertcat(PCs{:});
-        toc
+       
         
-%         tic
-%         PCs = UtilSpectral.computeSpectralProjections(nNeighbors,thrVal,spikesToCluster,sigmas,spikes,evectors);
-%         toc
+        %         tic
+        %         PCs = UtilSpectral.computeSpectralProjections(nNeighbors,thrVal,spikesToCluster,sigmas,spikes,evectors);
+        %         toc
         
         % Normalize PCs on unit hypersphere
         % Discard outliers (unconnected to any laplacian-building point, hence
@@ -167,7 +173,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             'MaxIter',specConfig.maxIter);
         % Assigning nearest centroid to all points (even not used in k-means)
         [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
-                permute(model,[3 1 2])).^2,3),[],2);       
+            permute(model,[3 1 2])).^2,3),[],2);
     else % Computing k-means directly on all points
         [clusterIn,model] = kmeans(PCNorm,numClusters,...
             'replicates',specConfig.kmeansRep,...
@@ -183,7 +189,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         figure(1) % nClusters Quality
         plot(quality,'+-');
         % plot(sortedEigs,'-o');
-
+        
         %%
         figure(2) % Clusters in spike PC space
         if size(spikes,1) > 10000
@@ -211,11 +217,11 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         %%
         figure(4)
         tmat = sqrt(sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3));
+            permute(spikesToCluster,[3 1 2])).^2,3));
         hist(tmat(:),1000);
         hold on;
         x = min(tmat(:)):0.01:max(tmat(:));
-%         plot(x,1000*metric(x.^2),'r');
+        %         plot(x,1000*metric(x.^2),'r');
         hold off
         fprintf('%u clusters found\n',numClusters);
         fprintf('%u spikes processed\n',size(spikes,1));

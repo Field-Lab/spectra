@@ -1,4 +1,4 @@
-function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClustering(projSpikes, spikeTimesEl, varargin)
+function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClustering(prjFilePath, spikeTimesEl)
     %PCCLUSTERING Outputs dummy clusters
     %
     % Specifications
@@ -29,7 +29,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     
     nDims = clustConfig.nDims;
     
-    nElectrodes = numel(projSpikes);
+    nElectrodes = numel(spikeTimesEl);
     clusterParams = cell(nElectrodes,1);
     
     
@@ -37,44 +37,37 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     neuronClusters = cell(nElectrodes,1);
     spikeTimesNeuron = cell(nElectrodes,1);
     
-    %%%
-    if nargin == 3
-        %    load(varargin{1}) % reload model mode
-    end
-    %%%
-    
 %     tmp = neuronViewer('X:\EJgroup_data\NeurRawTest\vision\');
     
     % Optional parfor here - don't put if already parallelizing on files - put if single file processing
     % parfor
     parfor el = 2:nElectrodes
-        if numel(projSpikes{el}) == 0
+        
+        % Subfunction loadprj is necessary to maintain parfor body transparency.
+        projSpikes = loadPrj(prjFilePath,el);
+            
+        if numel(projSpikes) <= clustConfig.minSpikes
             continue
         end
-        if size(projSpikes{el},2) < nDims
+        if size(projSpikes,2) < nDims
             throw(MException('',['PCClustering: insufficient dimensions (',num2str(size(projSpikes{el},2)),')saved in .prj.mat - please recompute projections.']));
         end
         
-        try
+%         try
             %%
             glmTimer = tic;
             
             %% Clustering function
             
             % Whitening
-            [v,d] = eig(1/(size(projSpikes{el},1)) *...
-                projSpikes{el}(:,1:nDims)' * projSpikes{el}(:,1:nDims));
-            
-            
+            %             [v,d] = eig(1/(size(projSpikes{el},1)) *...
+            %                 projSpikes{el}(:,1:nDims)' * projSpikes{el}(:,1:nDims));
             %             [clusterIndexes, model, numClusters] = gaussianMixture(projSpikes{el}(:,1:nDims) *...
             %                 v * diag(diag(d).^-0.5) * v');
             %             [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims) *...
             %                 v * diag(diag(d).^-0.5) * v');
             
-%             figure(4);
-%             [colorRef,spTimesRef] = tmp.drawClustersColor(el-1,15000,0);
-            
-            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes{el}(:,1:nDims));
+            [clusterIndexes, model, numClusters] = spectralClustering(projSpikes(:,1:nDims));
             
             clusterParams{el} = model;
             
@@ -95,13 +88,15 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             if clustConfig.debug
                 fprintf(['Electrode %u:\n%u neurons found over %u spikes\n',...
                     'Time for Electrode Clustering %f seconds\n',...
-                    '-----------------------\n'],el,numClusters,size(projSpikes{el},1),toc(glmTimer));
+                    '-----------------------\n'],el,numClusters,size(projSpikes,1),toc(glmTimer));
             end % if debug
             
-        catch error
-            disp(error);
-            disp(['Error at electrode ',num2str(el),', skipping.']);
-        end
+            projSpikes = [];
+%         catch error
+%             disp(error);
+%             disp(['Error at electrode ',num2str(el),', skipping.']);
+%             throw(error)
+%         end
         
     end % el
     

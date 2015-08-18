@@ -50,6 +50,7 @@ classdef mVisionConfig
         regularizationValue     = 0.001 %
         belongProbability       = 0.51  %
         maxEMSpikesUsed         = 20000 %
+        minSpikesForClustering  = 100   %
         
         %% Spectral clustering properties
         specMaxSpikeskMeansSeed = 2500   %
@@ -129,6 +130,7 @@ classdef mVisionConfig
             clustConfig.regVal = obj.regularizationValue;
             clustConfig.clusterProb = obj.belongProbability;
             clustConfig.maxSpikes = obj.maxEMSpikesUsed;
+            clustConfig.minSpikes = obj.minSpikesForClustering;
         end % getClustConfig
         
         function specConfig = getSpectralConfig(obj)

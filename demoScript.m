@@ -41,6 +41,7 @@ function demoScript(varargin)
         javaaddpath(visionPath,'end')
     end
     javaaddpath(['.',filesep,'vision']);
+    javaaddpath(['.',filesep,'clusterUtil']);
     
     % USER INPUT - Set up data and output folders
     if nargin ~= 2 % Script mode - put your dataset to process
@@ -158,7 +159,13 @@ function demoScript(varargin)
             PCProj(dataPath, timeCommand, ...
             double(spikeSave), covMatrix, averages, totSpikes);
         
-        save([saveFolder,filesep,datasetName,'.prj.mat'],'projSpikes','eigenValues','eigenVectors','spikeTimes','-v7.3');
+        save([saveFolder,filesep,datasetName,'.prj.mat'],'eigenValues','eigenVectors','spikeTimes','-v7.3');
+        for el = 1:numel(projSpikes)
+            eval(sprintf('projSpikes%u = projSpikes{el};',el));
+            save([saveFolder,filesep,datasetName,'.prj.mat'],sprintf('projSpikes%u',el),'-append','-v7.3');
+            eval(sprintf('projSpikes%u = [];',el));
+            projSpikes{el} = []; % Progressive RAM clean-up
+        end
         
         disp(['Time for projections calculation ', num2str(toc), ' seconds']);
     else
@@ -173,22 +180,19 @@ function demoScript(varargin)
         %%
         disp('Starting clustering...')
         tic
-        if ~exist('projSpikes','var')
-            load([saveFolder,filesep,datasetName,'.prj.mat']);
+        % No projections loader at this level
+        % Loader of spikeTimes however
+        if ~exist('spikeTimes','var')
+            load([saveFolder,filesep,datasetName,'.prj.mat'],'spikeTimes');
         end
-        % Do clustering stuff
-        
-        % Write a .model.mat containing the clustering information
-        
-        % Separate the neurons in format [neuronID, neuronSpikeTimes]
-        
+        % Clustering framework
         [clusterParams,neuronEls,neuronClusters,neuronSpikeTimes] =...
-            PCClustering(projSpikes, spikeTimes,...
-            [saveFolder,filesep,datasetName,'.model.mat']...
-            );
+            PCClustering([saveFolder,filesep,datasetName,'.prj.mat'],spikeTimes);
         
+        % Save a model file
         save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
         
+        % Save a neurons-raw file (.neurons.mat)
         save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
         
         disp(['Time for clustering ', num2str(toc), ' seconds']);
