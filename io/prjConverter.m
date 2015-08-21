@@ -9,7 +9,7 @@ for f = 1:n
         save(fileList{f},'eigenValues','eigenVectors','spikeTimes','-v7.3');
         for el = 1:numel(projSpikes)
             eval(sprintf('projSpikes%u = projSpikes{el};',el));
-            save(fileList{f},sprintf('projSpikes%u',el),'-append','-v7.3');
+            save(fileList{f},sprintf('projSpikes%u',el),'-append');
             eval(sprintf('projSpikes%u = [];',el));
             projSpikes{el} = []; % Progressive RAM clean-up
         end

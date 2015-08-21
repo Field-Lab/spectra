@@ -1,24 +1,46 @@
-# Clean Matlab
+# CleanMatlab
+
 *.asv
+
 *.mat
+
 test*.m
+
 !testNeurComp.m
+
 buildTree.m
+
 *.fig
 
+
 # Clean Visual Studio crap
+
 *.vcxproj*
+
 *.sdf
+
 *.sln
+
 *.log
+
 *.tlog
+
 *.lastbuildstate
+
 *.suo
+
 *.obj
+
 *.idb
+
 *.pdb
+
 *.dll
+
 *.ilk
 
+
+# Custom
 util/loadAndPrintScores.m
 util/printpdf.m
+duplicateRemoval/removeDuplicatesOrig.m
