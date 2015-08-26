@@ -4,14 +4,14 @@ function demoScript(varargin)
     %
     % This script manages the successive steps of serial neuron finding
     % It can work in script mode or in function mode
-    % In which the arguments are (datasetName,timeCommand)
-    % dataSetName: string in the format 'yyyy-mm-dd-x/dataxxx'
-    %   The root folders for data and output are provided below
-    % timeCommand: vision style time command for selection within a dataset
-    %   Such as (10-), (500-1000),(-100)
-    % mVision DOES NOT support dataset syntaxes such as data000(1000-)-data002(-100)
+    % Input:
+    %   dataSetName: string in the format 'yyyy-mm-dd-x/dataxxx'
+    %       The root folders for data and output are provided below
+    %   timeCommand: vision style time command for selection within a dataset
+    %       Such as (10-), (500-1000),(-100)
+    %   mVision DOES NOT support dataset syntaxes such as data000(1000-)-data002(-100)
     %
-    % Successively calls if requested | necessary the subroutines:
+    % Successively calls if requested || necessary the subroutines:
     % Noise evaluation - Spike Finding - Covariance Calculation
     % Projections Calculations - Clustering - Neuron Cleaning - Neuron File saving
     %
@@ -48,7 +48,7 @@ function demoScript(varargin)
         dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
         % dataPath = '/Volumes/Data/2013-04-30-3/data001'
         
-        timeCommand = '(100-110)'
+        timeCommand = '(0-100)'
         
         saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestWhitening'
         % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
@@ -64,10 +64,10 @@ function demoScript(varargin)
     
     % USER input - tryToDo -- won't do any task unless stated here
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
+    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   1   ,   0  ];
     % USER input - force -- rewriting output even if files are found
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   1  ];
+    force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   0  ];
     
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','demoScript: data source folder|file does not exist'));

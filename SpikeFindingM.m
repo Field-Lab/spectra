@@ -49,7 +49,7 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     sigma = sigma * spikeThreshold;
      
     %% Create the Spiker Finder and heirs
-    spikeFinderM = SpikeFinderM(sigma, ttlThreshold, meanTimeConstant, dataSource);
+    spikeFinderM = SpikeFinderM(sigma, ttlThreshold, dataSource);
     
     %% Spike Finding
     

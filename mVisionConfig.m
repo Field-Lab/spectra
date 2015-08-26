@@ -53,11 +53,9 @@ classdef mVisionConfig
         minSpikesForClustering  = 100   %
         
         %% Spectral clustering properties
-        specMaxSpikeskMeansSeed = 2500   %
+        specMaxSpikeskMeansSeed = 2500  %
         specMaxSpikeskMeansPts  = 20000 %
-        specMaxSpikesLapl       = 200   %
-        sigmaDistance           = 1     % 1.1
-        maxDistance             = 2   % 2.5
+        nthNeighbor             = 5     %
         maxClusters             = 15    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
         kmeansReplicas          = 5     %
         kmeansMaxIter           = 200   %
@@ -136,15 +134,12 @@ classdef mVisionConfig
         function specConfig = getSpectralConfig(obj)
             specConfig.debug = obj.debug;
             
+            specConfig.nNeighbors = obj.nthNeighbor;
             specConfig.nSpikesK = obj.specMaxSpikeskMeansSeed;
             specConfig.maxPts = obj.specMaxSpikeskMeansPts; 
-            specConfig.nSpikesL = obj.specMaxSpikesLapl;
-            specConfig.sigmaDist = obj.sigmaDistance;
-            specConfig.maxDistance = obj.maxDistance;
             specConfig.maxClust = obj.maxClusters;
             specConfig.kmeansRep = obj.kmeansReplicas;
             specConfig.maxIter = obj.kmeansMaxIter;
-            specConfig.lapAvIter = obj.convergeLaplacianIter;
         end % getSpectralConfig
         
         function parConfig = getParConfig(obj)

@@ -1,8 +1,10 @@
 classdef SpikeFinderM < handle
     %SPIKEFINDER Encapsulating the process of finding, creating and sorting spikes
     %   Replaces the spikeFinder + spikeBuffer in the java architecture
-    %   On the concept of listener called -> call listeners
-    %   But processed on sample arrays.
+    %   Spike finding is however done buffer by buffer
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 21, 2015
+    
     properties (SetAccess = immutable, GetAccess = protected)
         delta = 50e-6     % Sampling timestep
         minTimeSeparation % .25 msec separation, in samples
@@ -12,8 +14,7 @@ classdef SpikeFinderM < handle
         disconnected @logical
         spikeThresholds
         ttlThreshold
-        alpha
-        dataFileUpsampler
+        dataFileUpsampler % Data source
     end
     properties (SetAccess = protected, GetAccess = public)
         buildingSpike @logical
@@ -30,7 +31,14 @@ classdef SpikeFinderM < handle
     
     methods
         % Constructor
-        function obj = SpikeFinderM(spikeThresholds, ttlThreshold, timeConstant, dataFileUpsampler)
+        % Instantiates and initializes all required for the process flow
+        %
+        % Inputs:
+        %   spikeThresholds: value of the spike thresholds on all electrodes, in column array.
+        %       Should be obtained by loadind the .noise file
+        %   ttlThreshold: threshold value on ttlElectrode. Comes from the configuration.
+        %   dataFileUpsampler: data source instantiated and passed by reference from the calling function
+        function obj = SpikeFinderM(spikeThresholds, ttlThreshold, dataFileUpsampler)
             
             validateattributes(ttlThreshold,{'numeric'},{'scalar'},'','ttlThresholds');
             obj.ttlThreshold = double(ttlThreshold);
@@ -54,9 +62,6 @@ classdef SpikeFinderM < handle
             spConfig = config.getSpikeConfig();
             obj.maxSpikeWidth = spConfig.maxSpikeWidth;
             obj.minTimeSeparation = spConfig.minSpikeSeparation;
-            
-            validateattributes(timeConstant,{'numeric'},{'scalar','>',0},'','timeConstant');
-            obj.alpha = obj.delta / timeConstant;
             
         end % Constructor
         

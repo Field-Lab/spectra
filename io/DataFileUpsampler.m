@@ -1,7 +1,13 @@
 classdef DataFileUpsampler < handle
-    %DATAFILEREADER Summary of this class goes here
-    %   Detailed explanation goes here
-    
+%DATAFILEUPSAMPLER wrapping class for reading data files
+%
+% Encapsulates all accesses to underlying java RawDataFile
+% And necessary information for resplining (spikeAligner)
+% Uses an independent DataFileReadThread that manages disk reading in a different thread
+%
+%
+% Author -- Vincent Deo -- Stanford University -- August 21, 2015
+
     properties(SetAccess = public, GetAccess = public)
         % General
         nElectrodes % Number of electrodes
@@ -12,21 +18,20 @@ classdef DataFileUpsampler < handle
         rawData % nElectrodes x bufferLength buffer
         upSampData % nElectrodes x (bufferLength * upSampRatio) upsampled buffer.
         
-        % Cubic Spline interpolation
-        interpolant
-        isInterpolated@logical = false
-        
         % Buffer management
-        isBufferUpsampled@logical = false % Upsampled buffer tag. For spike realignment
         isBufferLoaded@logical = false % If the first buffer has ever been loaded
-        bufferMaxSize % Maximum buffer size - power of 2 for quick upsampling
+        bufferMaxSize % Maximum buffer size
+        
+        % Cubic Spline interpolation
+        interpolant % cubic spline interpolation model of the whole buffer
+        isInterpolated@logical = false % Tag for whether the interpolation model is for the current buffer or updated/null
         
         lastSampleLoaded % Marker for continous buffers
         bufferStart % Start (inclusive) of current buffer
         bufferEnd % End (exclusive) of current buffer
         
-        nLPoints % Number of left point for spike form loading
-        nRPoints % Number of right point for spike form loading
+        nLPoints % Number of left point for spike waveform loading
+        nRPoints % Number of right point for spike waveform loading
         
         % Upsampling management
         upSampleRatio % Precision of upsampling - power of 2 as well - OBSOLETE
@@ -39,31 +44,33 @@ classdef DataFileUpsampler < handle
         stopSample % Last (exclusive) sample of data source in the data files
         isFinished@logical = false % Tag for last sample of data source reached
         
-        % Data Filtering
+        % High-pass data Filtering - DC removal
         alpha % IIR data filter constant
         filterState % Memory of filter state buffer-to-buffer
         bFilter % Filter coefficients
         aFilter % Filter coefficients
-    end
+    end % properties
     
     methods
         % Constructor
-        % Inputs
-        % rawDataSource - Data source path + vision style time tags (eg ".../data...(0-10)")
-        % (opt) meanTimeConstant - time constant for raw data lowpass filtering
-        % (opt) nLPoints - number of points to the left for spike form
-        % (opt) nRPoints - number of points to the right for spike form
+        % Inputs:
+        %   rawDataSource - Data source path + vision style time tags (eg ".../data...(0-10)")
+        %   (opt) meanTimeConstant - time constant for raw data lowpass filtering
+        %   (opt) nLPoints - number of points to the left for spike form
+        %   (opt) nRPoints - number of points to the right for spike form
         %
-        % Calls
-        % obj = DataFileUpsampler(rawDataSource)
-        % obj = DataFileUpsampler(rawDataSource, meanTimeConstant)
-        % obj = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints)
+        % Call examples:
+        %   obj = DataFileUpsampler(rawDataSource)
+        %   obj = DataFileUpsampler(rawDataSource, meanTimeConstant)
+        %   obj = DataFileUpsampler(rawDataSource, meanTimeConstant, nLPoints, nRPoints)
         function obj = DataFileUpsampler(rawDataSource, varargin)
+            % Defaults
             narginchk(1,4)
             meanTimeConstant = 1;
             nLPointsInput = 0;
             nRPointsInput = 0;
             
+            % Input check
             validateattributes(rawDataSource,{'char'},{},'','rawDataSource',1);
             if nargin >= 2
                 meanTimeConstant = varargin{1};
@@ -76,12 +83,15 @@ classdef DataFileUpsampler < handle
                 validateattributes(nRPointsInput,{'numeric'},{'scalar','integer','>=',0},'','nRPoints',4);
             end
             
+            % java management
             import edu.ucsc.neurobiology.vision.io.*
             import edu.ucsc.neurobiology.vision.electrodemap.*
             import java.io.*
             
+            % Set data reader config
             obj.nLPoints = nLPointsInput;
             obj.nRPoints = nRPointsInput;
+            
             
             config = mVisionConfig();
             dataConfig = config.getDataConfig();
@@ -90,50 +100,57 @@ classdef DataFileUpsampler < handle
             
             obj.bufferMaxSize = obj.bufferMaxSize - obj.nLPoints - obj.nRPoints;
             
+            % Vision used to get the RawDataFile object
             parser = DataFileStringParser(rawDataSource);
             datasets = parser.getDatasets();
             obj.rawDataFile = RawDataFile(File(char(datasets(1))));
                         
+            % Limit times of the read in the raw data file
             startTimes = parser.getStartTimes();
             stopTimes = parser.getStopTimes();
+            
             
             header = obj.rawDataFile.getHeader();
             obj.samplingRate = header.getSamplingFrequency();
             
+            % Setting samples configuration 
             obj.startSample = startTimes(1) * obj.samplingRate;
             obj.stopSample = min (stopTimes(1) * obj.samplingRate, ...
                 header.getNumberOfSamples);
             obj.lastSampleLoaded = obj.startSample-1;
             
-            obj.alpha = 1 / (meanTimeConstant * obj.samplingRate);
             
+            % Getting nElectrodes and disconnected from raw data file
             packedArrayID = int32(header.getArrayID());
             electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
             obj.nElectrodes = electrodeMap.getNumberOfElectrodes();
             obj.disconnected = electrodeMap.getDisconnectedElectrodesList();
            
-            obj.dataReadThread = DataFileReadThread(obj.rawDataFile, obj.nElectrodes, obj.alpha);
-            obj.dataReadThread.start();
-            
+            % DC removal filter
+            obj.alpha = 1 / (meanTimeConstant * obj.samplingRate);
             obj.filterState = zeros(1,obj.nElectrodes);
             obj.bFilter = (1-obj.alpha)*[1,-1];
             obj.aFilter = [1,obj.alpha-1];
+            
+            % Setting data read thread
+            obj.dataReadThread = DataFileReadThread(obj.rawDataFile, obj.nElectrodes, obj.alpha);
+            obj.dataReadThread.start();
         end
         
         % Load next buffer in order
         % Maintains the order of the buffers and sequentially loads all the range of the data source
         %
-        % Inputs
-        % (opt) bufferSize = size of buffer to call. Defaults to the maximal size defined for the class
-        % defaults to the size defined as constant class parameter.
+        % Inputs:
+        %   (opt) bufferSize = size of buffer to call. Defaults to the maximal size defined for the class
+        %   defaults to the size defined as constant class parameter.
         %
-        % Calls
-        % obj.loadNextBuffer()
-        % obj.loadNextBuffer(bufferSize)
+        % Call examples:
+        %   obj.loadNextBuffer()
+        %   obj.loadNextBuffer(bufferSize)
         %
-        % Returns
-        % bufferStart - Inclusive start sample of loaded buffer
-        % bufferEnd - Exclusive end sample of loaded buffer
+        % Returns:
+        %   bufferStart - Inclusive start sample of loaded buffer
+        %   bufferEnd - Exclusive end sample of loaded buffer
         function [bufferStart, bufferEnd] = loadNextBuffer(obj, varargin)
             narginchk(1,3);
             if nargin >= 2 % Can be used to force a different length buffer call.
@@ -175,7 +192,6 @@ classdef DataFileUpsampler < handle
             end
             
             obj.isBufferLoaded = true;
-            obj.isBufferUpsampled = false;
             
             obj.isInterpolated = false;
             
@@ -194,24 +210,24 @@ classdef DataFileUpsampler < handle
                 obj.dataReadThread.setQuit();
             end
             
-        end
+        end % loadNextBuffer
         
         % Load a requested random access buffer
         % Does not erase the sample markers of buffers loaded with obj.loadNextBuffer()
         % So can be used in the middle of sequential buffer calls
         %
-        % Inputs
-        % bufferStart = start sample of buffer (inclusive)
-        % bufferEnd = stop sample of buffer (exclusive)
-        % filterTag = boolean tag if buffer must be filtered.
-        % if true, the previous filter state is neither used nor overwritten
+        % Inputs:
+        %   bufferStart = start sample of buffer (inclusive)
+        %   bufferEnd = stop sample of buffer (exclusive)
+        %   filterTag = boolean tag if buffer must be filtered.
+        %       if true, the previous filter state is neither used nor overwritten
         %
-        % Calls
-        % obj.loadRandomBuffer(bufferStart, bufferEnd, filterTag)
+        % Call examples:
+        %   obj.loadRandomBuffer(bufferStart, bufferEnd, filterTag)
         %
-        % Returns
-        % bufferStart - Inclusive start sample of loaded buffer
-        % bufferEnd - Exclusive end sample of loaded buffer
+        % Returns:
+        %   bufferStart - Inclusive start sample of loaded buffer
+        %   bufferEnd - Exclusive end sample of loaded buffer
         function [bufferStart, bufferEnd] = loadRandomBuffer(obj, bufferStart, bufferSize, filterTag)
             validateattributes(bufferStart,{'numeric'},{'scalar','integer','>=',0});
             validateattributes(bufferSize,{'numeric'},{'scalar','integer','>',0},'','bufferLength',2);
@@ -232,7 +248,6 @@ classdef DataFileUpsampler < handle
                 obj.rawData = single(obj.rawDataFile.getData(obj.bufferStart, obj.bufferEnd - obj.bufferStart)');
             end
             obj.isBufferLoaded = true;
-            obj.isBufferUpsampled = false;
             obj.isInterpolated = false;
             
             % Assign
@@ -240,37 +255,9 @@ classdef DataFileUpsampler < handle
             bufferEnd = obj.bufferEnd;
         end
         
-        % ---- OBSOLETE ----
-        % Upsampling of currently loaded buffer
-        % Method used in non-aliasing constant bandwidth upsampling
-        % Instead of cubic spline interpolation as in vision
-        %
-        % This may be accelerated on GPU
-        % Or parallelized by electrode if done in another language
-        %
-        % Limiting factor is upsampled buffer size in RAM
-        % Many other data strategies are worth it
-        % this one takes advantage of the large amount of upsampling necessary for all the
-        % spikes + Matlab's ability for big ffts.
-        % 4096 buffer length * 16 upsampling * 513 electrodes * single precision = 135 MB
-        function upsampleBuffer(obj)
-            if ~obj.isBufferLoaded
-                throw(MException('','DataFileUpsampler:upsampleBuffer:No Buffer Loaded'));
-            end
-            if ~obj.isBufferUpsampled
-                if obj.upSampleRatio > 1
-                    fftData = obj.upSampleRatio*fft(obj.rawData,[],2);
-                    obj.upSampData = ifft(...
-                        fftData(:,1:(ceil(size(fftData,2)/2))),...
-                        obj.upSampleRatio*size(obj.rawData,2),...
-                        2,'symmetric');
-                else
-                    obj.upSampData = obj.rawData;
-                end
-            end
-            obj.isBufferUpsampled = true;
-        end
-        
+        % Create cubic spline interpolant object for the currently loaded buffer
+        % Interpolant object is persistent and can then be use for the realignment of all
+        % the spikes contained in this buffer
         function createInterpolant(obj)
             if ~obj.isBufferLoaded
                 throw(MException('','DataFileUpsampler:createInterpolant:No Buffer Loaded'));
@@ -283,13 +270,15 @@ classdef DataFileUpsampler < handle
             end
             
             obj.isInterpolated = true;
-        end
+        end % createInterpolant
         
         % Forces refiltering of current buffer
         % Useful during spikefinding when initial filter state is initialized after analysis of the
         % first second of data
-        % Tracking tag sets if the filter state currently stored is to be used and resaved after
-        % filtering
+        %
+        % Input:
+        %   trackingTag: boolean, sets if the filter state currently stored is
+        %       to be used and resaved after filtering
         function forceFilter(obj,trackingTag)
             if ~isfloat(obj.rawData)
                 obj.rawData = single(obj.rawData);
@@ -307,7 +296,7 @@ classdef DataFileUpsampler < handle
                 [obj.rawData, ~] = filter(obj.bFilter, obj.aFilter, ...
                     single(obj.rawData),[], 2);
             end
-        end
+        end % forceFilter
         
     end % methods
 end % classdef

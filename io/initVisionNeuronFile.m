@@ -25,7 +25,7 @@ function newNeuronFile = initVisionNeuronFile(rawDataFilePath, newNeuronFilePath
 %   
 
 % ------------
-% Vincent Deo - Stanford University - 06/02/2015
+% Add - Vincent Deo - Stanford University - 06/02/2015
 % If the jar is already imported in call hierarchy, any argument can be passed as
 % visionPath. Changed 4th argument to optional.
 narginchk(3,4);

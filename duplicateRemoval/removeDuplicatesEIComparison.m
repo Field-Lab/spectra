@@ -45,7 +45,7 @@ function [goodIDs, duplicateIDs, duplicatePairs, duplicateGroups]...
 %   count in the group;  allDuplicates: the ID of all the neurons that were
 %   identified as duplicates.
 %
-% Version: v4.04 - 25/07/2011
+% Branched from version 4.04 - 08/21/2015
 
 %% Parameters
 
@@ -245,30 +245,31 @@ col(diagRem) = [];
 duplicatePairs = unique(sort([row,col],2),'rows');
 duplicatePairs = [double(neuronIDs(duplicatePairs)),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
 
-%%
-% Saver for use in building java connected component tree
-threshold = Inf;
-[row,col] = find( metric <= threshold );
-diagRem = row == col;
-row(diagRem) = [];
-col(diagRem) = [];
-duplicatePairs = unique(sort([row,col],2),'rows');
-xx = [double(duplicatePairs),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
-xx = sortrows(xx,3);
-save([dataFolder,filesep,'adjEdgesL2abs.mat'],'xx');
-g = Graph(max(max(xx(:,1:2))));
-g.debug = true;
-g.addAllEdges(xx(:,1)-1,xx(:,2)-1,xx(:,3));
-t = g.getFinalTree();
-thr = t.thresholdList();
-save([dataFolder,filesep,'adjEdgesL2abs.mat'],'thr','-append');
-fprintf('Done !\n')
-goodIDs = [];
-duplicateIDs = [];
-duplicatePairs = [];
-duplicateGroups = [];
-return;
-
+%% Temp use, for analysis of data structure
+if false
+    % Saver for use in building java connected component tree
+    threshold = Inf;
+    [row,col] = find( metric <= threshold );
+    diagRem = row == col;
+    row(diagRem) = [];
+    col(diagRem) = [];
+    duplicatePairs = unique(sort([row,col],2),'rows');
+    xx = [double(duplicatePairs),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
+    xx = sortrows(xx,3);
+    save([dataFolder,filesep,'adjEdgesL2abs.mat'],'xx');
+    g = Graph(max(max(xx(:,1:2))));
+    g.debug = true;
+    g.addAllEdges(xx(:,1)-1,xx(:,2)-1,xx(:,3));
+    t = g.getFinalTree();
+    thr = t.thresholdList();
+    save([dataFolder,filesep,'adjEdgesL2abs.mat'],'thr','-append');
+    fprintf('Done !\n')
+    goodIDs = [];
+    duplicateIDs = [];
+    duplicatePairs = [];
+    duplicateGroups = [];
+    return;
+end
 %% Building the duplicate groups
 duplicateGroups = struct('groupNumber',{},'bestNeuron',{}','allDuplicates',{});
 nDuplicateGroups = 0;
@@ -329,4 +330,4 @@ end
 goodIDs = sort(goodIDs);
 duplicateIDs = sort(unique(duplicateIDs));
 
-end % removeDuplicates
+end % removeDuplicatesEIComparison
