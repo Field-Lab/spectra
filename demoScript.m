@@ -211,6 +211,8 @@ function demoScript(varargin)
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
         end
         
+        % Build a and push to a NeuronSaverM
+        % Converts the .neurons.mat in a .neurons-raw
         neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName);
         
         for i = 1:numel(neuronEls)
@@ -220,6 +222,7 @@ function demoScript(varargin)
                 neuronSpikeTimes{i});
         end
         
+        % Clean the .neurons-raw into a .neurons
         disp('Starting vision''s neuron cleaning...');
         
         neuronFileName = [saveFolder,filesep,datasetName,'.neurons-raw'];

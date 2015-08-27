@@ -1,8 +1,10 @@
 classdef NeuronSaverM < handle
     %NEURONSAVERM Utility class to save neurons into vision compatible format
     % Uses initVisionNeuronFile to properly create a NeuronFile
-    % Wraps the java methods
+    % Wraps the NeuronFile underlying java methods
     % Allows to push neurons in the newly created file
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
     properties
         nElectrodes
@@ -74,6 +76,7 @@ classdef NeuronSaverM < handle
             try
                 obj.neuronFile.close();
             catch
+                % If already closed, catch and do nothing.
             end
         end % Destructor
         

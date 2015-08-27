@@ -1,14 +1,24 @@
 function [sigma, mu] = getNoise(data)
-    % Vectorized version of noise calculation
-    % data should be 1 row per electrode, size(data) = [nElectrodes,nSamples]
+    %GETNOISE Computes noise floor by a discard-and-recurse process
+    %
+    %   Input:
+    %       data: nElectrodes x nSamples double array
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
-    % NECESSARY CAST - otherwise in single - precision overflow in covariance summing - neg sqrt.
-    data = double(data);
+    % NECESSARY CAST - otherwise in single - precision overflow in covariance summing - neg sqrt...
+    if ~isa(data,'double')
+        data = double(data);
+    end
+    
+    validateattributes(data,{'double'},{'2d','nonempty','nonsparse','real','finite','nonnan'},'','data',1);
+    if size(data,2) <= 1
+        throw(MException('','getNoise:cannot compute noise floor on only one sample'));
+    end
     
     data2 = data.^2; % Pre computing squared data only once
     
     % Extracting parameters
-    nSamples = size(data,2);
     nElectrodes= size(data,1);
     
     % Output arrays

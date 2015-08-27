@@ -68,8 +68,8 @@ classdef SpikeFinderM < handle
         
         % Processing of a buffer of data nElectrodes * nSamples
         % And outputs all the finished spikes, in order
-        % No use of spike buffer anymore: spikes on buffer overlap may not be sorted
-        % Final sort required before saving.
+        %
+        % Final sort of all spikes required before saving.
         function spikes = processBuffer(obj)
             
             bs = obj.dataFileUpsampler.bufferStart;
@@ -258,92 +258,8 @@ classdef SpikeFinderM < handle
             
         end % processBuffer
         
-        
-        % ---- OBSOLETE ----
-        % Processing of a single sample over nElectrodes
-        % And outputs the spikes terminating at this sample.
-        function spikes = processSample(obj, sample)
-            validateattributes(sample,{'numeric'},{'column','nrows',obj.nElectrodes},'','sample');
-            if ~obj.initialized
-                throw(MException('SpikeFinderM.processSample: not initialized'));
-            end
-            
-            % processing of TTL sample
-            ttlSpike = zeros(0,3);
-            if sample(1) < -obj.ttlThreshold
-                if ~obj.buildingSpike(1)
-                    obj.buildingSpike(1) = true;
-                    ttlSpike = [obj.currentSample,1,1500]; %% Hardcoded 1500 amplitude for ttl spikes
-                    if obj.previousSpikeTime(1) > 0
-                        obj.ttlAverage = obj.ttlAverage + obj.currentSample - obj.previousSpikeTime(1);
-                        obj.ttlCount = obj.ttlCount + 1;
-                    end
-                    obj.previousSpikeTime(1) = obj.currentSample;
-                end
-            else
-                obj.buildingSpike(1) = false;
-            end
-            
-            % processing of all other electrodes
-            
-            % Filtering is done in dataFileUpsampler - we just flip sign here
-            amplitude = -sample;
-            
-            % Identifying behaviors and removing disconnected electrodes
-            % Spikes starting at this sample
-            startSpike = and(~obj.disconnected,...
-                and(amplitude > obj.spikeThresholds, ~obj.buildingSpike));
-            % Spikes already started still above threshold
-            contSpike = and(~obj.disconnected,...
-                and(and(amplitude > obj.spikeThresholds, obj.buildingSpike),...
-                amplitude > obj.maxAmplitude));
-            % Spikes that just went below samples
-            terminateSpike = and(~obj.disconnected,...
-                and(amplitude <= obj.spikeThresholds, obj.buildingSpike));
-            % Spikes that just went below sample AND are valide - we create a spike from those.
-            closeSpike = and(obj.currentSample - obj.startTime <= obj.maxSpikeWidth,...
-                and(obj.maxTime - obj.previousSpikeTime > obj.minTimeSeparation,...
-                terminateSpike));
-            
-            % Eliminating TTL electrode from the above filters
-            startSpike(1) = false;
-            contSpike(1) = false;
-            terminateSpike(1) = false;
-            closeSpike(1) = false;
-            
-            % Starting spikes
-            if any(startSpike)
-                obj.maxTime(startSpike) = obj.currentSample;
-                obj.startTime(startSpike) = obj.currentSample;
-                obj.maxAmplitude(startSpike) = amplitude(startSpike);
-                obj.buildingSpike(startSpike) = true;
-            end
-            
-            % Continuing and rising spikes
-            if any(contSpike)
-                obj.maxTime(contSpike) = obj.currentSample;
-                obj.maxAmplitude(contSpike) = amplitude(contSpike);
-            end
-            
-            % Terminating spikes and assigning output
-            spikes = ttlSpike;
-            
-            if any(terminateSpike)
-                obj.previousSpikeTime(terminateSpike) = obj.maxTime(terminateSpike);
-                obj.buildingSpike(terminateSpike) = false;
-                
-                if any(closeSpike)
-                    electrode = (1:obj.nElectrodes)';
-                    spikes = [ttlSpike;[obj.maxTime(closeSpike),electrode(closeSpike),obj.maxAmplitude(closeSpike)]];
-                end
-            end
-            obj.totalSpikes = obj.totalSpikes + size(spikes,1);
-            
-            % updating current sample
-            obj.currentSample = obj.currentSample + 1;
-            
-        end % processSample
-        
+        % Initializes the Spike Finder by performing the initial DC correction to initialize the
+        % dataSource filters.
         function meanCorrection = initialize(obj,varargin)
             narginchk(1,2);
             if obj.initialized

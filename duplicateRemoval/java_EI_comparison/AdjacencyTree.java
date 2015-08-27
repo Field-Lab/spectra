@@ -148,4 +148,59 @@ public class AdjacencyTree {
 		if (right != null)
 			right.partitioningRec(threshold, connComp);
 	}
+	
+	public double[][] enumRectangles() {
+		LinkedList<Rectangle> rectList = new LinkedList<Rectangle>();
+		
+		rectList.add(new Rectangle(thresholdValue, thresholdValue + 1, 0, sortedSubNodes.length));
+		
+		enumRectanglesRec(rectList,0);
+		
+		int n = rectList.size();
+		
+		double[][] rectArr = new double[n][4];
+		for (int k = 0 ; k < n ; k++) {
+			rectArr[k] = rectList.poll().toArr();
+		}
+		return rectArr;
+	}
+	
+	private void enumRectanglesRec(LinkedList<Rectangle> baseList,int offset) {
+		if (left == null)
+			if (right == null) // Leaf case
+				return;
+			else { // Single son
+				baseList.addLast(new Rectangle(right.thresholdValue, thresholdValue, offset, offset + right.sortedSubNodes.length));
+				right.enumRectanglesRec(baseList, offset + right.sortedSubNodes.length);
+				System.out.println("Err: single son should not happen.");
+			}
+		else if (right == null) { // Single son
+			baseList.addLast(new Rectangle(left.thresholdValue, thresholdValue, offset, offset + left.sortedSubNodes.length));
+			left.enumRectanglesRec(baseList, offset + left.sortedSubNodes.length);
+			System.out.println("Err: single son should not happen.");
+		} else { // Double son
+			baseList.addLast(new Rectangle(left.thresholdValue, thresholdValue, offset, offset + left.sortedSubNodes.length));
+			baseList.addLast(new Rectangle(right.thresholdValue, thresholdValue, offset + left.sortedSubNodes.length, offset + sortedSubNodes.length));
+			left.enumRectanglesRec(baseList, offset);
+			right.enumRectanglesRec(baseList, offset + left.sortedSubNodes.length);
+		}
+	}
+	
+	class Rectangle {
+		double lowerThresh;
+		double upperThresh;
+		int startNum;
+		int endNum;
+		
+		Rectangle(double low, double high, int s, int e) {
+			lowerThresh = low;
+			upperThresh = high;
+			startNum = s;
+			endNum = e;
+		}
+		
+		public double[] toArr() {
+			return new double[] {lowerThresh, upperThresh, (double) startNum, (double) endNum};
+		}
+	}
 }

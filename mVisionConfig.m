@@ -37,7 +37,7 @@ classdef mVisionConfig
         
         whitening               = true  % whiten relative to noise floor on electrodes
         expectedNoiseEvents     = 10000;
-        
+        minNoiseSpacing         = 20;
         
         covSpikeBufferSize      = 100;
         
@@ -107,6 +107,7 @@ classdef mVisionConfig
             
             covConfig.whitening = obj.whitening;
             covConfig.noiseEvents = obj.expectedNoiseEvents;
+            covConfig.noiseSpacing = obj.minNoiseSpacing;
         end % getCovConfig
         
         function projConfig = getProjConfig(obj)

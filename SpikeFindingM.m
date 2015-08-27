@@ -1,15 +1,22 @@
 function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaPath )
-    %SPIKEFINDINGM Matlab implementation of the Spike Finding algorithm
-    %   Takes on after noise finding has been done (or not)
-    % Computes the spikesproperties over the electrode array and stores
-    % them in a .spikes file
-    % In a format matching the current behavior of vision.
+    %SPIKEFINDINGM Finds spikes over a dataset, using a SpikeFinder instance
+    %   for thresholdind and time-checking operations
+    %
+    % Inputs:
+    %   dataPath: path to the raw data files
+    %   saveFolder: path to the analysis folder
+    %   timeCommand: if any, time tag of the data subset to analyze
+    %   sigmaPath: path to the data noise floor values file, in ascii format
+    %
+    % Outputs:
+    %   spikes: nSpikes x 3 array containing all spikes occurences on the dataset
+    %       1st col (sorted) spike times - 2nd col electrodes - 3rd col max amplitudes
+    %   ttlTimes: nTtl x 1 array containing all ttlTimes for the dataset
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
-    import edu.ucsc.neurobiology.vision.electrodemap.*
-    import edu.ucsc.neurobiology.vision.io.*
-    import java.io.*
-    
-    %% Argument validation
+    %% Setup
+    % Argument validation
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','SpikeFinding: data folder|file does not exist'));
     end
@@ -20,35 +27,28 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
         throw(MException('','SpikeFinding: noise file does not exist'));
     end
     
-    %% Loading spike finding configuration
+    % Load spike finding configuration
     config = mVisionConfig();
     spikeConfig = config.getSpikeConfig();
     
-    %% Parsing and Storing input HashMap
+    % Parameters and datasource setup
     rawDataSource = [dataPath,timeCommand];
     
     spikeThreshold = spikeConfig.spikeThreshold;
     ttlThreshold = spikeConfig.ttlThreshold;
     meanTimeConstant = spikeConfig.meanTimeConstant;
     
-    %% Creating data source
     dataSource = DataFileUpsampler(rawDataSource, meanTimeConstant, 0, 0);
-    
-    %% Java electrodemap setup
-%     header = dataSource.rawDataFile.getHeader();
-%     packedArrayID = int32(header.getArrayID());
-    
-%     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
     nElectrodes = dataSource.nElectrodes;
    
-    %% Get sigmas
+    % Load noise values
     sigma = load(sigmaPath,'-ascii');
     validateattributes(sigma,{'numeric'},{'ncols',1,'nrows',nElectrodes},'','loaded sigma file');
 
     sigma(1) = spikeConfig.defaultTtlSigma; % TTL electrode
-    sigma = sigma * spikeThreshold;
+    sigma = sigma * spikeThreshold; % Apply noise floor multiplier
      
-    %% Create the Spiker Finder and heirs
+    % Instantiate Spiker Finder
     spikeFinderM = SpikeFinderM(sigma, ttlThreshold, dataSource);
     
     %% Spike Finding
@@ -59,7 +59,7 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
         disp(['Buffer ',num2str(s),' - ',num2str(f)]);
     end
             
-    dataSource.filterState = -spikeFinderM.initialize()';
+    dataSource.filterState = -spikeFinderM.initialize()'; % Get filter initializing values - av. of first second
     
     if size(dataSource.rawData,2) ~= dataSource.samplingRate
         throw(MException('',...
@@ -70,20 +70,23 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     
     spikes = zeros(0,3);
     
+    % Main Buffer loop
     while ~dataSource.isFinished % stopSample should be the first sample not loaded
-        if ~firstIter
+        if ~firstIter % Load a new buffer - filtering included
             [s,f] = dataSource.loadNextBuffer();
             if spikeConfig.debug
                 disp(['Buffer ',num2str(s),' - ',num2str(f)]);
             end
-        else
+        else % Forcefiltering of unfiltered already loaded initialization buffer
             firstIter = false;
             dataSource.forceFilter(true);
         end
         
+        % Work the spike finder
         spikes = [spikes;spikeFinderM.processBuffer()];
-    end
+    end % buffer loop
     
+    % Sort output by time, isolate TTLs
     spikes = sortrows(spikes,1);
     ttlTimes = spikes(spikes(:,2) == 1,1);
     

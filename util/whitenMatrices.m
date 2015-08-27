@@ -22,6 +22,7 @@ function whitened = whitenMatrices( datapath, totSpikes, covMatrix, noiseCovMatr
     [adjacent,~] = catchAdjWJava( dataSource, covConfig.electrodeUsage);
     
     nElectrodes = dataSource.nElectrodes;
+    
     % Adding zero event electrodes to disconnected list
     disconnected = or(totSpikes == 0, dataSource.disconnected);
     
@@ -33,19 +34,16 @@ function whitened = whitenMatrices( datapath, totSpikes, covMatrix, noiseCovMatr
             continue
         end
         
+        % Need to remove submatrices corresponding to zero-event electrodes, otherwise is not going
+        % to work out fine.
         discardTags = repmat(disconnected(adjacent{el})',covConfig.nRPoints+covConfig.nLPoints-1,1);
         discardTags = discardTags(:)';
         
+        % Whitening and replacement of disconnected blocks
         invMat = noiseCovMatrix{el}(~discardTags,~discardTags)^(-1/2);
         whitened{el} = zeros(size(covMatrix{el}));
         whitened{el}(~discardTags,~discardTags) = invMat * ...
             covMatrix{el}(~discardTags,~discardTags) * invMat;
-
-        if false
-            %%
-            figure(1); imagesc(covMatrix{el}); axis image; colorbar;
-            figure(2); imagesc(whitened{el}); axis image; colorbar;
-        end
-    end
+    end % el
 end
 

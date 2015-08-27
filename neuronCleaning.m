@@ -2,6 +2,8 @@ function neuronCleaning( neuronFileName )
     %NEURONCLEANING Calls vision's neuron cleaning
     %   Loads an existing neuron file
     %   Cleans neurons and overwrites.
+    % 
+    % Author -- Vincent Deo -- Stanford University -- June 8, 2015
     
     p = java.util.HashMap();
     p.put('Neuron_File',neuronFileName);

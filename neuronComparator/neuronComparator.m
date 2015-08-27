@@ -1,16 +1,28 @@
 function score = neuronComparator(varargin)
-    %NEURONCOMPARATOR loads 2 neurons-raw file and provides the clustering score
+    %NEURONCOMPARATOR loads 2 .neurons-raw files and performs for each electrode
+    % a 1-on-1 neuron matching score
     %
     % Loads a reference and a to-compare .neurons-raw files
     % Provides the score of the new clustering
     % versus the reference one by matching sets of clustered spikes
-    % Computes matching spikes fraction and maximizes over cluster permutations
+    %
+    % Computes matching spikes fraction between clusters pairwise and
+    % maximizes over possible cluster permutations
+    %
+    % Inputs:
+    %   0: Runs in script mode - arguments (file paths) hardcoded below
+    %   1: Dataset names: Runs in function mode. Argument is the dataset name in
+    %       format 'yyyy-mm-dd-x/data0xx'
+    %       Folders in which to seek reference and comparison neurons-raw hardcoded below
+    %
+    % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
+    % Loaders
     javaaddpath([pwd,filesep,'vision',filesep,'Vision.jar']);
     javaaddpath([pwd,filesep,'neuronComparator',filesep]);
     import .*
     
-    %%
+    % Argument parsing
     if nargin == 0 % Script mode - testing
         %%
         aName = '';
@@ -33,6 +45,7 @@ function score = neuronComparator(varargin)
         neurPathComp = [compFolder,aName,'.neurons-raw'];
     end
     
+    % Get files, ID lists, allocate for spike times
     neurFileRef = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPathRef);
     neurFileComp = edu.ucsc.neurobiology.vision.io.NeuronFile(neurPathComp);
     
@@ -48,8 +61,7 @@ function score = neuronComparator(varargin)
     neurElRef = zeros(numel(neurListRef),1);
     neurElComp = zeros(numel(neurListComp),1)';
     
-    %%
-    
+    %% Load from files
     for i = 1:numel(neurListRef)
         neurTimesRef{i} = neurFileRef.getSpikeTimes(neurListRef(i));
         neurNumRef(i) = numel(neurTimesRef{i});
@@ -61,12 +73,13 @@ function score = neuronComparator(varargin)
         neurElComp(i) = neurFileComp.getElectrode(neurListComp(i));
     end
     
-    %%
+    %% Allocate output
     maxEl = max(max(neurElRef),max(neurElComp)) + 1;
     score = zeros(1,maxEl);
     
+    %% Comparison loop
     for el = 1:maxEl
-        %%
+        %% Find electrode's neurons (= neuron extraction in vision's terms)
         seekRef = find(neurElRef == el);
         seekComp = find(neurElComp == el);
         
@@ -74,18 +87,20 @@ function score = neuronComparator(varargin)
             continue
         end
         
+        % Compute pairwise intersects (java)
         setInters = double(neuronCompLoop.computeIntersects(...
             vertcat(neurTimesRef{seekRef}),...
             vertcat(neurTimesComp{seekComp}),...
             neurNumRef(seekRef),...
             neurNumComp(seekComp)));
         
-	% Inclusion only metric
+        % Normalize intersects:
+        % vs. reference cluster size
         setInters = bsxfun(@rdivide,setInters,neurNumRef(seekRef));
-     		
-	% Inclusion AND excess metric
-	% setInters = sqrt(bsxfun(@rdivide,setInters,neurNumRef(seekRef)).*bsxfun(@rdivide,setInters,neurNumComp(seekComp)));
+        % vs. reference and new cluster size
+        % setInters = sqrt(bsxfun(@rdivide,setInters,neurNumRef(seekRef)).*bsxfun(@rdivide,setInters,neurNumComp(seekComp)));
         
+        % Compute best-matching permutation of clusters (java)
         score(el) = neuronCompLoop.maxMetric(setInters)/numel(seekRef);
     end
 end

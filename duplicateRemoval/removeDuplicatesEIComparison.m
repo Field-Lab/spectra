@@ -45,7 +45,7 @@ function [goodIDs, duplicateIDs, duplicatePairs, duplicateGroups]...
 %   count in the group;  allDuplicates: the ID of all the neurons that were
 %   identified as duplicates.
 %
-% Branched from version 4.04 - 08/21/2015
+% Branched from version 4.04 - 08/21/2015 - Vincent Deo - Stanford University
 
 %% Parameters
 
@@ -171,7 +171,7 @@ nNeurons = length(neuronIDs);
 currentEI = eiFile.getImage(neuronIDs(1));
 % Last frame of EI is completely blank: ignored
 currentEI = currentEI(:,2:end,:); 
-allEIs = zeros(nNeurons,size(currentEI,2));
+allEIs = zeros(nNeurons,size(currentEI,2) * 2);
 allVariances = zeros(size(allEIs));
 
 % Loading all the EIs in memory
@@ -181,12 +181,15 @@ for kk = 1:nNeurons
     currentEI_var = squeeze(currentEI(2,2:end,:)).';
     
     % MODIF - max to max(abs)
-    [EI2D,pos] = max(abs(currentEI_volt));
+    [EI2D,pos] = max(currentEI_volt);
+    [EI2D2,~] = min(currentEI_volt);
+    EI2D = [EI2D,EI2D2];
+    %EI2D = EI2D .* sign(max(currentEI_volt));
     var2D = currentEI_var((0:size(currentEI_volt,2)-1)*...
         size(currentEI_volt,1)+pos);
     
     allEIs(kk,:) = EI2D.';
-    allVariances(kk,:) = var2D.';
+%     allVariances(kk,:) = var2D.';
 end
 
 %% Computing the EI distance matrix and the chi-square matrix
@@ -198,15 +201,15 @@ chi2dist = zeros(size(l2dist),'gpuArray');
 % Roughly 50 GB
 % We need at least 1 loop
 allEIsGPU = gpuArray(allEIs);
-allVariancesGPU = gpuArray(allVariances);
+% allVariancesGPU = gpuArray(allVariances);
 
 for el = 1:size(allEIs,2)
     tmp = bsxfun(@minus,...
         allEIsGPU(:,el), allEIsGPU(:,el)').^2;
     l2dist = l2dist + tmp;
-    chi2dist = chi2dist + tmp./bsxfun(@plus,allVariancesGPU(:,el),allVariancesGPU(:,el)');
+    % chi2dist = chi2dist + tmp./bsxfun(@plus,allVariancesGPU(:,el),allVariancesGPU(:,el)');
 end
-chi2dist = chi2dist./(size(allEIsGPU,2)-1);
+% chi2dist = chi2dist./(size(allEIsGPU,2)-1);
 
 l2dist = gather(l2dist);
 chi2dist = gather(chi2dist);
@@ -243,10 +246,13 @@ diagRem = row == col;
 row(diagRem) = [];
 col(diagRem) = [];
 duplicatePairs = unique(sort([row,col],2),'rows');
-duplicatePairs = [double(neuronIDs(duplicatePairs)),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
-
+if size(duplicatePairs,1) ~= 1
+    duplicatePairs = [double(neuronIDs(duplicatePairs)),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
+else
+    duplicatePairs = [double(neuronIDs(duplicatePairs))',metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
+end
 %% Temp use, for analysis of data structure
-if false
+if true
     % Saver for use in building java connected component tree
     threshold = Inf;
     [row,col] = find( metric <= threshold );
@@ -257,12 +263,13 @@ if false
     xx = [double(duplicatePairs),metric(sub2ind(size(metric),duplicatePairs(:,1),duplicatePairs(:,2)))];
     xx = sortrows(xx,3);
     save([dataFolder,filesep,'adjEdgesL2abs.mat'],'xx');
-    g = Graph(max(max(xx(:,1:2))));
-    g.debug = true;
-    g.addAllEdges(xx(:,1)-1,xx(:,2)-1,xx(:,3));
-    t = g.getFinalTree();
-    thr = t.thresholdList();
-    save([dataFolder,filesep,'adjEdgesL2abs.mat'],'thr','-append');
+%     g = Graph(max(max(xx(:,1:2))));
+%     g.debug = true;
+%     g.addAllEdges(xx(:,1)-1,xx(:,2)-1,xx(:,3));
+%     t = g.getFinalTree();
+%     thr = t.thresholdList();
+%     save([dataFolder,filesep,'adjEdgesL2abs.mat'],'thr','-append');
+    save([dataFolder,filesep,'adjEdgesL2abs.mat'],'metric','-append');
     fprintf('Done !\n')
     goodIDs = [];
     duplicateIDs = [];

@@ -1,6 +1,5 @@
 import java.util.LinkedList;
 
-
 public class Graph {
 	private LinkedList<AdjacencyTree> connComp;
 	public boolean debug = false;
