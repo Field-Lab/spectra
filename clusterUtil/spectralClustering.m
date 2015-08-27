@@ -118,7 +118,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
             
             adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))); % Affinity matrix
             % Add possible thresholding here
-            PCs{buff} = adj * evectors; % Projections
+            PCs{buff} = bsxfun(@times,dinv',bsxfun(@times,sum(adj,2).^(-1/2),adj)) * evectors; % Projections
+%             PCs{buff} = adj * evectors; % Projections
         end % buff
         
         clear adj
@@ -179,7 +180,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         plot(quality,'+-');
         
         %% Clusters in spikes PC space
-        figure(2)
+        figure(5)
         if size(spikes,1) > 10000
             dispsubset = randsample(size(spikes,1),10000);
         else
