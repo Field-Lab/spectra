@@ -135,6 +135,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         
         % Check for outlier fraction
         % If too high, then subset is unsatisfying, start over.
+        % note: cannot fail if no thresholding
         if nnz(discard) > 0.01*size(PCs,1);
             if specConfig.debug
                 disp('Failure at 1% max outlier criterion.');

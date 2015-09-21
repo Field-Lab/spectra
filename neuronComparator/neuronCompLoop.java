@@ -1,7 +1,17 @@
 import java.util.Arrays;
 
+/**
+ * Algo utility class for comparing two different clusterings,
+ * ie two different sets of neurons for the same data
+ * 
+ * @author Vincent Deo, Stanford University
+ */
 public class neuronCompLoop {
 	
+	/**
+	 * Optimizes the permutation and subsets yielding the maximum trace of the
+	 * intersection score matrix.
+	 */
 	public static double maxMetric(double[][] intersect) {
 		double maxTemp = 0;
 		boolean rows = intersect.length <= intersect[0].length;
@@ -31,6 +41,14 @@ public class neuronCompLoop {
 		return maxTemp;
 	}
 	
+	/**
+	 * Compute the cardinality of all intersections between neurons
+	 * 
+	 * @param neurArray1 Concatenated spike times of all neurons in clustering 1
+	 * @param neurArray2 Concatenated spike times of all neurons in clustering 2
+	 * @param length1 array of length nNeurons1, length1[i] = nSpikes(neuron_i) in clustering 1
+	 * @param length2 array of length nNeurons2, length2[i] = nSpikes(neuron_i) in clustering 2
+	 */
 	public static int[][] computeIntersects (int[] neurArray1, int[] neurArray2, int[] length1, int[] length2) {
 		int m = length1.length;
 		int n = length2.length;
@@ -71,7 +89,8 @@ public class neuronCompLoop {
 		return result;
 	}
 	
-	/* Next permutation function
+	/**
+	 *  Next permutation function
 	 * Operates on starting array 1 ... n
 	 * And iterates permutations by side effects returning true
 	 * until n ... 1 is reached, then returns false
@@ -110,7 +129,8 @@ public class neuronCompLoop {
         return true;
 	}
 	
-	/* Next subset function
+	/**
+	 *  Next subset function
 	 * Operates on starting array 1 ... k
 	 * And iterates subsets of size k by side effects returning true
 	 * until n-k+1 ... n is reached, then returns false

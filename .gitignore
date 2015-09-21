@@ -31,3 +31,4 @@ duplicateRemoval/removeDuplicatesOrig.m
 # Compiled mex
 *.mex*
 vision/config.xml
+Thumbs.db

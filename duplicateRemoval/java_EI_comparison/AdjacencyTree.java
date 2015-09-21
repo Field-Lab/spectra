@@ -1,14 +1,31 @@
 import java.util.LinkedList;
 
+/**
+ * AdjacencyTree object defines a connected component of an undirected
+ * real-valued complete graph, in which all edges abov a certain threshold are removed
+ * The data structure describes the ordored sequence of edges (threshold values) that
+ * generate new connected components (sub-trees) when removed.
+ * 
+ * In normal use, all singletons are generated in Graph class, then edges are processed in
+ * increasing order, possibly merging certain connected components, until only one tree remains.
+ * An AdjacencyTree can only be a leaf or have two heirs, although single son cases are checked.
+ * 
+ * @see Graph
+ * @author Vincent Deo, Stanford University
+ */
 public class AdjacencyTree {
 	AdjacencyTree left;
 	AdjacencyTree right;
 
-	int[] sortedSubNodes;
+	int[] sortedSubNodes; // Sorted index of all subnodes numbers in the tree and heirs.
 
-	double thresholdValue;
+	double thresholdValue; // Edge value which removal splits the tree into two heir connected components
 
-	// Build Leaf
+	/**
+	 * Build a singleton connected component / leaf tree
+	 * 
+	 * @param node int label of the singleton node
+	 */
 	public AdjacencyTree(int node) {
 		left = null;
 		right = null;
@@ -16,6 +33,13 @@ public class AdjacencyTree {
 		thresholdValue = 0;
 	}
 
+	/**
+	 * Merge two connected components at a merging threshold edge
+	 * 
+	 * @param a left sub-tree
+	 * @param b right sub-tree
+	 * @param dist merging threshold
+	 */
 	public AdjacencyTree(AdjacencyTree a, AdjacencyTree b, double dist) {
 		// a and b MUST be index-exclusive
 		// smaller indexes go
@@ -25,6 +49,9 @@ public class AdjacencyTree {
 		thresholdValue = dist;
 	}
 
+	/**
+	 * Ordered merge of two ordered int arrays
+	 */
 	private int[] merge(int[] a, int[] b) {
 		int[] out = new int[a.length + b.length];
 		int aIn = 0;
@@ -44,10 +71,16 @@ public class AdjacencyTree {
 		return out;
 	}
 
+	/**
+	 * Checks if int value is contained in a sorted int array
+	 */
 	public boolean contains(int node) {
 		return recDychoSearch(node, 0, sortedSubNodes.length - 1);
 	}
 
+	/**
+	 * Recursive subfunction for contains(). Dychotomic log time search
+	 */
 	private boolean recDychoSearch(int node, int start, int end) {
 		if (start == end)
 			return (sortedSubNodes[start] == node);
@@ -57,6 +90,9 @@ public class AdjacencyTree {
 				end));
 	}
 
+	/**
+	 * Returns single line list of ordered subnodes
+	 */
 	public String toString() {
 		String s = new String();
 		for (int n = 0; n < sortedSubNodes.length; n++) {
@@ -65,6 +101,9 @@ public class AdjacencyTree {
 		return s;
 	}
 
+	/**
+	 * Tree depth
+	 */
 	public int depth() {
 		if (left == null)
 			if (right == null)
@@ -77,6 +116,9 @@ public class AdjacencyTree {
 			return 1 + Math.max(left.depth(), right.depth());
 	}
 
+	/**
+	 * Number of internal tree nodes
+	 */
 	public int innerSize() {
 		if (left == null)
 			if (right == null)
@@ -89,6 +131,9 @@ public class AdjacencyTree {
 			return 1 + left.innerSize() + right.innerSize();
 	}
 	
+	/**
+	 * Returns prefix list of all threshold values of the inner nodes of the tree
+	 */
 	public double[] thresholdList() {
 		LinkedList<Double> thrList = new LinkedList<Double>();
 		thresholdListRec(thrList);
@@ -100,6 +145,9 @@ public class AdjacencyTree {
 		return thrArr;
 	}
 	
+	/**
+	 * Recursive subfunction of thresholdList()
+	 */
 	private void thresholdListRec(LinkedList<Double> baseList) {
 		if (left == null)
 			if (right == null) // Leaf case
@@ -118,6 +166,10 @@ public class AdjacencyTree {
 		}
 	}
 	
+	/**
+	 * Returns table of connected components remaining when removing all edges
+	 * above a certain threshold.
+	 */
 	public int[][] partitioning(double threshold) {
 		LinkedList<int[]> connComp = new LinkedList<int[]>();
 		partitioningRec(threshold, connComp);
@@ -130,6 +182,9 @@ public class AdjacencyTree {
 		
 	}
 	
+	/**
+	 * Recursive subfunction of partitioning
+	 */
 	private void partitioningRec(double threshold, LinkedList<int[]> connComp) {
 		// Leaf case
 		if (left == null && right == null) {
@@ -149,6 +204,10 @@ public class AdjacencyTree {
 			right.partitioningRec(threshold, connComp);
 	}
 	
+	/**
+	 * Enumerates "partition rectangles" of the tree for all possible threshold
+	 * This is useful for a user friendly display in matlab
+	 */
 	public double[][] enumRectangles() {
 		LinkedList<Rectangle> rectList = new LinkedList<Rectangle>();
 		
@@ -165,6 +224,9 @@ public class AdjacencyTree {
 		return rectArr;
 	}
 	
+	/**
+	 * Recursive subfunction of enumRectangles()
+	 */
 	private void enumRectanglesRec(LinkedList<Rectangle> baseList,int offset) {
 		if (left == null)
 			if (right == null) // Leaf case
@@ -186,6 +248,11 @@ public class AdjacencyTree {
 		}
 	}
 	
+	/**
+	 * A rectangle represent a connected component that exist between its splitting threshold
+	 * value (its own label) and merging threshold value (its father label), over a certain continuous
+	 * (in DFS order) range of node label.
+	 */
 	class Rectangle {
 		double lowerThresh;
 		double upperThresh;
