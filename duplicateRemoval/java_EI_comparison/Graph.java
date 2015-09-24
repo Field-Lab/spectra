@@ -95,4 +95,18 @@ public class Graph {
 		else
 			return connComp.getFirst();
 	}
+	
+	/**
+	 * Removes all singleton connected components from the Graph
+	 * This is useful when singletons remain after processing all non-zero, non-nan edges,
+	 * which are singular ellipses to discard.
+	 */
+	public void removeSingletons() {
+		if (connComp.isEmpty())
+			return;
+		AdjacencyTree t = connComp.pollFirst();
+		removeSingletons();
+		if (t.innerSize() > 0)
+			connComp.addFirst(t);
+	}
 }
