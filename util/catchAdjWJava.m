@@ -1,19 +1,28 @@
 function [adjacent,maxAdjacent] = catchAdjWJava( dataSource, electrodeUsage )
-    %CATCHADJWJAVA Takes a dataFileupsampler as input - outputs the adjacency list of electrodes
+    %CATCHADJWJAVA Takes a dataFileupsampler or an eiFile as input - outputs the adjacency list of electrodes
     %   Wraps the use of ElectrodeMapFactory class from other Matlab functions
-    %   Output is numbered in Matlab Format: 1 - nElectrodes
+    %   Output is numbered in Matlab Format: [1 - nElectrodes]
     % 
-    % Author -- Vincent Deo -- Stanford University -- August 27, 2015
+    % eiFile as input is a convenient patch for duplicate removal based on neighboring eis.
+    % on a system without the .bin files to create a dataFileUpsampler.
+    %
+    % Author -- Vincent Deo -- Stanford University -- Oct 1st, 2015
     
-    validateattributes(dataSource,{'DataFileUpsampler'},{},'','dataSource');
+    validateattributes(dataSource,{'DataFileUpsampler','edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile'},{},'','dataSource');
     
     import edu.ucsc.neurobiology.vision.electrodemap.*
     import edu.ucsc.neurobiology.vision.io.*
     
     % Get electrode map
-    nElectrodes = dataSource.nElectrodes;
-    header = dataSource.rawDataFile.getHeader();
-    packedArrayID = int32(header.getArrayID());
+    if isa(dataSource,'DataFileUpsampler');
+        nElectrodes = dataSource.nElectrodes;
+        header = dataSource.rawDataFile.getHeader();
+        packedArrayID = int32(header.getArrayID());
+    else
+        nElectrodes = dataSource.nElectrodes;
+        packedArrayID = int32(dataSource.getArrayID());
+    end
+    
     electrodeMap = ElectrodeMapFactory.getElectrodeMap(packedArrayID);
     
     adjacent = cell(nElectrodes,1);

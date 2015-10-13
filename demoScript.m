@@ -42,15 +42,16 @@ function demoScript(varargin)
     end
     javaaddpath(['.',filesep,'vision']);
     javaaddpath(['.',filesep,'clusterUtil']);
+    javaaddpath(['.',filesep,'duplicateRemoval',filesep,'java_EI_comparison',filesep]);
     
     % USER INPUT - Set up data and output folders
     if nargin ~= 2 % Script mode - put your dataset to process
         dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
         % dataPath = '/Volumes/Data/2013-04-30-3/data001'
         
-        timeCommand = '(0-100)'
+        timeCommand = ''
         
-        saveFolder = 'X:\EJGroup_data\TestOut\2005-04-26-0\data002TestWhitening'
+        saveFolder = 'X:\EJGroup_data\sshed_Results_stas_eis\copyForTest-newCleaning\2005-04-26-0\data002'
         % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
     else % function mode
         % USER - Sethere root folder for data/output of your list of datasets
@@ -64,10 +65,10 @@ function demoScript(varargin)
     
     % USER input - tryToDo -- won't do any task unless stated here
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   1   ,   0  ];
+    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   0   ,   1  ];
     % USER input - force -- rewriting output even if files are found
     % --------- noise - spike - cov - prj - clust - save ----------------------
-    force =    [  0   ,   0   ,  0  ,  0  ,   1   ,   0  ];
+    force =    [  0   ,   0   ,  0  ,  0  ,   0   ,   1  ];
     
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','demoScript: data source folder|file does not exist'));
@@ -84,13 +85,13 @@ function demoScript(varargin)
     if tryToDo(1) &&...
             (force(1) || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2))
         %%
-        disp('Starting noise finding...');
+        fprintf('Starting noise finding...\n');
         tic
         noise = RawDataNoiseEvaluationM(dataPath, saveFolder);
         
-        disp(['Time for noise evaluation ', num2str(toc), ' seconds.']);
+        fprintf('Time for noise evaluation %.2f seconds.\n', toc);
     else
-        disp('Noise not requested or .noise file found - skipping raw data noise evaluation.');
+        fprintf('Noise not requested or .noise file found - skipping raw data noise evaluation.\n');
     end
     
     
@@ -98,7 +99,7 @@ function demoScript(varargin)
     if tryToDo(2) &&...
             (force(2) || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2))
         %%
-        disp('Starting spike finding...');
+        fprintf('Starting spike finding...\n');
         tic
         
         sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
@@ -108,9 +109,9 @@ function demoScript(varargin)
         save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes');
         %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
         
-        disp(['Time for spike finding ', num2str(toc), ' seconds']);
+        fprintf('Time for spike finding %.2f seconds\n',toc);
     else
-        disp('Spike not requested or .spikes.mat file found - skipping spike finding.');
+        fprintf('Spike not requested or .spikes.mat file found - skipping spike finding.\n');
     end
     
     
@@ -118,7 +119,7 @@ function demoScript(varargin)
     if tryToDo(3) &&...
             (force(3) || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 2))
         %%
-        disp('Starting covariance calculation...');
+        fprintf('Starting covariance calculation...\n');
         tic
         
         if ~exist('spikeSave')
@@ -136,16 +137,16 @@ function demoScript(varargin)
         end
         save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
         
-        disp(['Time for covariance calculation ', num2str(toc), ' seconds']);
+        fprintf('Time for covariance calculation %.2f seconds\n',toc);
     else
-        disp('Cov not requested or .cov.mat file found - skipping covariance calculation.');
+        fprintf('Cov not requested or .cov.mat file found - skipping covariance calculation.\n');
     end
     
     %% Eigenspikes Projections calculation
     if tryToDo(4) &&...
             (force(4) || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2))
         %%
-        disp('Starting projections calculation...');
+        fprintf('Starting projections calculation...\n');
         tic
         if ~exist('covMatrix')
             load([saveFolder,filesep,datasetName,'.cov.mat']);
@@ -162,14 +163,14 @@ function demoScript(varargin)
         save([saveFolder,filesep,datasetName,'.prj.mat'],'eigenValues','eigenVectors','spikeTimes','-v7.3');
         for el = 1:numel(projSpikes)
             eval(sprintf('projSpikes%u = projSpikes{el};',el));
-            save([saveFolder,filesep,datasetName,'.prj.mat'],sprintf('projSpikes%u',el),'-append','-v7.3');
+            save([saveFolder,filesep,datasetName,'.prj.mat'],sprintf('projSpikes%u',el),'-append');
             eval(sprintf('projSpikes%u = [];',el));
             projSpikes{el} = []; % Progressive RAM clean-up
         end
         
-        disp(['Time for projections calculation ', num2str(toc), ' seconds']);
+        fprintf('Time for projections calculation %.2f seconds\n',toc);
     else
-        disp('Prj not requested or .prj.mat file found - skipping projections calculation.');
+        fprintf('Prj not requested or .prj.mat file found - skipping projections calculation.\n');
     end
     
     
@@ -178,7 +179,7 @@ function demoScript(varargin)
             (force(5) || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
             exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2))
         %%
-        disp('Starting clustering...')
+        fprintf('Starting clustering...\n')
         tic
         % No projections loader at this level
         % Loader of spikeTimes however
@@ -195,9 +196,9 @@ function demoScript(varargin)
         % Save a neurons-raw file (.neurons.mat)
         save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
         
-        disp(['Time for clustering ', num2str(toc), ' seconds']);
+        fprintf('Time for clustering %.2f seconds\n',toc);
     else
-        disp('Clust not requested or .neurons|model.mat files found - skipping clustering.');
+        fprintf('Clust not requested or .neurons|model.mat files found - skipping clustering.\n');
     end
     
     
@@ -205,40 +206,31 @@ function demoScript(varargin)
     if tryToDo(6) &&...
             (force(6) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2))
         %%
-        disp('Saving a vision-compatible .neurons file...')
+        fprintf('Removing duplicates and saving a vision-compatible .neurons file...\n')
         tic
         if ~exist('neuronSpikeTimes','var')
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
         end
         
-        % Build a and push to a NeuronSaverM
-        % Converts the .neurons.mat in a .neurons-raw
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName);
+        [neuronEls, neuronClusters, neuronSpikeTimes] =...
+            duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
+            neuronEls, neuronClusters, neuronSpikeTimes);
         
-        for i = 1:numel(neuronEls)
-            el = neuronEls(i);
-            neuronSaver.addNeuron(el,...
-                neuronSaver.getNeuronID(el,neuronClusters(i)),...
-                neuronSpikeTimes{i});
-        end
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'');
+        neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
+        neuronSaver.close();
         
-        % Clean the .neurons-raw into a .neurons
-        disp('Starting vision''s neuron cleaning...');
+        fprintf('Neuron cleaning done.\n');
         
-        neuronFileName = [saveFolder,filesep,datasetName,'.neurons-raw'];
-        neuronCleaning(neuronFileName);
-        
-        disp('Neuron cleaning done.');
-        
-        disp(['Time for cleaning and saving ', num2str(toc), ' seconds']);
+        fprintf('Time for cleaning and saving %.2f seconds', toc);
     else
-        disp('Clean|Save not requested or .neurons file found - skipping cleaning|saving.');
+        fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
     end
     
     %%
-    disp('');
-    disp(['Total pipeline time ', num2str(toc(totalTime)), ' seconds']);
-    disp([dataPath,timeCommand,' finished'])
-    disp('-----------------------------------------------------------');
+    fprintf('\n');
+    fprintf('Total pipeline time %.2f seconds\n',toc(totalTime));
+    fprintf([strrep(dataPath,'\','\\'),timeCommand,' finished\n']);
+    fprintf('----------------------------------------------------------\n');
     
 end

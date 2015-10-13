@@ -41,7 +41,7 @@ public class Graph {
 		}
 		for (int i = 0 ; i < w.length ; i++) {
 			addEdge(l[i],r[i],w[i]);
-			if (debug && i%(w.length/50) == 0)
+			if (debug && w.length >= 50 && i%(w.length/50) == 0)
 				System.out.print("*");
 		}
 		if (debug)
@@ -94,5 +94,19 @@ public class Graph {
 			return null;
 		else
 			return connComp.getFirst();
+	}
+	
+	/**
+	 * Removes all singleton connected components from the Graph
+	 * This is useful when singletons remain after processing all non-zero, non-nan edges,
+	 * which are singular ellipses to discard.
+	 */
+	public void removeSingletons() {
+		if (connComp.isEmpty())
+			return;
+		AdjacencyTree t = connComp.pollFirst();
+		removeSingletons();
+		if (t.innerSize() > 0)
+			connComp.addFirst(t);
 	}
 }

@@ -20,9 +20,9 @@ classdef NeuronSaverM < handle
         %   datapath: path to the raw data folder
         %   saveFolder: path to the analysis folder
         %   datasetName: 'data0xx' string, to reconstruct file name
-        function obj = NeuronSaverM(dataPath,saveFolder,datasetName)
+        function obj = NeuronSaverM(dataPath,saveFolder,datasetName,fileExt)
             % Build file path
-            obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons-raw'];
+            obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons',fileExt];
             spikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
             
             load(spikeFilePath,'ttlTimes'); % Load ttl times
@@ -53,6 +53,7 @@ classdef NeuronSaverM < handle
             neurID = obj.neuronFile.getNeuronID(elNum-1, clustNum-1);
         end
         
+        
         % Pushes a new neuron in the NeuronFile
         % by calling the equivalent java method
         %
@@ -64,6 +65,22 @@ classdef NeuronSaverM < handle
             obj.neuronFile.addNeuron(el-1,neurID,spikeTimes,numel(spikeTimes));
         end
         
+        
+        % Pushes a list of neurons all at once
+        function pushAllNeurons(obj, neuronEls, neuronClusters, neuronSpikeTimes)
+            nNeurons = size(neuronEls,1); 
+            validateattributes(neuronEls,{'numeric'},{'size',[nNeurons, 1]},'','neuronEls');
+            validateattributes(neuronClusters,{'numeric'},{'size',[nNeurons, 1]},'','neuronClusters');
+            validateattributes(neuronSpikeTimes,{'cell'},{'size',[nNeurons, 1]},'','neuronSpikeTimes');
+            
+            for n = 1:nNeurons
+                el = neuronEls(n);
+                nID = obj.getNeuronID(el, neuronClusters(n));
+                obj.addNeuron(el, nID, neuronSpikeTimes{n});
+            end
+        end
+            
+            
         % Closes the Neuron File
         % Necessary
         function close(obj)
@@ -71,7 +88,7 @@ classdef NeuronSaverM < handle
         end
        
         % Destructor
-        % Will be called by the garbage collector and will close the file if not done yet.
+        % Will be called (?) by the garbage collector and will close the file if not done yet.
         function delete(obj)
             try
                 obj.neuronFile.close();

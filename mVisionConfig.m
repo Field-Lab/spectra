@@ -9,7 +9,7 @@ classdef mVisionConfig
         % General
         debug = true;
         
-        % Parallel (multi-file at parallelCaller level)
+        % Parallel (multi-file at parallelCaller level, clustering loop, ...)
         nWorkers                = 32
         
         %% Data Source management
@@ -64,9 +64,16 @@ classdef mVisionConfig
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
         maxContamination        = 0.1   %
-        coincidenceTime         = 10    % samples
-        maxCorrelation          = 0.25  %
         
+        EILeftPoints            = 20    % samples
+        EIRightpoints           = 60    % samples
+        EISpikesToAverage       = 3000  % spikes
+        EInThreads              = 4     % threads
+        
+        EIMergeThresholdWithin  = 0.1   % Normalized metric
+        EIMergeThresholdAcross  = 0.1   % Normalized metric
+        
+        EIGlobalMinWindow       =[18 44]% Sample window in which perform global min EI realignment
         
     end % properties
     
@@ -150,8 +157,17 @@ classdef mVisionConfig
         function cleanConfig = getCleanConfig(obj)
             cleanConfig.minSpikes = obj.minSpikes;
             cleanConfig.maxCont = obj.maxContamination;
-            cleanConfig.coincTime = obj.coincidenceTime;
-            cleanConfig.maxCorr = obj.maxCorrelation;
+            
+            cleanConfig.EITC = obj.meanTimeConstant;
+            cleanConfig.EILP = obj.EILeftPoints;
+            cleanConfig.EIRP = obj.EIRightpoints;
+            cleanConfig.EISp = obj.EISpikesToAverage;
+            cleanConfig.EInThreads = obj.EInThreads;
+            
+            cleanConfig.eiThrW = obj.EIMergeThresholdWithin;
+            cleanConfig.eiThrA = obj.EIMergeThresholdAcross;
+            
+            cleanConfig.globMinWin = obj.EIGlobalMinWindow;
         end
         
         function pools = buildElPools(obj,nElectrodes)
