@@ -84,7 +84,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         catch error
             disp(error);
             disp(['Error at electrode ',num2str(el),', skipping.']);
-            throw(error)
+            % throw(error)
         end
         
     end % el

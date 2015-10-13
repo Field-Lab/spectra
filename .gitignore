@@ -32,3 +32,4 @@ duplicateRemoval/removeDuplicatesOrig.m
 *.mex*
 vision/config.xml
 Thumbs.db
+qload.m
