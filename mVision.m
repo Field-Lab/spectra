@@ -246,7 +246,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         else
             c = ';'
         end
-        system(['java -Xmx4g -Xss100m -cp ".',f,'vision',f,c,'.',f,'vision',f,'Vision.jar" edu.ucsc.neurobiology.vision.tasks.staAnalysis ',...
+        system(['java -Xmx4g -Xss100m -cp ".',f,'vision',f,c,'.',f,'vision',f,'Vision.jar" edu.ucsc.neurobiology.vision.tasks.StaAnalysis ',...
             saveFolder,' ', movieXml, ' -c ..',f,'primate.xml']);
         
         fprintf('Time for STA computation %.2f seconds', toc);
