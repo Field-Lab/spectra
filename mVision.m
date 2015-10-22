@@ -1,5 +1,5 @@
-function demoScript(varargin)
-    %DEMOSCRIPT Demonstrates workflow of mVision and forms the backbone
+function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
+    %MVISION Demonstrates workflow of mVision and forms the backbone
     % of serial neuron finding
     %
     % This script manages the successive steps of serial neuron finding
@@ -25,9 +25,6 @@ function demoScript(varargin)
     %
     % Author -- Vincent Deo -- Stanford University -- August 5, 2015
     
-    if ~(nargin == 0 || nargin == 2)
-        throw(MException('','Need 0 variables if script or 2 variables (''yyyy-mm-dd-x/data00x'',timeCommand) if function mode'));
-    end
     %% SETUP
     % Add subfolders to the matlab path
     addpath(genpath(['.',filesep]));
@@ -45,39 +42,48 @@ function demoScript(varargin)
     javaaddpath(['.',filesep,'duplicateRemoval',filesep,'java_EI_comparison',filesep]);
     
     % USER INPUT - Set up data and output folders
-    if nargin ~= 2 % Script mode - put your dataset to process
-        dataPath = 'X:\EJGroup_data\Data\2005-04-26-0\data002'
-        % dataPath = '/Volumes/Data/2013-04-30-3/data001'
-        
-        timeCommand = ''
-        
-        saveFolder = 'X:\EJGroup_data\sshed_Results_stas_eis\copyForTest-newCleaning\2005-04-26-0\data002'
-        % saveFolder = '/home/vision/vincent/outputs/2013-04-30-3/data001'
-    else % function mode
-        % USER - Sethere root folder for data/output of your list of datasets
-        dataPath = ['/Volumes/Archive/',varargin{1}]
-        saveFolder = ['/Volumes/Lab/Projects/spikesorting/mvision/outputsSpectral/',varargin{1}]
-        timeCommand = varargin{2}
+    if dataPath(end) == filesep
+        dataPath = dataPath(1:(end-1));
     end
-    
-    % DEBUG - additional saved file dataset name extension
-    nameExt = '';
-    
-    % USER input - tryToDo -- won't do any task unless stated here
-    % --------- noise - spike - cov - prj - clust - save ----------------------
-    tryToDo =  [  0   ,   0   ,  0  ,  0  ,   0   ,   1  ];
-    % USER input - force -- rewriting output even if files are found
-    % --------- noise - spike - cov - prj - clust - save ----------------------
-    force =    [  0   ,   0   ,  0  ,  0  ,   0   ,   1  ];
-    
+    if saveFolder(end) == filesep
+        saveFolder = saveFolder(1:(end-1));
+    end
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         throw(MException('','demoScript: data source folder|file does not exist'));
     end
+    
     mkdir(saveFolder);
-    [~,datasetName,~] = fileparts(dataPath); % Catching dataset name as last part of dataPath
-    if exist(dataPath,'file') == 2
-        datasetName = datasetName(1:7);
+    [~,datasetName,~] = fileparts(dataPath); % Catching dataset name as last part of saveFolder
+    
+    if exist(saveFolder,'file') == 2
+        [~,datasetName,~] = fileparts(saveFolder);
     end
+    
+    % USER input - tryToDo -- won't do any task unless stated here
+    nSteps = 7;
+    % Steps in order:
+    % --------- noise - spike - cov - prj - clust - save - stas ----------------------
+    if isa(tryToDo,'char')
+        tryToDo = lower(tryToDo);
+        if strcmp(tryToDo,'all')
+            tryToDo = ones(1,nSteps);
+        end
+    else
+        validateattributes(tryToDo,{'numeric'},{'row','ncols',nSteps,'binary'},'','tryToDo',4);
+    end
+    
+    if isa(force,'char')
+        force = lower(force);
+        if strcmp(force,'all')
+            force = ones(1,nSteps);
+        end
+    else
+        validateattributes(force,{'numeric'},{'row','ncols',nSteps,'binary'},'','tryToDo',4);
+    end
+    
+    
+    % DEBUG - additional saved file dataset name extension
+    nameExt = '';
     
     totalTime = tic;
     
@@ -223,6 +229,27 @@ function demoScript(varargin)
         fprintf('Neuron cleaning done.\n');
         
         fprintf('Time for cleaning and saving %.2f seconds', toc);
+    else
+        fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
+    end
+    
+    %% Computing STAs
+    if tryToDo(7) &&...
+            (force(7) || ~(exist([saveFolder,filesep,datasetName,'.sta'],'file') == 2))
+        %%
+        fprintf('Computing STAs...\n')
+        tic
+        fprintf('STAs done.\n');
+        f = filesep;
+        if isunix
+            c = ':'
+        else
+            c = ';'
+        end
+        system(['java -Xmx4g -Xss100m -cp ".',f,'vision',f,c,'.',f,'vision',f,'Vision.jar" edu.ucsc.neurobiology.vision.tasks.staAnalysis ',...
+            saveFolder,' ', movieXml, ' -c ..',f,'primate.xml']);
+        
+        fprintf('Time for STA computation %.2f seconds', toc);
     else
         fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
     end
