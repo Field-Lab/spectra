@@ -7,7 +7,7 @@ classdef mVisionConfig
     
     properties (SetAccess = immutable, GetAccess = private)
         % General
-        debug = true;
+        debug = false;
         
         % Parallel (multi-file at parallelCaller level, clustering loop, ...)
         nWorkers                = 32
