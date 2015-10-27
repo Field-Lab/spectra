@@ -1,4 +1,4 @@
-function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaPath )
+function [spikes,ttlTimes,nSamples] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaPath )
     %SPIKEFINDINGM Finds spikes over a dataset, using a SpikeFinder instance
     %   for thresholdind and time-checking operations
     %
@@ -89,5 +89,5 @@ function [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, si
     % Sort output by time, isolate TTLs
     spikes = sortrows(spikes,1);
     ttlTimes = spikes(spikes(:,2) == 1,1);
-    
+    nSamples = dataSource.stopSample - dataSource.startSample;
 end
