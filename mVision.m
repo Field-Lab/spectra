@@ -68,6 +68,21 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         if strcmp(tryToDo,'all')
             tryToDo = ones(1,nSteps);
         end
+        if strcmp(tryToDo,'nosta')
+            tryToDo = [ones(1,nSteps-1),0];
+        end
+        if strcmp(tryToDo,'staonly')
+            tryToDo = [ones(1,nSteps-1),0];
+        end
+        if strcmp(tryToDo,'noisetocov')
+            tryToDo = [ones(1,3),zeros(1,nSteps-3)];
+        end
+        if strcmp(tryToDo,'prjtoneurons')
+            tryToDo = [0,0,0,1,1,1,0];
+        end
+        if isa(tryToDo,'char')
+            throw(MException('','Invalid tryToDo argument'));
+        end
     else
         validateattributes(tryToDo,{'numeric'},{'row','ncols',nSteps,'binary'},'','tryToDo',4);
     end
@@ -76,6 +91,12 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         force = lower(force);
         if strcmp(force,'all')
             force = ones(1,nSteps);
+        end
+        if strcmp(force,'none')
+            force = zeros(1,nSteps);
+        end
+        if isa(tryToDo,'char')
+            throw(MException('','Invalid force argument'));
         end
     else
         validateattributes(force,{'numeric'},{'row','ncols',nSteps,'binary'},'','tryToDo',4);
@@ -110,9 +131,9 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         
         sigmaFileName = [saveFolder,filesep,datasetName,'.noise'];
         
-        [spikes,ttlTimes] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaFileName);
+        [spikes,ttlTimes,nSamples] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaFileName);
         spikeSave = int32(spikes(:,1:2));
-        save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes');
+        save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes','nSamples');
         %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
         
         fprintf('Time for spike finding %.2f seconds\n',toc);

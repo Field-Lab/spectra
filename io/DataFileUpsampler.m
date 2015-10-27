@@ -299,4 +299,28 @@ classdef DataFileUpsampler < handle
         end % forceFilter
         
     end % methods
+    
+    methods(Static)
+        function [dataString, timeCommands] = getDatasets(visionString)
+            parser = edu.ucsc.neurobiology.vision.io.DataFileStringParser(visionString);
+            dataString = cell(parser.getDatasets());
+            timeCommands = cell(numel(dataString),1);
+            startTimes = parser.getStartTimes();
+            stopTimes = parser.getStopTimes();
+            for s = 1:numel(dataString)
+                if startTimes(s) > 0 && stopTimes(s) < Inf
+                    timeCommands{s} = sprintf('(%u-%u)',startTimes(s),stopTimes(s));
+                    continue;
+                end
+                if startTimes(s) > 0
+                    timeCommands{s} = sprintf('(%u-)',startTimes(s));
+                    continue;
+                end
+                if stopTimes(s) < Inf
+                    timeCommands{s} = sprintf('(-%u)',stopTimes(s));
+                    continue;
+                end
+            end
+        end % getDatasets
+    end % static method
 end % classdef
