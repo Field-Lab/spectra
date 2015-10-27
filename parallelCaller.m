@@ -9,8 +9,6 @@
 % Author -- Vincent Deo -- Stanford University -- August 5, 2015
 
 %% Load mVision configuration - start parallel pool if needed
-profile on;
-
 config = mVisionConfig();
 parConfig = config.getParConfig();
 
@@ -28,23 +26,23 @@ movieprefix = '/Volumes/Analysis/stimuli/white-noise-xml/'
 % parfor
 % for k = 1:n
 for k = 1:1
-    try
-        mVision([prefix,fileList{k}],[outputPrefix,fileList{k}],'',[movieprefix,movieList{k}],'all','all');
-    catch error
-       disp(['Error in file ',fileList{k}]);
-       disp(error);
-       for i = 1:numel(error.stack)
-           disp(error.stack(i));
-       end
-    end
+%    try
+        mVision([prefix,fileList{k}],[outputPrefix,fileList{k}],'',[movieprefix,movieList{k},'.xml'],[0 1 0 0 0 0 0],'all');
+%    catch error
+%       disp(['Error in file ',fileList{k}]);
+%       disp(error);
+%       for i = 1:numel(error.stack)
+%           disp(error.stack(i));
+%       end
+%    end
 end
 
 %% Clean and close
 delete(gcp);
 
 %% profiler
-profile off;
-p = profile('info');
-save([outputPrefix,'profile'],'p');
+% profile off;
+% p = profile('info');
+% save([outputPrefix,'profile'],'p');
 
 exit;

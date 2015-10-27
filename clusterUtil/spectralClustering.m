@@ -175,7 +175,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     clusterIndexes(~discard) = clusterIn;
     
     %% Debug plots
-    if true
+    if false
         %% Quality function
         figure(1)
         plot(quality,'+-');
