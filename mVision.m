@@ -48,8 +48,10 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     if saveFolder(end) == filesep
         saveFolder = saveFolder(1:(end-1));
     end
-    if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
-        throw(MException('','demoScript: data source folder|file does not exist'));
+    if ~strcmp(dataPath,[filesep,'concat']) && ...
+        ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
+        % [filesep, 'concat'] is a special token here for concateated analysis
+	throw(MException('','demoScript: data source foilder|file does not exist'));
     end
     
     mkdir(saveFolder);

@@ -60,7 +60,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     
     %% Electrode diagonalization loop
     for el = 2:nElectrodes
-        if disconnected(el) % Skip case
+        if disconnected(el) || totSpikes(el) < 2 % Skip case
             continue
         end
         

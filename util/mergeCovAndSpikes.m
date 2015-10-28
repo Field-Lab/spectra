@@ -5,8 +5,8 @@ function mergeConcatFiles( rootFolder, datasets)
     globalSpikes = cell(1,nDatasets);
     globalTTl = cell(1,nDatasets);
     
-    load([rootFolder,filesep,datasets{1},'.spikes.mat']);
-    load([rootFolder,filesep,datasets{1},'.cov.mat']);
+    load([datasets{1},'.spikes.mat']);
+    load([datasets{1},'.cov.mat']);
     
     globalAverages = cellfun(@(M,n) n*M,averages,num2cell(totSpikes,2),'uni',false);
     globalCovMat = cellfun(@(M,n) n*M,covMatrix,num2cell(totSpikes,2),'uni',false);
@@ -19,8 +19,8 @@ function mergeConcatFiles( rootFolder, datasets)
     
     % increment, stack matrices mul by nspikes
     for d = 2:nDatasets
-        load([rootFolder,filesep,datasets{d},'.spikes.mat']);
-        load([rootFolder,filesep,datasets{d},'.cov.mat']);
+        load([datasets{d},'.spikes.mat']);
+        load([datasets{d},'.cov.mat']);
         
         globalAverages = cellfun(@(C,M,n) C + n*M,globalAverages,averages,num2cell(totSpikes,2),'uni',false);
         globalCovMat = cellfun(@(C,M,n) C + n*M,globalCovMat,covMatrix,num2cell(totSpikes,2),'uni',false);
@@ -41,6 +41,11 @@ function mergeConcatFiles( rootFolder, datasets)
     ttlTimes = vertcat(globalTTl{:});
     nSamples = sampleOffset;
     
-    save([rootFolder,'.spikes.mat'],'spikeSave','ttlTimes','nSamples','-v7.3');
-    save([rootFolder,'.cov.mat'],'averages','covMatrix','totSpikes');
+    save([rootFolder,filesep,'concat.spikes.mat'],'spikeSave','ttlTimes','nSamples','-v7.3');
+    save([rootFolder,filesep,'concat.cov.mat'],'averages','covMatrix','totSpikes');
+		% Put a copy of the cov file in each of the subfolders
+    for d = 1:nDatasets
+        save([datasets{d},'.cov.mat'],'averages','covMatrix','totSpikes');
+    end
+
 end
