@@ -1,5 +1,13 @@
-function mergeConcatFiles( rootFolder, datasets)
-    %MERGEFILES merges spike files and covariance files across datasets
+function mergeCovAndSpikes( rootFolder, datasets, timeTags)
+    %MERGECOVANDSPIKES merges spike files and covariance files across datasets
+    %
+    % In concatenated mode, spikes and cov are computed for individual dataset,
+    % and this files computes the global spikes and cov
+    % by concatenation / weighted sum
+    % Also, the individual cov files are overwritten with the global one,
+    % so that individual prj computations end being done on identical eigenvectors.
+    
+    
     nDatasets = numel(datasets);
 
     globalSpikes = cell(1,nDatasets);
@@ -12,7 +20,9 @@ function mergeConcatFiles( rootFolder, datasets)
     globalCovMat = cellfun(@(M,n) n*M,covMatrix,num2cell(totSpikes,2),'uni',false);
     globalTotSpikes = totSpikes;
     
-    globalSpikes{1} = spikeSave;
+    initialOffset = str2double(timeTags{1}(2:find(timeTags{1} == '-',1)-1)) * 20000; % HARDCODED SAMPLING RATE
+    
+    globalSpikes{1} = bsxfun(@minus,spikeSave,int32([initialOffset,0]));
     globalTTl{1} = ttlTimes;
     
     sampleOffset = nSamples;
@@ -26,7 +36,7 @@ function mergeConcatFiles( rootFolder, datasets)
         globalCovMat = cellfun(@(C,M,n) C + n*M,globalCovMat,covMatrix,num2cell(totSpikes,2),'uni',false);
         globalTotSpikes = globalTotSpikes + totSpikes;
         
-        globalSpikes{d} = spikeSave + sampleOffset;
+        globalSpikes{d} = bsxfun(@plus,spikeSave,int32([sampleOffset 0]));
         globalTTl{d} = ttlTimes + sampleOffset;
         
         sampleOffset = sampleOffset + nSamples;
@@ -45,6 +55,7 @@ function mergeConcatFiles( rootFolder, datasets)
     save([rootFolder,filesep,'concat.cov.mat'],'averages','covMatrix','totSpikes');
 		% Put a copy of the cov file in each of the subfolders
     for d = 1:nDatasets
+        load([datasets{d},'.cov.mat'],'totSpikes');
         save([datasets{d},'.cov.mat'],'averages','covMatrix','totSpikes');
     end
 

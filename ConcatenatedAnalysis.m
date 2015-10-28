@@ -28,7 +28,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
 
     % Build global spike file and cov file
     addpath ./util
-    mergeCovAndSpikes(saveRoot, saveFolderAndName);
+    mergeCovAndSpikes(saveRoot, saveFolderAndName, timeCommands);
     
     % Projections for all datasets
     for d = 1:numel(datasets)
@@ -37,7 +37,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
         % mVision(datasets{d}, saveFolderSub, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
     end
     
-    mergePrj(saveRoot, saveFolderAndName);
+    mergePrj(saveRoot, saveFolderAndName, timeCommands);
     
     % Prj + Clusters for global dataset
     % manage parpool
