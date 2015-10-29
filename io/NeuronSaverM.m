@@ -8,6 +8,7 @@ classdef NeuronSaverM < handle
     
     properties
         nElectrodes
+        initialOffset
         neuronFilePath
         neuronFile % edu.ucsc.neurobiology.vision.io.NeuronFile object
     end % properties
@@ -20,7 +21,7 @@ classdef NeuronSaverM < handle
         %   datapath: path to the raw data folder
         %   saveFolder: path to the analysis folder
         %   datasetName: 'data0xx' string, to reconstruct file name
-        function obj = NeuronSaverM(dataPath,saveFolder,datasetName,fileExt)
+        function obj = NeuronSaverM(dataPath,saveFolder,datasetName,fileExt,initialOffset)
             % Build file path
             obj.neuronFilePath = [saveFolder,filesep,datasetName,'.neurons',fileExt];
             spikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
@@ -38,6 +39,12 @@ classdef NeuronSaverM < handle
                 files = dir([dataPath,filesep,datasetName,'*.bin']);
                 binPath = [dataPath,filesep,files(1).name];
             end
+            
+            % required to substract the initial spike time offset if the processing did not start at
+            % beginning of .bin file.
+            % This is because mVision uses a different convention than vision for spike labelling in case of
+            % timetag starting > 0. mVision: absolute labeling, vision: 0 at start of timeTag.
+            obj.initialOffset = initialOffset; % in samples
             
             % Initialize Neuron File
             obj.neuronFile = initVisionNeuronFile(binPath, obj.neuronFilePath, ttlTimes);
@@ -62,7 +69,7 @@ classdef NeuronSaverM < handle
         %   neurID: neuron ID, vision format
         %   spikeTimes: array of spike times for this neuron
         function addNeuron(obj, el, neurID, spikeTimes)
-            obj.neuronFile.addNeuron(el-1,neurID,spikeTimes,numel(spikeTimes));
+            obj.neuronFile.addNeuron(el-1,neurID,spikeTimes-obj.initialOffset,numel(spikeTimes));
         end
         
         

@@ -34,11 +34,11 @@ function mergePrj( rootFolder, datasets, timeTags )
     % Now working on projections
     for el = 1:nElectrodes
         concatBuffer = cell(1,nDatasets);
-        for d = 1:nDataset
+        for d = 1:nDatasets
             load([datasets{d},'.prj.mat'],sprintf('projSpikes%u',el));
-            eval(sprintf('concatBuffer{%u} = projSpikes%u',d,el));
+            eval(sprintf('concatBuffer{%u} = projSpikes%u;',d,el));
         end
-        eval('projSpikes%u = vertcat(concatBuffer{:})',el);
+        eval(sprintf('projSpikes%u = vertcat(concatBuffer{:});',el));
         save([rootFolder,filesep,'concat.prj.mat'],sprintf('projSpikes%u',el),'-append');
     end
 end

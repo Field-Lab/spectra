@@ -27,7 +27,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     
     %% Argument validation
     if ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
-        throw(MException('','ProjCalculations: data folder|file does not exist'));
+        throw(MException('','PCProj: data folder|file does not exist'));
     end
     
     %% Load projections configuration
@@ -109,7 +109,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             nSpikes = numel(spikes{el});
             
             % Skip case
-            if dataSource.disconnected(el) || nSpikes == 0;
+            if dataSource.disconnected(el) || nSpikes < 2;
                 continue
             end
 

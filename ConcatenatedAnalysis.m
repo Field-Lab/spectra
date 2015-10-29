@@ -14,16 +14,16 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     
 		% Open a parpool for parallel dataset processing
     if numel(datasets) < parConfig.nWorkers
-    %    parpool(numel(datasets));
+        parpool(numel(datasets));
     else
-    %    parpool(parConfig.nWorkers);
+        parpool(parConfig.nWorkers);
     end
     % Process all datasets noise + spikes + cov
-    for d = 1:numel(datasets)
+    parfor d = 1:numel(datasets)
         [~,datasetName,~] = fileparts(datasets{d});
         saveFolderSub = [saveRoot,filesep,datasetName];
         saveFolderAndName{d} = [saveFolderSub,filesep,datasetName];
-        % mVision(datasets{d}, saveFolderSub, timeCommands{d}, '', 'noisetocov','all');
+        %mVision(datasets{d}, saveFolderSub, timeCommands{d}, '', 'noisetocov','all');
     end
 
     % Build global spike file and cov file
@@ -31,26 +31,29 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     mergeCovAndSpikes(saveRoot, saveFolderAndName, timeCommands);
     
     % Projections for all datasets
-    for d = 1:numel(datasets)
+    parfor d = 1:numel(datasets)
         [~,datasetName,~] = fileparts(datasets{d});
         saveFolderSub = [saveRoot,filesep,datasetName];
-        % mVision(datasets{d}, saveFolderSub, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
+        %mVision(datasets{d}, saveFolderSub, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
     end
     
-    mergePrj(saveRoot, saveFolderAndName, timeCommands);
+    % mergePrj(saveRoot, saveFolderAndName, timeCommands);
     
     % Prj + Clusters for global dataset
     % manage parpool
 		x = gcp;
 		if x.NumWorkers < parConfig.nWorkers
-	%			delete(gcp);
-	%			parpool(parConfig.nWorkers);
+				delete(gcp);
+				parpool(parConfig.nWorkers);
 		end
-		mVision([filesep,'concat'], saveRoot, '', '', 'prjtoneurons','all');
+		% mVision(datasets{1}, saveRoot, '', '', 'clusttoneurons','all');
+    system(['mv ',saveRoot,filesep,'concat.neurons.mat ',saveFolderAndName{1},'.neurons.mat']);
+    [~,datasetName,~] = fileparts(datasets{1});
+    saveFolderSub = [saveRoot,filesep,datasetName];
+		mVision(datasets{1}, saveFolderSub, '', '', [0 0 0 0 0 1 0],'all');
     
-    % Build .neurons for each file from global neurons
+		% Build .neurons for each file from global neurons
     % just load final neurons, and make time intersect
-    % delete(gcp);
+    delete(gcp);
 end
 
-% ConcatenatedAnalysis('/Volumes/Archive/2005-04-26-0/data002(1780-)-data003(-20)','/Volumes/Lab/Projects/spikesorting/mvision/outputConcatTest')

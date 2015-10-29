@@ -24,7 +24,6 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %
     % Author -- Vincent Deo -- Stanford University -- October 12, 2015
     
-    
     nNeurons = size(neuronEls,1);
     validateattributes(neuronEls,{'numeric'},{'size',[nNeurons, 1]},'','neuronEls');
     validateattributes(neuronClusters,{'numeric'},{'size',[nNeurons, 1]},'','neuronClusters');
@@ -37,7 +36,9 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % get data length
     datasource = DataFileUpsampler([dataPath,timeTag]);
     nSamples = datasource.stopSample - datasource.startSample; % horribly ugly - won't go through concatenation patch, etc...
+    initialOffset = datasource.startSample; %for realignment of 0 time when converting to vision neurons.
     datasource = [];
+    
     
     % Load Configuration
     cfg = mVisionConfig();
@@ -65,7 +66,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     
     % Build a neurons file and compute EIs
-    neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'');
+    neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'',initialOffset);
     neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
     neuronSaver.close();
     

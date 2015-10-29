@@ -51,7 +51,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     if ~strcmp(dataPath,[filesep,'concat']) && ...
         ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         % [filesep, 'concat'] is a special token here for concateated analysis
-	throw(MException('','demoScript: data source foilder|file does not exist'));
+	throw(MException('','demoScript: data source folder|file does not exist'));
     end
     
     mkdir(saveFolder);
@@ -79,8 +79,8 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         if strcmp(tryToDo,'noisetocov')
             tryToDo = [ones(1,3),zeros(1,nSteps-3)];
         end
-        if strcmp(tryToDo,'prjtoneurons')
-            tryToDo = [0,0,0,1,1,1,0];
+        if strcmp(tryToDo,'clusttoneurons')
+            tryToDo = [0,0,0,0,1,1,0];
         end
         if isa(tryToDo,'char')
             throw(MException('','Invalid tryToDo argument'));
@@ -245,7 +245,14 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
         
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'');
+        if strcmp(timeCommand,'') || strcmp(timeCommand(1:2),'(-'
+            initialOffset = 0; % Case time command start at 0: empty or (-xxx)
+        else % case timeCommand does NOT start at 0: (xxx-xxx)
+            initialOffset = str2double(timeCommand(2:find(timeCommand{1} == '-',1)-1)) * 20000;
+            % Watch: hardcoded sampling rate. other solution is to instantiate a datasource and get
+            % back source.startsample.
+        end
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',initialOffset);
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
         neuronSaver.close();
         
