@@ -106,4 +106,16 @@ classdef NeuronSaverM < handle
         
     end
     
+    methods(Static)
+        % Statically computes neuron IDs for electrode-clusterID pairs
+        % Allows to store absolute neuron information during neuron cleaning
+        % Rather than the pattern of successive removals
+        % See duplicateRemoval.m, variables saved in cleanPattern.mat        
+        function IDs = getIDs(el, clust)
+            cfg = mVisionConfig();
+            cfg = cfg.getSpectralConfig();
+            maxClust = cfg.maxClust;
+            IDs = (el-2)*maxClust + clust;
+        end
+    end
 end

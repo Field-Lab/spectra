@@ -24,7 +24,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     specConfig = config.getSpectralConfig();
     
     % Cast in double if not - eigs does not support single (R2015a)
-    if ~strcmp(class(spikes),'double')
+    if ~isa(spikes,'double')
         spikes = double(spikes);
     end
     
@@ -157,15 +157,15 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     if size(PCNorm,1) > specConfig.maxPts % Too many spikes to cluster - subsample
         [PCNormRed,~] = datasample(PCNorm,specConfig.maxPts,1); % subset
         
-        [~,model] = kmeans(PCNormRed,numClusters,...
+        [~,modelSpectralSpace] = kmeans(PCNormRed,numClusters,...
             'replicates',specConfig.kmeansRep,...
             'MaxIter',specConfig.maxIter); % k-means
         
         % Assigning nearest centroid to all points (even not used in k-means)
         [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
-            permute(model,[3 1 2])).^2,3),[],2);
+            permute(modelSpectralSpace,[3 1 2])).^2,3),[],2);
     else % Computing k-means directly on all points
-        [clusterIn,model] = kmeans(PCNorm,numClusters,...
+        [clusterIn,~] = kmeans(PCNorm,numClusters,...
             'replicates',specConfig.kmeansRep,...
             'MaxIter',specConfig.maxIter);
     end
@@ -173,6 +173,17 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % Assigning cluster 0 to outliers
     clusterIndexes = zeros(size(PCs,1),1);
     clusterIndexes(~discard) = clusterIn;
+    
+    model.nDimensions = size(spikes,2);
+    model.numClusters = numClusters;
+    model.centroids = zeros(numClusters,size(spikes,2));
+    model.covariances = zeros(numClusters,size(spikes,2));
+    model.mixFrac = zeros(numClusters,1);
+    for c = 1:numClusters
+        model.centroids(c,:) = mean(spikes(clusterIndexes == c),1);
+        model.covariances(c,:) = cov(spikes(clusterIndexes == c),1);
+        model.mixFrac(c) = sum(clusterIndexes == c)./size(spikes,1);
+    end
     
     %% Debug plots
     if false

@@ -22,7 +22,7 @@ function mergePrj( rootFolder, datasets, timeTags )
     for d = 1:nDatasets
         load([datasets{d},'.prj.mat'],'spikeTimes');
         for el = 1:nElectrodes
-            globalSpikes{el}{d} = bsxfun(@plus,spikeTimes{el},nOffset(d));
+            globalSpikes{el}{d} = spikeTimes{el} + nOffset(d);
         end
     end
     spikeTimes = cellfun(@(x) horzcat(x{:}),globalSpikes,'uni', false);

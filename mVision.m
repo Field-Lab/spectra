@@ -245,14 +245,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
         
-        if strcmp(timeCommand,'') || strcmp(timeCommand(1:2),'(-'
-            initialOffset = 0; % Case time command start at 0: empty or (-xxx)
-        else % case timeCommand does NOT start at 0: (xxx-xxx)
-            initialOffset = str2double(timeCommand(2:find(timeCommand{1} == '-',1)-1)) * 20000;
-            % Watch: hardcoded sampling rate. other solution is to instantiate a datasource and get
-            % back source.startsample.
-        end
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',initialOffset);
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
         neuronSaver.close();
         
@@ -272,9 +265,9 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         fprintf('STAs done.\n');
         f = filesep;
         if isunix
-            c = ':'
+            c = ':';
         else
-            c = ';'
+            c = ';';
         end
         system(['java -Xmx4g -Xss100m -cp ".',f,'vision',f,c,'.',f,'vision',f,'Vision.jar" edu.ucsc.neurobiology.vision.tasks.StaAnalysis ',...
             saveFolder,' ', movieXml, ' -c ..',f,'primate.xml']);

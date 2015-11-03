@@ -22,6 +22,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %   neuronClusters: same spec as input
     %   neuronSpikeTimes: same spec as input
     %
+    % Saves:
+    %   IDs of removed neurons and merged neurons, in file cleanPattern.mat
+    %   For purpose of broadcasting the cleaning pattern in concatenated analyses.
+    %
     % Author -- Vincent Deo -- Stanford University -- October 12, 2015
     
     nNeurons = size(neuronEls,1);
@@ -36,7 +40,6 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % get data length
     datasource = DataFileUpsampler([dataPath,timeTag]);
     nSamples = datasource.stopSample - datasource.startSample; % horribly ugly - won't go through concatenation patch, etc...
-    initialOffset = datasource.startSample; %for realignment of 0 time when converting to vision neurons.
     datasource = [];
     
     
@@ -52,6 +55,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
         end
     end
     
+    % Save IDs to clear
+    IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
+    save('cleanPattern.mat','IDsRemovedAtContam');
+    
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
@@ -66,7 +73,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     
     % Build a neurons file and compute EIs
-    neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'',initialOffset);
+    neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'',0);
     neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
     neuronSaver.close();
     
@@ -98,6 +105,9 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     nElectrodes = eiFile.nElectrodes;
     [adjacent,~] = catchAdjWJava( eiFile, 2 );
+    
+    % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
+    IDsMerged = [];
     
     % Single Electrode removal and merges
     for el = 2:nElectrodes
@@ -135,11 +145,17 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                 toRemove(elNeurInd(parts{cc})) = true;
                 toRemove(bestNeuronIndex) = false;
                 
+                % Mergin Pattern
+                IDsMerged = [IDsMerged,NeuronSaverM.getIDs([el el],...
+                        neuronClusters([bestNeuronIndex elNeurInd(parts{cc})]))];
+                
                 neuronSpikeTimes{bestNeuronIndex} = sort(horzcat(neuronSpikeTimes{elNeurInd(parts{cc})}));
             end
         end % cc
     end % el
     
+    % Save IDs to clear
+    save('cleanPattern.mat','IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
@@ -197,6 +213,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
             end % cc
         end % el2
     end % el
+    
+    
+    % Save IDs to clear
+    IDsDuplicatesRemoved = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
+    save('cleanPattern.mat','IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
