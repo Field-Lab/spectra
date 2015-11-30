@@ -51,7 +51,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     if ~strcmp(dataPath,[filesep,'concat']) && ...
         ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
         % [filesep, 'concat'] is a special token here for concateated analysis
-	throw(MException('','demoScript: data source folder|file does not exist'));
+                throw(MException('','demoScript: data source folder|file does not exist'));
     end
     
     mkdir(saveFolder);
@@ -62,7 +62,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     end
     
     % USER input - tryToDo -- won't do any task unless stated here
-    nSteps = 7;
+    nSteps = 6;
     % Steps in order:
     % --------- noise - spike - cov - prj - clust - save - stas ----------------------
     if isa(tryToDo,'char')
@@ -70,17 +70,11 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         if strcmp(tryToDo,'all')
             tryToDo = ones(1,nSteps);
         end
-        if strcmp(tryToDo,'nosta')
-            tryToDo = [ones(1,nSteps-1),0];
-        end
-        if strcmp(tryToDo,'staonly')
-            tryToDo = [ones(1,nSteps-1),0];
-        end
         if strcmp(tryToDo,'noisetocov')
             tryToDo = [ones(1,3),zeros(1,nSteps-3)];
         end
         if strcmp(tryToDo,'clusttoneurons')
-            tryToDo = [0,0,0,0,1,1,0];
+            tryToDo = [0,0,0,0,1,1];
         end
         if isa(tryToDo,'char')
             throw(MException('','Invalid tryToDo argument'));
@@ -97,11 +91,11 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         if strcmp(force,'none')
             force = zeros(1,nSteps);
         end
-        if isa(tryToDo,'char')
+        if isa(force,'char')
             throw(MException('','Invalid force argument'));
         end
     else
-        validateattributes(force,{'numeric'},{'row','ncols',nSteps,'binary'},'','tryToDo',4);
+        validateattributes(force,{'numeric'},{'row','ncols',nSteps,'binary'},'','force',4);
     end
     
     
@@ -241,7 +235,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
         end
         
-        [neuronEls, neuronClusters, neuronSpikeTimes] =...
+        [neuronEls, neuronClusters, neuronSpikeTimes] = ...
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
         
@@ -251,28 +245,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
         
         fprintf('Neuron cleaning done.\n');
         
-        fprintf('Time for cleaning and saving %.2f seconds', toc);
-    else
-        fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
-    end
-    
-    %% Computing STAs
-    if tryToDo(7) &&...
-            (force(7) || ~(exist([saveFolder,filesep,datasetName,'.sta'],'file') == 2))
-        %%
-        fprintf('Computing STAs...\n')
-        tic
-        fprintf('STAs done.\n');
-        f = filesep;
-        if isunix
-            c = ':';
-        else
-            c = ';';
-        end
-        system(['java -Xmx4g -Xss100m -cp ".',f,'vision',f,c,'.',f,'vision',f,'Vision.jar" edu.ucsc.neurobiology.vision.tasks.StaAnalysis ',...
-            saveFolder,' ', movieXml, ' -c ..',f,'primate.xml']);
-        
-        fprintf('Time for STA computation %.2f seconds', toc);
+        fprintf('Time for cleaning and saving %.2f seconds\n', toc);
     else
         fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
     end

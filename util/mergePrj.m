@@ -12,9 +12,13 @@ function mergePrj( rootFolder, datasets, timeTags )
         nOffset(d+1) = nSamples;
     end
     nOffset = cumsum(nOffset);
-    nOffset(1) = -str2double(timeTags{1}(2:find(timeTags{1} == '-',1)-1)) * 20000; % HARDCODED SAMPLING RATE
+        if any(timeTags{1} == '-') && timeTags{1}(2) ~= '-'
+        nOffset(1) = -str2double(timeTags{1}(2:find(timeTags{1} == '-',1)-1)) * 20000; % HARDCODED SAMPLING RATE
+    else
+            nOffset(1) = 0;
+        end
     
-    globalSpikes = cell(nElectrodes,1);
+        globalSpikes = cell(nElectrodes,1);
     for el = 1:nElectrodes
         globalSpikes{el} = cell(1,nDatasets);
     end

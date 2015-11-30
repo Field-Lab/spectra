@@ -10,7 +10,9 @@ function splitNeurons( rootFolder, datasets, timeTags )
     load([rootFolder,filesep,'concat.neurons.mat']);
     
     globalSpikeTimes = neuronSpikeTimes; % copy for names overlaps
-    
+    globalNeuronEls = neuronEls;
+        globalNeuronClusters = neuronClusters;
+
     % Process time intervals
     nOffset = zeros(1,nDatasets);
     for d = 1:(nDatasets-1)
@@ -18,14 +20,27 @@ function splitNeurons( rootFolder, datasets, timeTags )
         nOffset(d+1) = nSamples;
     end
     nOffset = cumsum(nOffset);
-    nOffset(1) = -str2double(timeTags{1}(2:find(timeTags{1} == '-',1)-1)) * 20000; % HARDCODED SAMPLING RATE
-    startTimes = [0,nOffset(2:end)];
-    stopTimes = [nOffset(2:end),Inf];
     
+        
+        if any(timeTags{1} == '-') && timeTags{1}(2) ~= '-'
+        nOffset(1) = -str2double(timeTags{1}(2:find(timeTags{1} == '-',1)-1    )) * 20000; % HARDCODED SAMPLING RATE
+    else
+        nOffset(1) = 0;
+    end
+        
+        startTimes = [0,nOffset(2:end)];
+    stopTimes = [nOffset(2:end),Inf];
+
     for d = 1:nDatasets
-        neuronSpikesTimes =...
+        neuronSpikeTimes =...
             cellfun(@(x) x(and(x >= startTimes(d),x < stopTimes(d))) - nOffset(d),...
             globalSpikeTimes,'uni',false);
+                empties = cellfun(@isempty, neuronSpikeTimes);
+                neuronSpikeTimes(empties) = [];
+                neuronEls = globalNeuronEls;
+                neuronEls(empties) = [];
+                neuronClusters = globalNeuronClusters;
+                neuronClusters(empties) = [];
         save([datasets{d},'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
     end
 end

@@ -5,13 +5,13 @@ function modelConverter( dataPath, saveFolder, datasetName )
     modelFilePath = [saveFolder,filesep,datasetName,'.model'];
     matModelFilePath = [saveFolder,filesep,datasetName,'.model.mat'];
     matSpikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
-    matCovFilePath = [saveFolder,filesep,datasetName,'.prj.mat'];
+    matPrjFilePath = [saveFolder,filesep,datasetName,'.prj.mat'];
     load(matSpikeFilePath,'nSamples');
     
     datasource = DataFileUpsampler(dataPath);
     cfg = mVisionConfig();
     cfg = cfg.getCovConfig();
-    [adj,~] = catchAdjWithJava(datasource,cfg.electrodeUsage);
+    [adj,~] = catchAdjWJava(datasource,cfg.electrodeUsage);
     datasource = [];
     
     % ------------- DO NOT TRY TO UNDERSTAND THIS SECTION -----------------
@@ -33,7 +33,7 @@ function modelConverter( dataPath, saveFolder, datasetName )
     MAX_CONTAM = 1;
     
     % Fill in the Vision header object
-    visionHeader.magic = MAGIC;
+    % visionHeader.magic = MAGIC;
     visionHeader.headerVersion = 1;
     visionHeader.version = VERSION;
     visionHeader.meanTimeConstant = -1;
@@ -47,34 +47,59 @@ function modelConverter( dataPath, saveFolder, datasetName )
     visionHeader.nDimensions = cfg.nDims;
     visionHeader.minNeuronSpikes = MIN_SPIKES;
     visionHeader.maxContamination = MAX_CONTAM;
-    %----------------------------------------------------------------------
+    visionHeader.nEMSpikes = 3000;
+        %----------------------------------------------------------------------
     
     load(matModelFilePath);
-    nTotalClust = sum(cell2mat(cellfun(@(x) x.numClusters),clusterParams));
+    emptyCells = cellfun(@isempty, clusterParams);
+        noEmpties = clusterParams;
+        noEmpties(emptyCells) = [];
+        nTotalClust = sum(cellfun(@(x) x.numClusters,noEmpties,'uni',true));
     load(matPrjFilePath,'eigenVectors');
     
     modelFile = edu.ucsc.neurobiology.vision.io.ClusteringModelFile(modelFilePath,...
         nTotalClust + 1000, visionHeader);
     
     for el = 2:numel(clusterParams)
-        m = edu.ucsc.neurobiology.vision.io.ClusteringModelFile.EMModel();
-        m.extractionID = el-1;
-        m.neuronIndex = 0:(clusterParams{el}.numClusters - 1);
-        m.neuronID = NeuronSaverM.getIDs(el,1:clusterParams{el}.numClusters);
-        m.cleaningLevel = 1;
+                    mw = edu.ucsc.neurobiology.vision.io.EMModelWrapper;
+            m = mw.model;
+                    m.extractionID = el-1;
+        if isempty(clusterParams{el})
+            m.nClusters = 1;
+                    m.neuronIndex = 0;
+            m.neuronID = NeuronSaverM.getIDs(el,1);
+            m.cleaningLevel = 1;
         
-        m.electrodes = adj{el}-1;
+            m.electrodes = adj{el}-1;
         
-        m.threshold = 0;
-        m.nDimensions = size(clusterParams{el}.centroids,2);
-        m.eigenVectors = eigenVectors{el}';
-        m.nClusters = clusterParams{el}.numClusters;
-        m.nGaussians = clusterParams{el}.nGaussians;
-        m.means = clusterParams{el}.centroids;
-        m.covariances = clusterParams{el}.covariances;
-        m.probability = clusterParams{el}.mixFrac;
+            m.threshold = 0;
+            m.nDimensions = 5;
+            m.eigenvectors = zeros(5);
+            m.nGaussians = 1;
+            m.means = zeros(1,5);
+            m.covariances = zeros(1,5);
+            m.probability = 1;
+                else
+            m.nClusters = clusterParams{el}.numClusters;
+                    m.neuronIndex = 0:(clusterParams{el}.numClusters - 1);
+            m.neuronID = NeuronSaverM.getIDs(el,1:clusterParams{el}.numClusters);
+            m.cleaningLevel = 1;
         
-        modelFile.addExtraction(m);
+            m.electrodes = adj{el}-1;
+        
+            m.threshold = 0;
+            m.nDimensions = size(clusterParams{el}.centroids,2);
+            m.eigenvectors = eigenVectors{el}';
+            m.nGaussians = clusterParams{el}.numClusters;
+            m.means = clusterParams{el}.centroids;
+            m.covariances = clusterParams{el}.covariances;
+            m.probability = clusterParams{el}.mixFrac;
+        end
+
+                modelFile.addExtraction(m);
     end
+
+        modelFile.close();
+
 end
 

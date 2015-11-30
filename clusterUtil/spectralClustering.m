@@ -180,8 +180,8 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     model.covariances = zeros(numClusters,size(spikes,2));
     model.mixFrac = zeros(numClusters,1);
     for c = 1:numClusters
-        model.centroids(c,:) = mean(spikes(clusterIndexes == c),1);
-        model.covariances(c,:) = cov(spikes(clusterIndexes == c),1);
+        model.centroids(c,:) = mean(spikes(clusterIndexes == c,:),1);
+        model.covariances(c,:) = var(spikes(clusterIndexes == c,:),1);
         model.mixFrac(c) = sum(clusterIndexes == c)./size(spikes,1);
     end
     

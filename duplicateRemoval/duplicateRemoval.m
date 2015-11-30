@@ -57,7 +57,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save('cleanPattern.mat','IDsRemovedAtContam');
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -145,9 +145,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                 toRemove(elNeurInd(parts{cc})) = true;
                 toRemove(bestNeuronIndex) = false;
                 
-                % Mergin Pattern
-                IDsMerged = [IDsMerged,NeuronSaverM.getIDs([el el],...
-                        neuronClusters([bestNeuronIndex elNeurInd(parts{cc})]))];
+                % Merging Pattern
+                mergePairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
+                                        neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
+                mergePairs(b,:) = [];
+                                IDsMerged = [IDsMerged;mergePairs];
                 
                 neuronSpikeTimes{bestNeuronIndex} = sort(horzcat(neuronSpikeTimes{elNeurInd(parts{cc})}));
             end
@@ -155,7 +157,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     end % el
     
     % Save IDs to clear
-    save('cleanPattern.mat','IDsMerged','-append');
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
@@ -217,7 +219,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % Save IDs to clear
     IDsDuplicatesRemoved = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save('cleanPattern.mat','IDsDuplicatesRemoved','-append');
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);

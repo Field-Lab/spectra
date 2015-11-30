@@ -27,7 +27,6 @@ function prjConverter(dataPath, saveFolder, datasetName)
     MAX_CONTAM = 1;
     
     % Fill in the Vision header object
-    visionHeader.magic = MAGIC;
     visionHeader.headerVersion = 1;
     visionHeader.version = VERSION;
     visionHeader.meanTimeConstant = -1;
@@ -50,7 +49,10 @@ function prjConverter(dataPath, saveFolder, datasetName)
     prjFile = edu.ucsc.neurobiology.vision.io.ProjectionsFile(prjFilePath,...
         visionHeader, totSpikes, ttlTimes);
     for el = 2:size(totSpikes,1)
-        load(matPrjFilePath,sprintf('projSpikes%u',el));
+        if isempty(spikeTimes{el})
+                    continue;
+                end
+                load(matPrjFilePath,sprintf('projSpikes%u',el));
         eval(sprintf('prjFile.saveDataFromMatlab(el-1,spikeTimes{el},projSpikes%u);',el));
         eval(sprintf('projSpikes%u = [];',el));
     end

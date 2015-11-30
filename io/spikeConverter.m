@@ -15,13 +15,13 @@ function spikeConverter(dataPath, saveFolder, datasetName)
     
     datasource = DataFileUpsampler(dataPath);
     samplingRate = datasource.samplingRate;
-    hdr = datasource.RawDataFile.getHeader();
+    hdr = datasource.rawDataFile.getHeader();
     arrayID = hdr.getArrayID();
     
     spikeFile = edu.ucsc.neurobiology.vision.io.SpikeFile(spikeFilePath,...
         arrayID, meanTimeConstant, threshold, nSamples, samplingRate);
     
-    spikeFile.pushMatlabSpikes(bsxfun(@minus,spikeSave,[0 1]));
+    spikeFile.pushMatlabSpikes(spikeSave(:,1),spikeSave(:,2)-1);
     spikeFile.close();
 end
 
