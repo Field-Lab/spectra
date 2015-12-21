@@ -192,7 +192,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         plot(quality,'+-');
         
         %% Clusters in spikes PC space
-        figure(5)
+        figure(2)
         if size(spikes,1) > 10000
             dispsubset = randsample(size(spikes,1),10000);
         else

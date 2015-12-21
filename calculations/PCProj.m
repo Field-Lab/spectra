@@ -109,7 +109,7 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
             nSpikes = numel(spikes{el});
             
             % Skip case
-            if dataSource.disconnected(el) || nSpikes < 2;
+            if dataSource.disconnected(el) || totSpikes(el) < 2 || nSpikes == 0;
                 continue
             end
 
