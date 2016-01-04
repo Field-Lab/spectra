@@ -16,11 +16,11 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     datasetName = cell(size(datasets)); %stores just dataxxx
     
     % Open a parpool for parallel dataset processing
-    if numel(datasets) < parConfig.nWorkers
-        %        parpool(numel(datasets));
-    else
-        %        parpool(parConfig.nWorkers);
-    end
+    %     if numel(datasets) < parConfig.nWorkers
+    %         parpool(numel(datasets));
+    %     else
+    %         parpool(parConfig.nWorkers);
+    %     end
     % Process all datasets noise + spikes + cov
     % parfor
     for d = 1:numel(datasets)
@@ -30,29 +30,29 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
         [~,datasetName{d},~] = fileparts(datasets{d});
         saveFolderSub{d} = [saveRoot,filesep,datasetName{d}];
         saveFolderAndName{d} = [saveFolderSub{d},filesep,datasetName{d}];
-        %        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', 'noisetocov','all');
+        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', 'noisetocov','all');
     end
     
     % Build global spike file and cov file
     addpath ./util
-    %    mergeCovAndSpikes(saveRoot, saveFolderAndName, timeCommands);
+    mergeCovAndSpikes(saveRoot, saveFolderAndName, timeCommands);
     
     % Projections for all datasets
     % parfor
     for d = 1:numel(datasets)
-        %        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
+        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
     end
     
-    %    mergePrj(saveRoot, saveFolderAndName, timeCommands);
+    mergePrj(saveRoot, saveFolderAndName, timeCommands);
     
     % Clustering for global dataset
     % manage parpool
-    %    x = gcp;
-    %    if x.NumWorkers < parConfig.nWorkers
-    %        delete(gcp);
-    %        parpool(parConfig.nWorkers);
-    %    end
-    %    mVision([filesep,'concat'], saveRoot, '', '', [0 0 0 0 1 0 0],'all');
+    x = gcp;
+    if numel(x) == 0 || x.NumWorkers < parConfig.nWorkers
+        delete(gcp);
+        parpool(parConfig.nWorkers);
+    end
+    mVision([filesep,'concat'], saveRoot, '', '', [0 0 0 0 1 0 0],'all');
     
     concatenatedDuplicateRemoval(datasets, saveRoot, saveFolderAndName, timeCommands);
     

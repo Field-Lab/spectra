@@ -10,11 +10,12 @@ classdef mVisionConfig
         debug = false;
         
         % Parallel (multi-file at parallelCaller level, clustering loop, ...)
-        nWorkers                = 32
+        nWorkers                = 32 % 01/04/16: Poorly managed, pool times out before reaching clustering
         
         %% Data Source management
         bufferMaxSize           = 16384 % samples
         upSampleRatio           = 16    % samples
+        sampleRate              = 20000 % Hz
         
         %% Raw Data Noise Evaluation
         noiseTime               = 5     % seconds
@@ -82,6 +83,7 @@ classdef mVisionConfig
         function dataConfig = getDataConfig(obj)
             dataConfig.bufferMaxSize = obj.bufferMaxSize;
             dataConfig.upSampleRatio = obj.upSampleRatio;
+            dataConfig.sampleRate = obj.sampleRate;
         end % dataConfig
         
         function noiseConfig = getNoiseConfig(obj)

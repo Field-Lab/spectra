@@ -20,9 +20,9 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     %
     % Clustering is done in a specified clustering subfunction that returns cluster numbers for a
     % given clustering space. This function to reindex all in a global dataset indexing
-    % 
+    %
     % Author -- Vincent Deo -- Stanford University -- August 27, 2015
-
+    
     % Load config
     config = mVisionConfig();
     clustConfig = config.getClustConfig();
@@ -38,7 +38,13 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     spikeTimesNeuron = cell(nElectrodes,1);
     
     % Optional parfor here - don't put if already parallelizing on files (parallelCaller level)
-    % parfor
+    % If using parfor, manage parallel pool
+    ppool = gcp;
+    parConfig = config.getParConfig;
+    if numel(ppool) == 0 || ppool.NumWorkers < parConfig.nWorkers
+        delete(gcp);
+        parpool(parConfig.nWorkers);
+    end
     parfor el = 2:nElectrodes
         
         % Subfunction loadprj is necessary to maintain parfor body transparency.
@@ -54,44 +60,45 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
             throw(MException('',['PCClustering: insufficient dimensions (',num2str(size(projSpikes{el},2)),')saved in .prj.mat - please recompute projections.']));
         end
         
-                    glmTimer = tic;
-            
-            for nTry = 1:10
-                            try % Catch the ARPACK C subroutine error in eigs in spectral clustering, and try over.
-                    % Clustering function
-                                        [clusterIndexes, model, numClusters] = spectralClustering(projSpikes(:,1:nDims));
-            
-                    % Assignments
-                    clusterParams{el} = model;
-   
-                    neuronEls{el} = el*ones(numClusters,1);
-                    neuronClusters{el} = (1:numClusters)';
-            
-                    spikeTimesNeuron{el} = cell(numClusters,1);
-            
-                    for gsn = 1:numClusters
-                        spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(clusterIndexes == gsn);
-                    end
-            
-                    break; % if nothing is catched, break - at most 10 tries
-                            catch error
-                    if nTry == 10
-                        error.getReport()
-                                                fprintf('Error at electrode %u after %u tries, skipping.\n',el,nTry);
-                        % throw(error) % debug rethrow
-                                        end
+        glmTimer = tic;
+        
+        for nTry = 1:10
+            try % Catch the ARPACK C subroutine error in eigs in spectral clustering, and try over.
+                % Clustering function
+                [clusterIndexes, model, numClusters] = spectralClustering(projSpikes(:,1:nDims));
+                
+                % Assignments
+                clusterParams{el} = model;
+                
+                neuronEls{el} = el*ones(numClusters,1);
+                neuronClusters{el} = (1:numClusters)';
+                
+                spikeTimesNeuron{el} = cell(numClusters,1);
+                
+                for gsn = 1:numClusters
+                    spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(clusterIndexes == gsn);
                 end
-                        end
-            %% Debug - plots
-            if clustConfig.debug
-                fprintf(['Electrode %u:\n%u neurons found over %u spikes\n',...
-                    'Time for Electrode Clustering %f seconds\n',...
-                    '-----------------------\n'],el,numClusters,size(projSpikes,1),toc(glmTimer));
-            end % if debug
-            
-            projSpikes = []; % Gain some RAM by deallocating. Cannot use clear in parfor, and cannot trust the GC. 
+                
+                break; % if nothing is catched, break - at most 10 tries
+            catch error
+                if nTry == 10
+                    % error.getReport()
+                    fprintf('Error at electrode %u after %u tries, skipping.\n',el,nTry);
+                    % throw(error) % debug rethrow
+                end
+            end
+        end
+        %% Debug - plots
+        if clustConfig.debug
+            fprintf(['Electrode %u:\n%u neurons found over %u spikes\n',...
+                'Time for Electrode Clustering %f seconds\n',...
+                '-----------------------\n'],el,numClusters,size(projSpikes,1),toc(glmTimer));
+        end % if debug
+        
+        projSpikes = []; % Gain some RAM by deallocating. Cannot use clear in parfor, and cannot trust the GC.
         
     end % el
+    delete(gcp);
     
     % Concatenating all neurons found
     neuronEls = vertcat(neuronEls{:});

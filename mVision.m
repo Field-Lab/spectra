@@ -1,29 +1,53 @@
-function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
-    %MVISION Demonstrates workflow of mVision and forms the backbone
-    % of serial neuron finding
+function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
+    %MVISION Main function for single dataset white noise analysis
     %
     % This script manages the successive steps of serial neuron finding
-    % It can work in script mode or in function mode
     % Input:
-    %   dataSetName: string in the format 'yyyy-mm-dd-x/dataxxx'
-    %       The root folders for data and output are provided below
+    %   dataSetName: path to the dataset folder
+    %       ex: something ending in ...'yyyy-mm-dd-n/dataxxx'
+    
+    %   saveFolder: the output folder of the analysis.
+    %       It is MOST recommended (ie do it) the deepest level subfolder has the same
+    %       name 'dataxxx' as the dataset folder. Vision infers file names from
+    %       destination folder whereas mVision does it from the source folder.
+    %
     %   timeCommand: vision style time command for selection within a dataset
-    %       Such as (10-), (500-1000),(-100)
-    %   mVision DOES NOT support dataset syntaxes such as data000(1000-)-data002(-100)
+    %       Use empty string '' for full dataset
+    %       ex: '', '(10-)', '(500-1000)','(-100)'
+    %       Warning: mVision.m DOES NOT support cocatenated dataset syntaxes
+    %       such as data000(1000-)-data002(-100).
+    %       Use concatenatedAnalysis.m (WIP) for that purpose
+    %   
+    %   tryToDo: a 1x6 binary array for what subcalculations to do (see list below)
+    %       0 - do not try the calculation
+    %       1 - try the calculation
+    %       String argument 'all' is allowed as shorthand for [1 1 1 1 1 1]
+    %       If a calculation is required but the previous was not and the input
+    %       files are missing, mVision will crash.
     %
-    % Successively calls if requested || necessary the subroutines:
-    % Noise evaluation - Spike Finding - Covariance Calculation
-    % Projections Calculations - Clustering - Neuron Cleaning - Neuron File saving
+    %   force: a 1x6 binary array for overwrite authorization of the calculations
+    %       0 - do not overwrite, skip the calculation if its output files are found
+    %       1 - overwrite, do the calculation in all cases
+    %       String arguments 'all' and 'none' are allowed as shorthand for
+    %       respectively all ones and all zeros.
     %
-    % All intermediate files are stored in convenient .mat files, except:
-    % .neurons-raw file saved under vision format and matlab format (.neurons.mat)
-    % .neurons saved only in vision format
+    % This function successively calls if requested or necessary the calculations:
+    %       1/ Noise evaluation
+    %       2/ Spike Finding
+    %       3/ Covariance Calculation
+    %       4/ Projections Calculations
+    %       5/ Clustering
+    %       6/ Neuron Cleaning and saving
+    %       
+    % All intermediate files are stored in convenient .mat files.
+    % The final .neurons.mat file is converted to a vision compatible .neurons
     %
-    % VISION COMPATIBILITY
-    % To run further analysis with vision, one should first call the calculations
+    % VISION POST PROCESSING
+    % To run further analysis with vision, first call the calculations
     % "Generate globals file" then "Copy Raw Data Header To Globals"
+    % You can the compute EIs, STAs and the parameter file.
     %
-    % Author -- Vincent Deo -- Stanford University -- August 5, 2015
+    % Author -- Vincent Deo -- Stanford University -- January 4, 2016
     
     %% SETUP
     % Add subfolders to the matlab path
@@ -50,8 +74,8 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     end
     if ~strcmp(dataPath,[filesep,'concat']) && ...
         ~(exist(dataPath,'file') == 2 || exist(dataPath,'file') == 7)
-        % [filesep, 'concat'] is a special token here for concateated analysis
-                throw(MException('','demoScript: data source folder|file does not exist'));
+        % [filesep, 'concat'] is a special token here for concatenated analysis
+        throw(MException('','demoScript: data source folder|file does not exist'));
     end
     
     mkdir(saveFolder);
@@ -64,17 +88,11 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
     % USER input - tryToDo -- won't do any task unless stated here
     nSteps = 6;
     % Steps in order:
-    % --------- noise - spike - cov - prj - clust - save - stas ----------------------
+    % --------- noise - spike - cov - prj - clust - save ----------------------
     if isa(tryToDo,'char')
         tryToDo = lower(tryToDo);
         if strcmp(tryToDo,'all')
             tryToDo = ones(1,nSteps);
-        end
-        if strcmp(tryToDo,'noisetocov')
-            tryToDo = [ones(1,3),zeros(1,nSteps-3)];
-        end
-        if strcmp(tryToDo,'clusttoneurons')
-            tryToDo = [0,0,0,0,1,1];
         end
         if isa(tryToDo,'char')
             throw(MException('','Invalid tryToDo argument'));
@@ -239,7 +257,10 @@ function mVision(dataPath, saveFolder, timeCommand, movieXml, tryToDo, force)
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
         
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
+        cfg = mVisionConfig(); dataConfig = cfg.getDataConfig();
+        sampleRate = dataConfig.sampleRate;
+        
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',-);
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
         neuronSaver.close();
         
