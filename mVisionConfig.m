@@ -73,6 +73,7 @@ classdef mVisionConfig
         
         EIMergeThresholdWithin  = 0.1   % Normalized metric
         EIMergeThresholdAcross  = 0.1   % Normalized metric
+        EIMergeThresholdGlobal  = 0.1   % Normalized metric
         
         EIGlobalMinWindow       =[18 44]% Sample window in which perform global min EI realignment
         
@@ -171,6 +172,7 @@ classdef mVisionConfig
             
             cleanConfig.eiThrW = obj.EIMergeThresholdWithin;
             cleanConfig.eiThrA = obj.EIMergeThresholdAcross;
+            cleanConfig.eiThrG = obj.EIMergeThresholdGlobal;
             
             cleanConfig.globMinWin = obj.EIGlobalMinWindow;
         end
