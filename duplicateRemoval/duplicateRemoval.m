@@ -27,7 +27,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %   For purpose of broadcasting the cleaning pattern in concatenated analyses.
     %
     % Author -- Vincent Deo -- Stanford University -- October 12, 2015
-    
+    %% Setup
+
     nNeurons = size(neuronEls,1);
     validateattributes(neuronEls,{'numeric'},{'size',[nNeurons, 1]},'','neuronEls');
     validateattributes(neuronClusters,{'numeric'},{'size',[nNeurons, 1]},'','neuronClusters');
@@ -47,10 +48,12 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     cfg = mVisionConfig();
     cleanConfig = cfg.getCleanConfig();
     
-    % Remove low count and contaminated neurons
+    %% Remove low count and contaminated neurons
     toRemove = cellfun(@(x) numel(x) < cleanConfig.minSpikes, neuronSpikeTimes);
     for i = 1:nNeurons
-        if (toRemove(i) || edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(neuronSpikeTimes{i}, nSamples) > cleanConfig.maxCont)
+        if (toRemove(i) ||...
+                edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(neuronSpikeTimes{i}, nSamples) >...
+                cleanConfig.maxCont)
             toRemove(i) = true;
         end
     end
@@ -72,7 +75,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %%%
     
     
-    % Build a neurons file and compute EIs
+    %% Build a neurons file and compute EIs
     neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'',0);
     neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
     neuronSaver.close();
@@ -93,10 +96,9 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
         cleanConfig.EISp, cleanConfig.EInThreads));
     delete([saveFolder, filesep, datasetName,'.neurons']);
 
-    % EI access setup
+    %% EI access setup
     eiPath = [saveFolder, filesep, datasetName,'.ei'];
     eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
-    
     
     % Misc for dup removal algorithm
     eiSize = cleanConfig.EILP + cleanConfig.EIRP + 1;
@@ -109,7 +111,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
     IDsMerged = [];
     
-    % Single Electrode removal and merges
+    %% Single Electrode removal and merges
     for el = 2:nElectrodes
         elNeurInd = find(neuronEls == el);
         if numel(elNeurInd) <= 1
@@ -167,10 +169,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     toRemove = false(nNeurons,1);
     
     %%%
-    fprintf('After single el merge pass: %u\n',nNeurons);
+    fprintf('After single electrode pair merges: %u\n',nNeurons);
     %%%
     
-    % Dual Neighbor electrodes duplicate removal and discard
+    %% Dual Neighbor electrodes duplicate removal and discard
     for el = 2:nElectrodes
         for el2Index = 2:numel(adjacent{el})
             el2 = adjacent{el}(el2Index);
@@ -225,8 +227,9 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     neuronClusters = neuronClusters(~toRemove);
     neuronSpikeTimes = neuronSpikeTimes(~toRemove);
     nNeurons = size(neuronEls,1);
+    
     %%%
-    fprintf('Final neurons: %u\n',nNeurons);
+    fprintf('After neighbor electrode pair discard: %u\n',nNeurons);
     %%%
 end
 

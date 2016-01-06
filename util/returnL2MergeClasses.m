@@ -20,7 +20,7 @@ function CC = returnL2MergeClasses( arrays, threshold )
     
     % Process tree
     dists(isnan(dists)) = 0;
-    [row,col] = find( dists ); % remove singularities
+    [row,col] = find( and(dists > 0,dists < threshold) ); % remove singularities and values above threshold
     % remove diagonal terms if any
     diagRem = row == col; row(diagRem) = []; col(diagRem) = [];
     % remove duplicate indices for computing each edge only once
@@ -39,9 +39,10 @@ function CC = returnL2MergeClasses( arrays, threshold )
     g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
     
     % Extract final connected component structure and merge edge values list
-    g.removeSingletons();
-    t = g.getFinalTree();
-    CC = t.partitioning(threshold);
+    % g.removeSingletons();
+    % t = g.getFinalTree();
+    % CC = t.partitioning(threshold);
+    CC = g.getFinalForest();
     
     if ~isa(CC,'cell') % java return may be array type if it has appropriate dimensions
         CC = mat2cell(CC,ones(1,size(CC,1)));
