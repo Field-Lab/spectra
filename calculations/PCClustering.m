@@ -62,8 +62,11 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         
         glmTimer = tic;
         
-        for nTry = 1:10
-            try % Catch the ARPACK C subroutine error in eigs in spectral clustering, and try over.
+        for nTry = 1:clustConfig.maxTries
+            try % Catch the ARPACK C subroutine error in eigs in spectral clustering,
+                % Catch an excessive outlier error in spectral clustering
+                % and try over.
+                
                 % Clustering function
                 [clusterIndexes, model, numClusters] = spectralClustering(projSpikes(:,1:nDims));
                 
@@ -81,7 +84,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                 
                 break; % if nothing is catched, break - at most 10 tries
             catch error
-                if nTry == 10
+                if nTry == clustConfig.maxTries
                     % error.getReport()
                     fprintf('Error at electrode %u after %u tries, skipping.\n',el,nTry);
                     % throw(error) % debug rethrow
@@ -97,7 +100,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         
         projSpikes = []; % Gain some RAM by deallocating. Cannot use clear in parfor, and cannot trust the GC.
         
-    end % el
+    end % (parfor) el
     delete(gcp);
     
     % Concatenating all neurons found

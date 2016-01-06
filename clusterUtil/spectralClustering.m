@@ -35,139 +35,126 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         javaaddpath(['.',filesep,'clusterUtil']);
     end
     
-    %% Main loop - repeat if random sample is bad and makes too many outliers
+    %% Big data subsampling for laplacian computation (quadratic in time and memory)
+    if specConfig.spikesForLaplacian < size(spikes,1)
+        spikesToCluster = datasample(spikes,specConfig.spikesForLaplacian,1);
+    else
+        spikesToCluster = spikes;
+    end
     
-    % Tags and counter for outlier criterion
-    failTag = true;
-    failCounter = 0;
+    %% Computing and diagonalizing the graph Laplacian
     
-    while failTag
-        %% Big data subsampling for laplacian computation (quadratic in time and memory)
-        if specConfig.nSpikesK < size(spikes,1)
-            spikesToCluster = datasample(spikes,specConfig.nSpikesK,1);
-        else
-            spikesToCluster = spikes;
-        end
-        
-        %% Computing and diagonalizing the graph Laplacian
-        
-        % Euclidian distance matrix
-        wmat = sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
-            permute(spikesToCluster,[3 1 2])).^2,3);
-        
-        % Computing k-th neighbor sigma distance in java auxiliary loop
-        sigmas = 1./sqrt(UtilSpectral.nthSmallest(specConfig.nNeighbors,wmat));
-        
-        % Locally scaled affinity matrix
-        wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
-
-        % Row weights
-        dvector = sum(wmat,2);
-        dinv = dvector .^ (-0.5);
-        
-        % Normalized (Id - Laplacian) of the graph
-        laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat)); % D^(-1/2) * A * D^(-1/2)
-        
-        % Extraction of dominant eigenvalues and eigenvectors
-        options.issym = true; options.isreal = true; options.maxit = 1000;
-        [evectors, evalues] = eigs(laplacian,specConfig.maxClust + 5,'lm',options);
-        evalues = 1 - evalues; % Eigenvalues of Laplacian
-        
-        % Sorting and suppressing imaginary residue
-        [~,perm] = sort(real(diag(evalues)));
-        evectors = evectors(:,perm);
-        
-        %% Number of clusters determination
-        % Done by iteratively finding optimal rotation of eigenvectors in
-        % smallest eigenvalues spaces
-        
-        currVectors = evectors(:,1:2); % Starting at 2 clusters
-        quality = zeros(specConfig.maxClust-1,1); % Array of quality metric
-        alignedVectors = cell(specConfig.maxClust-1,1); % Rotated vectors at each iteration
-        for C = 2:specConfig.maxClust 
-            [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
-            currVectors = [alignedVectors{C-1},evectors(:,C+1)];
-        end % C
-        
-        % Qualities are a 0-1 metrix, often max around 1
-        % Best number of clusters is highest number within 0.02 of maximum
-        numClusters = find((max(quality)-quality) < 0.02,1,'last') + 1;
-        
-        %% Dimensionality reduction - Laplacian PC space of dimension nClusters
-        
-        evectors = evectors(:,1:numClusters); % Projection vectors
-        
-        % Projecting ALL spikes in the Laplacian eigenspace
-        % Output array is nSpikes * nClusters
-        % But intermediate affinity is of size nSpikes * size(laplacian,1)
-        % Done in successive buffers to not blow up RAM
-        
-        numPerBuff = 1000; % spike buffer size
-        PCs = cell(ceil(size(spikes,1)/numPerBuff),1); % PCs storage
-        
-        % Buffer loop
-        for buff = 1:size(PCs,1)
-            buffStart = numPerBuff*(buff-1)+1;
-            buffEnd = min(size(spikes,1),numPerBuff*buff);
-            
-            adj = sum(bsxfun(@minus,...
-                permute(spikes(buffStart:buffEnd,:),[1 3 2]),...
-                permute(spikesToCluster,[3 1 2])).^2,3); % Adjacency matrix
-            
-            sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(specConfig.nNeighbors,adj)); % Local scales
-            
-            adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))); % Affinity matrix
-            % Add possible thresholding here
-            PCs{buff} = bsxfun(@times,dinv',bsxfun(@times,sum(adj,2).^(-1/2),adj)) * evectors; % Projections
-%             PCs{buff} = adj * evectors; % Projections
-        end % buff
-        
-        clear adj
-        
-        PCs = vertcat(PCs{:}); % Compacting whole nSpikes * nClusters in one array
-       
-        %% Normalize PCs on unit hypersphere - discard outliers
-        % Discard outliers (unconnected to any laplacian-building point,
-        % hence in kernel of eigenspace projector)
-        PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
-        discard = isnan(PCNorm(:,1));
-        PCNorm(discard,:) = [];
-        
-        % Check for outlier fraction
-        % If too high, then subset is unsatisfying, start over.
-        % note: cannot fail if no thresholding
-        if nnz(discard) > 0.01*size(PCs,1);
-            if specConfig.debug
-                disp('Failure at 1% max outlier criterion.');
-            end
-            failCounter = failCounter + 1;
-        else
-            failTag = false;
-        end
-        
-        if failCounter >= 10
-            disp('SpectralClustering: Could not meet 1% outlier rule.');
-            failTag = false;
-        end
-    end % while failTag
+    % Euclidian distance matrix
+    wmat = sum(bsxfun(@minus, permute(spikesToCluster,[1 3 2]),...
+        permute(spikesToCluster,[3 1 2])).^2,3);
     
+    % Computing k-th neighbor sigma distance in java auxiliary loop
+    sigmas = 1./sqrt(UtilSpectral.nthSmallest(specConfig.nthNeighbor,wmat));
+    
+    % Locally scaled affinity matrix
+    wmat = exp(-bsxfun(@times,bsxfun(@times,wmat,sigmas'),sigmas));
+    
+    % Row weights
+    dvector = sum(wmat,2);
+    dinv = dvector .^ (-0.5);
+    
+    % Normalized (Id - Laplacian) of the graph
+    laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat)); % D^(-1/2) * A * D^(-1/2)
+    
+    % Extraction of dominant eigenvalues and eigenvectors
+    options.issym = true; options.isreal = true;
+    options.maxit = specConfig.eigsMaxIter;
+    options.tol = specConfig.eigsTol;
+    [evectors, evalues] = eigs(laplacian,specConfig.maxEV + 5,'lm',options);
+    evalues = 1 - evalues; % Eigenvalues of Laplacian
+    
+    % Sorting and suppressing imaginary residue
+    [~,perm] = sort(real(diag(evalues)));
+    evectors = evectors(:,perm);
+    
+    %% Number of clusters determination
+    % Done by iteratively finding optimal rotation of eigenvectors in
+    % smallest eigenvalues spaces
+    
+    currVectors = evectors(:,1:2); % Starting at 2 clusters
+    quality = zeros(specConfig.maxEV-1,1); % Array of quality metric
+    alignedVectors = cell(specConfig.maxEV-1,1); % Rotated vectors at each iteration
+    for C = 2:specConfig.maxEV
+        [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
+        currVectors = [alignedVectors{C-1},evectors(:,C+1)];
+    end % C
+    
+    % Qualities are a 0-1 metrix, often max around 1
+    % Best number of clusters is highest number within 0.02 of maximum
+    numClusters = find((max(quality)-quality) < specConfig.qualityTol,1,'last') + 1;
+    
+    %% Dimensionality reduction - Laplacian PC space of dimension nClusters
+    
+    % evectors = evectors(:,1:numClusters); % Projection vectors
+    evectors = alignedVectors{numClusters-1};
+    
+    % Projecting ALL spikes in the Laplacian eigenspace
+    % Output array is nSpikes * nClusters
+    % But intermediate affinity is of size nSpikes * size(laplacian,1)
+    % Done in successive buffers to not blow up RAM
+    
+    numPerBuff = specConfig.reprojBufferSize; % spike buffer size
+    PCs = cell(ceil(size(spikes,1)/numPerBuff),1); % PCs storage
+    
+    % Buffer loop
+    for buff = 1:size(PCs,1)
+        buffStart = numPerBuff*(buff-1)+1;
+        buffEnd = min(size(spikes,1),numPerBuff*buff);
+        
+        adj = sum(bsxfun(@minus,...
+            permute(spikes(buffStart:buffEnd,:),[1 3 2]),...
+            permute(spikesToCluster,[3 1 2])).^2,3); % Adjacency matrix
+        
+        sigmaBuff = 1./sqrt(UtilSpectral.nthSmallest(specConfig.nthNeighbor,adj)); % Local scales
+        
+        adj = exp(-bsxfun(@times,sigmaBuff,bsxfun(@times,sigmas',adj))); % Affinity matrix
+        % Add possible thresholding here
+        PCs{buff} = bsxfun(@times,dinv',bsxfun(@times,sum(adj,2).^(-1/2),adj)) * evectors; % Projections
+    end % buff
+    
+    clear adj
+    
+    PCs = vertcat(PCs{:}); % Compacting whole nSpikes * nClusters in one array
+    
+    %% Normalize PCs on unit hypersphere - discard outliers
+    % Discard outliers (unconnected to any laplacian-building point,
+    % hence in kernel of eigenspace projector)
+    PCNorm = bsxfun(@rdivide,PCs,sqrt(sum(PCs.^2,2)));
+    discard = isnan(PCNorm(:,1));
+    PCNorm(discard,:) = [];
+    
+    % Check for outlier fraction
+    % If too high, then subset is unsatisfying, start over.
+    % note: cannot fail if no thresholding
+    % Exception is handled in PCClustering.m,
+    % which retries if either eigs or the outlier criterion crash.
+    if nnz(discard) > specConfig.maxOutlierFraction*size(PCs,1);
+        throw(MException('',...
+            sprintf('Failure at %2.2f%% max outlier criterion.\n',...
+            100*specConfig.maxOutlierFraction)));
+    end
     
     %% k-means clustering in spectral space
     
-    if size(PCNorm,1) > specConfig.maxPts % Too many spikes to cluster - subsample
-        [PCNormRed,~] = datasample(PCNorm,specConfig.maxPts,1); % subset
+    if size(PCNorm,1) > specConfig.spikesForKMeans % Too many spikes to cluster - subsample
+        [PCNormRed,~] = datasample(PCNorm,specConfig.spikesForKMeans,1); % subset
         
         [~,modelSpectralSpace] = kmeans(PCNormRed,numClusters,...
-            'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter); % k-means
+            'replicates',specConfig.kMeansReplicas,...
+            'MaxIter',specConfig.kMeansIterations); % k-means
         
         % Assigning nearest centroid to all points (even not used in k-means)
         [~,clusterIn] = min(sum(bsxfun(@minus, permute(PCNorm,[1 3 2]),...
             permute(modelSpectralSpace,[3 1 2])).^2,3),[],2);
     else % Computing k-means directly on all points
         [clusterIn,~] = kmeans(PCNorm,numClusters,...
-            'replicates',specConfig.kmeansRep,...
-            'MaxIter',specConfig.maxIter);
+            'replicates',specConfig.kMeansReplicas,...
+            'MaxIter',specConfig.kMeansIterations);
     end
     
     % Assigning cluster 0 to outliers
@@ -207,7 +194,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
         %% Clusters in laplacian PC space.
         % Hard to read as what you see most of the time is a nClusters-dimensional
         % hypersphere projected in dimension 3
-        figure(3); 
+        figure(3);
         if size(PCNorm,2) >= 3
             scatter3(PCNorm(:,1),PCNorm(:,2),PCNorm(:,3),9,clusterIn);
         else

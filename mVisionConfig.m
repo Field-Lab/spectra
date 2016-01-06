@@ -45,22 +45,22 @@ classdef mVisionConfig
         %% Projections properties
         projNDimensions         = 5
         
-        %% Gaussian mixture model Clustering properties
-        maxGaussians            = 15    %
-        maxEMIter               = 500   %
-        regularizationValue     = 0.001 %
-        belongProbability       = 0.51  %
-        maxEMSpikesUsed         = 20000 %
+        %% Clustering management properties
+        maxClusteringTries      = 10    %
         minSpikesForClustering  = 100   %
         
         %% Spectral clustering properties
-        specMaxSpikeskMeansSeed = 2500  %
-        specMaxSpikeskMeansPts  = 20000 %
+        spikesForLaplacian      = 2500  %
+        spikesForKMeans         = 20000 %
         nthNeighbor             = 5     %
-        maxClusters             = 15    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
-        kmeansReplicas          = 5     %
-        kmeansMaxIter           = 200   %
-        convergeLaplacianIter   = 300   %
+        maxEigenVectAndClusters = 15    % Maximum dimension of the eigenvector subspace in which we cluster - Actual dimension is numClusters
+        eigsMaxIter             = 300   %
+        eigsTol                 = eps   %
+        qualityTol              = 0.015 %
+        kMeansReplicas          = 5     %
+        kMeansMaxIterations     = 200   %
+        reprojBufferSize        = 1000  %
+        maxOutlierFraction      = 0.01  %
         
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
@@ -133,23 +133,26 @@ classdef mVisionConfig
             clustConfig.debug = obj.debug;
             
             clustConfig.nDims = obj.projNDimensions;
-            clustConfig.maxGaussians = obj.maxGaussians;
-            clustConfig.maxEMIter = obj.maxEMIter;
-            clustConfig.regVal = obj.regularizationValue;
-            clustConfig.clusterProb = obj.belongProbability;
-            clustConfig.maxSpikes = obj.maxEMSpikesUsed;
             clustConfig.minSpikes = obj.minSpikesForClustering;
+            clustConfig.maxTries = obj.maxClusteringTries;
         end % getClustConfig
         
         function specConfig = getSpectralConfig(obj)
             specConfig.debug = obj.debug;
             
-            specConfig.nNeighbors = obj.nthNeighbor;
-            specConfig.nSpikesK = obj.specMaxSpikeskMeansSeed;
-            specConfig.maxPts = obj.specMaxSpikeskMeansPts; 
-            specConfig.maxClust = obj.maxClusters;
-            specConfig.kmeansRep = obj.kmeansReplicas;
-            specConfig.maxIter = obj.kmeansMaxIter;
+            specConfig.nthNeighbor = obj.nthNeighbor;
+            specConfig.spikesForLaplacian = obj.spikesForLaplacian;
+            specConfig.spikesForKMeans = obj.spikesForKMeans; 
+            specConfig.maxEV = obj.maxEigenVectAndClusters;
+            specConfig.qualityTol = obj.qualityTol;
+            specConfig.maxOutlierFraction = obj.maxOutlierFraction;
+            
+            specConfig.eigsMaxIter = obj.eigsMaxIter;
+            specConfig.eigsTol = obj.eigsTol;
+            
+            specConfig.reprojBufferSize = obj.reprojBufferSize;
+            specConfig.kMeansReplicas = obj.kMeansReplicas;
+            specConfig.kMeansIterations = obj.kMeansMaxIterations;
         end % getSpectralConfig
         
         function parConfig = getParConfig(obj)
