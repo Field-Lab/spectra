@@ -260,7 +260,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         cfg = mVisionConfig(); dataConfig = cfg.getDataConfig();
         sampleRate = dataConfig.sampleRate;
         
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',-);
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
         neuronSaver.close();
         
