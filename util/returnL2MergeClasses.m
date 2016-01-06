@@ -33,7 +33,12 @@ function CC = returnL2MergeClasses( arrays, threshold )
     pairList = sortrows(pairList,3);
 
     % Threshold-based connected component analysis
-        g = Graph(max(max(pairList(:,1:2))));
+    nodes = max(max(pairList(:,1:2)));
+    if numel(nodes) == 0
+        CC = cell(0,1);
+        return;
+    end
+    g = Graph(nodes);
     
     % Process all edges
     g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
