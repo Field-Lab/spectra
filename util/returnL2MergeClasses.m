@@ -1,4 +1,4 @@
-function CC = returnL2MergeClasses( arrays, threshold )
+function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     %BUILPAIRWISEL2 Computes matrix of (almost) pairwise L2 distance between a set of
     % vectors - then processes the list of connected components for a given splitting threshold
     %
@@ -20,6 +20,7 @@ function CC = returnL2MergeClasses( arrays, threshold )
     
     % Process tree
     dists(isnan(dists)) = 0;
+    varargout{1} = dists;
     [row,col] = find( and(dists > 0,dists < threshold) ); % remove singularities and values above threshold
     % remove diagonal terms if any
     diagRem = row == col; row(diagRem) = []; col(diagRem) = [];
@@ -33,16 +34,13 @@ function CC = returnL2MergeClasses( arrays, threshold )
     pairList = sortrows(pairList,3);
 
     % Threshold-based connected component analysis
-    nodes = max(max(pairList(:,1:2)));
-    if numel(nodes) == 0
-        CC = cell(0,1);
-        return;
-    end
+    nodes = size(arrays,1);
     g = Graph(nodes);
     
     % Process all edges
-    g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
-    
+    if numel(pairList) > 0
+        g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
+    end
     % Extract final connected component structure and merge edge values list
     % g.removeSingletons();
     % t = g.getFinalTree();
@@ -54,5 +52,6 @@ function CC = returnL2MergeClasses( arrays, threshold )
     end
     
     CC = cellfun(@(x) x+1,CC,'uni',false);
+    
 end
 

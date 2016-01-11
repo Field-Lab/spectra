@@ -233,11 +233,24 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %%%
     
     %% Global duplicate removal and discard (axonal detections of strong cells)
+    % As we may need ALL EI pieces, EI access strategy is changed
+    eiStorage = cell(nNeurons,1); % full remaining neurons EIs
+    isRealigned = false(nNeurons,nElectrodes); % tag to upsample any ID/electrode only once
+    % allIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), 1:nNeurons);
+
+    % Preload all EIs
+    for n = 1:nNeurons
+        eiStorage{n} = eiFile.getImage(allIDs(n));
+        eiStorage{n} = squeeze(eiStorage{n}(1,:,:))';
+    end
+    fprintf('EIs loaded.\n');
+    
     for el = 2:nElectrodes
         fprintf('%u - %u neurons.\n',el,numel(find(neuronEls == el)));
         for el2 = (el+1):nElectrodes
             elNeurInd1 = find(neuronEls == el);
             elNeurInd2 = find(neuronEls == el2);
+            % intersectEls = union(adjacent{el},adjacent{el2});
             intersectEls = [el,el2];
             
             if numel(elNeurInd1) == 0 || numel(elNeurInd2) == 0
@@ -247,25 +260,36 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
             
             trace = zeros(numel(elNeurInd), (eiSize - minWindowSize) * numel(intersectEls));
             % elNeuronIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), elNeurInd);
-            elNeuronIDs = IDs(elNeurInd);
+            elNeuronIDs = allIDs(elNeurInd);
             
-            % EI load
+            % EI upsampling handling
+            traceTemp = zeros(eiSize - minWindowSize, numel(intersectEls));
             for n = 1:numel(elNeurInd)
-                fullEI = eiFile.getImage(elNeuronIDs(n));
-                ei = squeeze(fullEI(1,intersectEls,:))';
-                % Realignment of minima
-                traceTemp = zeros(size(ei,1)-minWindowSize, size(ei,2));
-                for neighborEl = 1:size(ei,2)
-                    interpolant = griddedInterpolant(1:size(ei,1),ei(:,neighborEl),'spline');
-                    [~, offset] = min(interpolant(samplingVal));
-                    traceTemp(:,neighborEl) = interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
+                % Realignment procedure
+                for neighborElInd = 1:numel(intersectEls);
+                    neighborEl = intersectEls(neighborElInd);
+                    if ~isRealigned(elNeurInd(n),neighborEl)
+                        interpolant = griddedInterpolant(1:eiSize,eiStorage{elNeurInd(n)}(:,neighborEl),'spline');
+                        [~, offset] = min(interpolant(samplingVal));
+                        eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl) =...
+                            interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
+                        % Tentative L2 normalization per electrode
+                        eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl) =...
+                            eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl)./...
+                            sqrt(sum(eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl).^2));
+                        isRealigned(elNeurInd(n),neighborEl) = true;
+                    end
+                    traceTemp(:,neighborElInd) = eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl);
                 end
-                trace(n,:) = traceTemp(:)'; 
+                trace(n,:) = traceTemp(:)';
             end % n
             
             % Distance computation
-            parts = returnL2MergeClasses(trace, cleanConfig.eiThrG);
-            
+            [parts,dist] = returnL2MergeClasses(trace, cleanConfig.eiThrG);
+%             if numel(parts) < numel(elNeurInd)
+%                 fprintf('Found at least one merge on els: %u %u\n',el,el2);
+%             end
+            elimVal(elNeurInd) = min(elimVal(elNeurInd),UtilSpectral.nthSmallest(2,dist));
             for cc = 1:numel(parts)
                 if numel(parts{cc}) > 1
                     spikeCounts = cellfun(@(spikeTrain) numel(spikeTrain), neuronSpikeTimes(elNeurInd(parts{cc})));
@@ -277,6 +301,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     toRemove(bestNeuronIndex) = wasRemoved;
                 end
             end % cc
+%             plot(trace')
+%             legend();
+%             parts
+%             input('');
         end % el2
     end % el
     
