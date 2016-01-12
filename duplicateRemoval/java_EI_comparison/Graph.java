@@ -102,14 +102,14 @@ public class Graph {
      * rather than all edges then partition the unique final tree.
      * Warning: check matrix/cell array casts in matlab.
      */
-	public int[][] getFinalForest() {
-		int[][] allNodes = new int[connComp.size()][];
-		for (int i = 0 ; i < allNodes.length ; i++) {
-			AdjacencyTree tree = connComp.get(i);
-			allNodes[i] = tree.sortedSubNodes.clone();
-		}
-		return allNodes;
-	}
+    public int[][] getFinalForest() {
+        int[][] allNodes = new int[connComp.size()][];
+        for (int i = 0 ; i < allNodes.length ; i++) {
+            AdjacencyTree tree = connComp.get(i);
+            allNodes[i] = tree.sortedSubNodes.clone();
+        }
+        return allNodes;
+    }
     
     /**
      * Removes all singleton connected components from the Graph
