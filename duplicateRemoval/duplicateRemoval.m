@@ -89,11 +89,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     vcfg = sprintf('.%svision%sconfig.xml',filesep,filesep);
     calc = '"Electrophysiological Imaging Fast"';
     
-    system(sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" %3$s -c %4$s %5$s %6$s %7$s %8$f %9$u %10$u %11$u %12$u',...
-        filesep,sepchar,cmgr,vcfg,calc,saveFolder,dataPath,...
-        cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
-        cleanConfig.EISp, cleanConfig.EInThreads));
-    delete([saveFolder, filesep, datasetName,'.neurons']);
+%     system(sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" %3$s -c %4$s %5$s %6$s %7$s %8$f %9$u %10$u %11$u %12$u',...
+%         filesep,sepchar,cmgr,vcfg,calc,saveFolder,dataPath,...
+%         cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
+%         cleanConfig.EISp, cleanConfig.EInThreads));
+     delete([saveFolder, filesep, datasetName,'.neurons']);
 
     %% EI access setup
     eiPath = [saveFolder, filesep, datasetName,'.ei'];
@@ -236,7 +236,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % As we may need ALL EI pieces, EI access strategy is changed
     eiStorage = cell(nNeurons,1); % full remaining neurons EIs
     isRealigned = false(nNeurons,nElectrodes); % tag to upsample any ID/electrode only once
-    % allIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), 1:nNeurons);
+    allIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), 1:nNeurons);
 
     % Preload all EIs
     for n = 1:nNeurons
@@ -289,7 +289,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
 %             if numel(parts) < numel(elNeurInd)
 %                 fprintf('Found at least one merge on els: %u %u\n',el,el2);
 %             end
-            elimVal(elNeurInd) = min(elimVal(elNeurInd),UtilSpectral.nthSmallest(2,dist));
+            % elimVal(elNeurInd) = min(elimVal(elNeurInd),UtilSpectral.nthSmallest(2,dist));
             for cc = 1:numel(parts)
                 if numel(parts{cc}) > 1
                     spikeCounts = cellfun(@(spikeTrain) numel(spikeTrain), neuronSpikeTimes(elNeurInd(parts{cc})));
