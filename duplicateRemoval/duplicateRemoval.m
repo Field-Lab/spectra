@@ -273,16 +273,16 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                         [~, offset] = min(interpolant(samplingVal));
                         eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl) =...
                             interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
-                        % Tentative L2 normalization per electrode
                         eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl) =...
-                            eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl)./...
-                            sqrt(sum(eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl).^2));
+                            eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl);
                         isRealigned(elNeurInd(n),neighborEl) = true;
                     end
                     traceTemp(:,neighborElInd) = eiStorage{elNeurInd(n)}(1:(eiSize - minWindowSize),neighborEl);
                 end
                 trace(n,:) = traceTemp(:)';
             end % n
+            % L2 normalization
+            trace = bsxfun(@rdivide,trace,sqrt(sum(trace.^2,2)));
             
             % Distance computation
             [parts,dist] = returnL2MergeClasses(trace, cleanConfig.eiThrG);
