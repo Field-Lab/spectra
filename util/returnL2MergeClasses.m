@@ -51,7 +51,7 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     % getFinalForestEmptyRow() returns the final forest with added null row
     % to force matlab to take as cell array type (dimension mismatch).
     % We discard this extra row:
-    CC = CC{1:(end-1)};
+    CC = CC(1:(end-1));
     
     CC = cellfun(@(x) x+1,CC,'uni',false);
     
