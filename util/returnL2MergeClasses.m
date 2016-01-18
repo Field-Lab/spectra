@@ -7,6 +7,9 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     % ------------------
     % || a || .* || b ||
     %
+    % Update - 01/18/2016 - Dup removal update calls this function on normalized vectors,
+    % so practically it's just || a - b || ^2
+    %
     % arrays - row oriented input
     % threshold - threshold to use
     %
@@ -42,14 +45,13 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
         g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
     end
     % Extract final connected component structure and merge edge values list
-    % g.removeSingletons();
-    % t = g.getFinalTree();
-    % CC = t.partitioning(threshold);
-    CC = g.getFinalForest();
+    CC = g.getFinalForestEmptyRow();
     
-    if ~isa(CC,'cell') % java return may be array type if it has appropriate dimensions
-        CC = mat2cell(CC,ones(1,size(CC,1)));
-    end
+    % Checking if C is cell type and using mat2cell if not is very slow.
+    % getFinalForestEmptyRow() returns the final forest with added null row
+    % to force matlab to take as cell array type (dimension mismatch).
+    % We discard this extra row:
+    CC = CC{1:(end-1)};
     
     CC = cellfun(@(x) x+1,CC,'uni',false);
     
