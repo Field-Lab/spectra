@@ -2,13 +2,10 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     %BUILPAIRWISEL2 Computes matrix of (almost) pairwise L2 distance between a set of
     % vectors - then processes the list of connected components for a given splitting threshold
     %
-    % Metric on which thresholding is made: some sort of chi2
+    % Metric on which thresholding is made: L_2 norm
     %    || a - b ||^2
-    % ------------------
-    % || a || .* || b ||
-    %
-    % Update - 01/18/2016 - Dup removal update calls this function on normalized vectors,
-    % so practically it's just || a - b || ^2
+    % Please pre normalize input if using normalized L_2, using eg:
+    % arrays = bsxfun(@rdivide,arrays,sqrt(sum(arrays.^2,2)));
     %
     % arrays - row oriented input
     % threshold - threshold to use
@@ -17,9 +14,7 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     % merge
     
     % Distance matrix
-    norms = sqrt(sum(arrays.^2,2));
     dists = sum(bsxfun(@minus,permute(arrays,[3,1,2]),permute(arrays,[1,3,2])).^2,3);
-    dists = bsxfun(@rdivide,bsxfun(@rdivide,dists,norms),norms');
     
     % Process tree
     dists(isnan(dists)) = 0;
@@ -49,7 +44,7 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     
     % Checking if C is cell type and using mat2cell if not is very slow.
     % getFinalForestEmptyRow() returns the final forest with added null row
-    % to force matlab to take as cell array type (dimension mismatch).
+    % to force matlab to take as cell array type (row dimension mismatch).
     % We discard this extra row:
     CC = CC(1:(end-1));
     
