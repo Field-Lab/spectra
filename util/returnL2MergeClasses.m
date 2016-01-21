@@ -1,5 +1,5 @@
 function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
-    %BUILPAIRWISEL2 Computes matrix of (almost) pairwise L2 distance between a set of
+    %RETURNL2MERGECLASSES Computes matrix of (almost) pairwise L2 distance between a set of
     % vectors - then processes the list of connected components for a given splitting threshold
     %
     % Metric on which thresholding is made: L_2 norm
@@ -37,7 +37,7 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     
     % Process all edges
     if numel(pairList) > 0
-        g.addAllEdges(pairList(:,1)-1,pairList(:,2)-1,pairList(:,3));
+        g.addAllEdges(int32(pairList(:,1)-1),int32(pairList(:,2)-1),pairList(:,3));
     end
     % Extract final connected component structure and merge edge values list
     CC = g.getFinalForestEmptyRow();

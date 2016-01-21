@@ -59,7 +59,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam');
+    configUsed = cleanConfig;
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -199,6 +200,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Global duplicate removal and discard (inc. axonal detections of strong cells)
     % As we may need ALL realigned EI pieces, EI access strategy is changed
+    IDsDuplicatesRemoved = [];
+    
     for el = 2:nElectrodes
         for el2 = (el+1):nElectrodes
             elNeurInd1 = find(neuronEls == el);
@@ -243,6 +246,12 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     wasRemoved = toRemove(bestNeuronIndex);
                     toRemove(elNeurInd(parts{cc})) = true;
                     toRemove(bestNeuronIndex) = wasRemoved;
+                    
+                    % Discarding Pattern
+                    discardPairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
+                        neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
+                    discardPairs(b,:) = [];
+                    IDsDuplicatesRemoved = [IDsDuplicatesRemoved;discardPairs];
                 end
             end % cc
         end % el2
@@ -250,7 +259,6 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     
     %% Save IDs to clear
-    IDsDuplicatesRemoved = allIDs(toRemove);
     save([saveFolder,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
@@ -262,4 +270,3 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     fprintf('After neighbor electrode pair discard: %u\n',nNeurons);
     %%%
 end
-

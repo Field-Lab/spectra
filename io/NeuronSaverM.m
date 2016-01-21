@@ -117,5 +117,13 @@ classdef NeuronSaverM < handle
             maxClust = cfg.maxEV;
             IDs = (el-2)*maxClust + clust;
         end
+        
+        function [el, clust] = getElClust(ID)
+            cfg = mVisionConfig();
+            cfg = cfg.getSpectralConfig();
+            maxClust = cfg.maxEV;
+            el = floor((ID-1)./maxClust) + 2;
+            clust = mod(ID-1,maxClust) + 1;
+        end
     end
 end
