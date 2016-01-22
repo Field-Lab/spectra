@@ -1,7 +1,7 @@
 %function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder)
 function ClusterEditGUI
     %%
-    mainFigure = figure( 'Name', 'Cluster Editor 0.1', ...
+    mainFigure = figure( 'Name', 'Cluster Editor 0.0', ...
     'MenuBar', 'none', ...
     'Toolbar', 'figure', ...
     'NumberTitle', 'off',...
@@ -97,7 +97,8 @@ function ClusterEditGUI
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','El#',...
-        'fontsize',11);
+        'fontsize',11,...
+        'callBack',@loadButtonCallback);
     
     loadButton = uicontrol(...
         'Parent',loadRow,...
@@ -116,7 +117,8 @@ function ClusterEditGUI
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','Clust#',...
-        'fontsize',11);
+        'fontsize',11,...
+        'callBack',@loadButtonCallback);
     
     loadClusterButton = uicontrol(...
         'Parent',loadRow,...
@@ -128,15 +130,69 @@ function ClusterEditGUI
     % finish loadRow
     loadRow.Sizes = [34, 50, -1,45, 60];
     
+    % cluster setup table
+    [columnname, columnformat, d] = getBackendDataClusterData();
+    
+    clustMgmt = uitable(...
+        'Parent',leftMenu,...
+        'Data', d,... 
+        'ColumnName', columnname,...
+        'ColumnFormat', columnformat,...
+        'ColumnEditable', [false false true true],...
+        'RowName',[],...
+        'CellEditCallback',@testCellEditCallback);
+    
+    dummyButton = uicontrol(...
+        'Parent',leftMenu,...
+        'String','doStuff',...
+        'Callback',@doStuff);
+    
+    
     % Finish left menu
-    leftMenu.Sizes = [34];
+    leftMenu.Sizes = [34 -1 20];
     
     function loadButtonCallback(source,callbackdata)
-        fprintf('You clicked load! %s\n',elNumberBox.String); 
+        fprintf('You clicked load! %s\n',elNumberBox.String);
+        e = str2num(elNumberBox.String);
+        if numel(e) ~= 1 || isnan(e)
+            fprintf('Requested electrode not a number.\n');
+            return;
+        end
+        % Check validity relative to dataset
+        % call backend load
     end
     
     function loadClustButtonCallback(source,callbackdata)
-        fprintf('You clicked load cluster! %s\n',elNumberBox.String); 
+        fprintf('You clicked load cluster! %s\n',clustNumberBox.String);
+        c = str2num(elNumberBox.String);
+        if numel(c) ~= 1 || isnan(c)
+            fprintf('Requested cluster not a number.\n');
+            return;
+        end
+        % Check validity relative to dataset
+        % call backend load
+    end
+    
+    function [columnname, columnformat, d] = getBackendDataClusterData()
+        % HTML trick
+        
+    colorgen = @(color,text) ['<html><table border=0 width=400 bgcolor=',color,'><TR><TD>',text,'</TD></TR> </table></html>'];
+    
+        % Column names and column format
+        columnname = {'Rate','Amount','Available','Fixed/Adj'};
+        columnformat = {'numeric','char','logical',{'Fixed' 'Adjustable'}};
+        % Define the data
+        d ={6.125678  colorgen('#0000FF','A')  true   'Fixed';...
+            6.75   colorgen('#00FF00','B')  false  'Adjustable';...
+            7      colorgen('#FF0000','C')     false  'Fixed';};
+    end
+    
+    function doStuff(source,callbackdata) % dummy callback table dynamic update
+        clustMgmt.Data{1,1} = clustMgmt.Data{1,1} + 1;
+    end
+    
+    function testCellEditCallback(source,callbackdata)
+        source.Data{2,1} = source.Data{2,1} + 1;
     end
     
     % Instantiate backend
