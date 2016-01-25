@@ -1,13 +1,19 @@
-%function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder)
-function ClusterEditGUI
-    %%
-    mainFigure = figure( 'Name', 'Cluster Editor 0.0', ...
+function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder)
+% function ClusterEditGUI
+    %% Instantiate - return handles
+    backEndHandle = ClusterEditBackend(datasetFolder);
+    frontEndHandle = figure( 'Name', 'Cluster Editor 0.0', ...
     'MenuBar', 'none', ...
     'Toolbar', 'figure', ...
     'NumberTitle', 'off',...
     'Visible', 'off');
     
+    %%
+    mainFigure = frontEndHandle;
+    
     spacerWidth = 6;
+    
+    clusterColors = zeros(0,3);
     
     % Main box and childre
     mainLayout = uiextras.HBoxFlex(...
@@ -29,8 +35,8 @@ function ClusterEditGUI
     supportPanel3D = uipanel('Parent',graphLayout);
     plot3D = axes(...
         'Parent',supportPanel3D,...
-        'ClippingStyle','rectangle');
-    surf(plot3D,peaks);
+        'ClippingStyle','rectangle',...
+        'XGrid','on','YGrid','on','ZGrid','on');
     plot3D.Title.String = 'Principal Components 1-2-3';
     plot3D.XLabel.String = 'PC 1';
     plot3D.YLabel.String = 'PC 2';
@@ -44,18 +50,16 @@ function ClusterEditGUI
     % Two 2D plots at bottom right
     % Panels
     ACFPlot = axes(...
-        'Parent',bottomGraphs);
-    a = -5:0.01:5;
-    plot(ACFPlot,a,a.^2,'k-+');
+        'Parent',bottomGraphs,...
+        'XGrid','on','YGrid','on');
     ACFPlot.Title.String = 'ACF of selected clusters';
     ACFPlot.XLabel.String = 'Delay';
     ACFPlot.YLabel.String = 'Value';
     
     % 4th col bottom
     PC45Plot = axes(...
-        'Parent',bottomGraphs);
-    a = -5:0.01:5;
-    plot(PC45Plot,a,sinc(a),'r--');
+        'Parent',bottomGraphs,...
+        'XGrid','on','YGrid','on');
     PC45Plot.Title.String = 'Principal Components 4-5';
     PC45Plot.XLabel.String = 'PC 4';
     PC45Plot.YLabel.String = 'PC 5';
@@ -66,13 +70,19 @@ function ClusterEditGUI
         'Parent',leftColumns,...
         'Style','text',...
         'fontsize',12,...
-        'String','--The datasetName here--',...
-        'Background','r');
+        'String',datasetFolder);
     menuColumns = uiextras.HBox(...
         'Parent',leftColumns,...
         'Spacing',spacerWidth,...
         'Background','y');
-    leftColumns.Sizes = [24 -1];
+    statusBar = uicontrol(...
+        'Parent',leftColumns,...
+        'Style','text',...
+        'fontsize',10,...
+        'background','w',...
+        'String','Welcome to Cluster Editor 0.0 !',...
+        'HorizontalAlignment','left');
+    leftColumns.Sizes = [24 -1 24];
     
     % Menu Columns
     % Two hboxes
@@ -97,8 +107,7 @@ function ClusterEditGUI
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','El#',...
-        'fontsize',11,...
-        'callBack',@loadButtonCallback);
+        'fontsize',11);
     
     loadButton = uicontrol(...
         'Parent',loadRow,...
@@ -117,8 +126,7 @@ function ClusterEditGUI
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','Clust#',...
-        'fontsize',11,...
-        'callBack',@loadButtonCallback);
+        'fontsize',11);
     
     loadClusterButton = uicontrol(...
         'Parent',loadRow,...
@@ -131,7 +139,7 @@ function ClusterEditGUI
     loadRow.Sizes = [34, 50, -1,45, 60];
     
     % cluster setup table
-    [columnname, columnformat, d] = getBackendDataClusterData();
+    [columnname, columnformat, d] = getBackendClusterData();
     
     clustMgmt = uitable(...
         'Parent',leftMenu,...
@@ -142,38 +150,69 @@ function ClusterEditGUI
         'RowName',[],...
         'CellEditCallback',@testCellEditCallback);
     
-    dummyButton = uicontrol(...
-        'Parent',leftMenu,...
-        'String','doStuff',...
-        'Callback',@doStuff);
-    
-    
     % Finish left menu
-    leftMenu.Sizes = [34 -1 20];
+    leftMenu.Sizes = [34 -1];
     
     function loadButtonCallback(source,callbackdata)
-        fprintf('You clicked load! %s\n',elNumberBox.String);
+        statusBar.String = sprintf('Loading electrode %s...',elNumberBox.String);
         e = str2num(elNumberBox.String);
         if numel(e) ~= 1 || isnan(e)
-            fprintf('Requested electrode not a number.\n');
+            statusBar.String = sprintf('Requested electrode %s not a number.',elNumberBox.String);
             return;
         end
-        % Check validity relative to dataset
-        % call backend load
+        msg = backEndHandle.loadEl(e);
+        refreshProcess();
+        statusBar.String = msg;
     end
     
     function loadClustButtonCallback(source,callbackdata)
-        fprintf('You clicked load cluster! %s\n',clustNumberBox.String);
-        c = str2num(elNumberBox.String);
+        statusBar.String = sprintf('Loading neuron ID %s...',clustNumberBox.String);
+        c = str2num(clustNumberBox.String);
         if numel(c) ~= 1 || isnan(c)
-            fprintf('Requested cluster not a number.\n');
+            statusBar.String = sprintf('Requested cluster %s not a number.',clustNumberBox.String);
             return;
         end
-        % Check validity relative to dataset
-        % call backend load
+        msg = backEndHandle.loadID(c);
+        refreshProcess();
+        statusBar.String = msg;
     end
     
-    function [columnname, columnformat, d] = getBackendDataClusterData()
+    function refreshProcess()
+        % Refresh the table
+        
+        % Go for plots
+        PC123plots = cell(backEndHandle.nClusters,1);
+        PC45plots = cell(backEndHandle.nClusters,1);
+        
+        % make HSV colors
+        colors = [(1:backEndHandle.nClusters)'./backEndHandle.nClusters,...
+            ones(backEndHandle.nClusters,1)*[0.8 0.7]];
+        clusterColors = hsv2rgb(colors); % convert to RGB
+        % Put the holds to off for the first draw, then put them back to on at end of loop
+        cla(plot3D);
+        cla(PC45Plot);
+        hold(plot3D,'on');
+        hold(PC45Plot,'on');
+        for c = 1:backEndHandle.nClusters
+            % prjTrain is subsampled to the number of viewpoints
+            % set in the header of the back end class.
+            % Cluster relative fractions are conserved.
+            PC123plots{c} = scatter3(plot3D,...
+                backEndHandle.prjTrains{c}(:,1),...
+                backEndHandle.prjTrains{c}(:,2),...
+                backEndHandle.prjTrains{c}(:,3),...
+                4,...
+                'MarkerEdgeColor',clusterColors(c,:));
+            PC45plots{c} = scatter(PC45Plot,...
+                backEndHandle.prjTrains{c}(:,4),...
+                backEndHandle.prjTrains{c}(:,5),...
+                4,...
+                'MarkerEdgeColor',clusterColors(c,:));
+        end
+        
+    end
+    
+    function [columnname, columnformat, d] = getBackendClusterData()
         % HTML trick
         
     colorgen = @(color,text) ['<html><table border=0 width=400 bgcolor=',color,'><TR><TD>',text,'</TD></TR> </table></html>'];
