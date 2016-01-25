@@ -71,8 +71,9 @@ classdef mVisionConfig
         EISpikesToAverage       = 3000  % spikes
         EInThreads              = 4     % threads
         
-        EIMergeThresholdWithin  = 0.1   % Normalized metric
-        EIMergeThresholdAcross  = 0.1   % Normalized metric
+        EIResamplePitch         = 0.1  % samples
+        EIMergeThresholdWithin  = 0.1  % Normalized metric
+        EIMergeThresholdGlobal  = 0.1  % Normalized metric
         
         EIGlobalMinWindow       =[18 44]% Sample window in which perform global min EI realignment
         
@@ -169,8 +170,9 @@ classdef mVisionConfig
             cleanConfig.EISp = obj.EISpikesToAverage;
             cleanConfig.EInThreads = obj.EInThreads;
             
+            cleanConfig.resamplePitch = obj.EIResamplePitch;
             cleanConfig.eiThrW = obj.EIMergeThresholdWithin;
-            cleanConfig.eiThrA = obj.EIMergeThresholdAcross;
+            cleanConfig.eiThrG = obj.EIMergeThresholdGlobal;
             
             cleanConfig.globMinWin = obj.EIGlobalMinWindow;
         end
