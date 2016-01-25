@@ -7,7 +7,6 @@ classdef ClusterEditBackend < handle
         neurons % struct - {bool exists ; String path}
         
         config
-        displayPoints = 8000
     end
     
     properties(GetAccess = public,SetAccess = protected)
@@ -151,15 +150,13 @@ classdef ClusterEditBackend < handle
             obj.prjTrains = cell(obj.nClusters,1);
             
             neuronIndices = find(obj.neuronEls == el);
-            reductionFrac = min(1,obj.displayPoints ./ size(obj.prjLoaded,1));
             
             for c = 1:obj.nClusters
-                [~,~,indices] = intersect(obj.neuronSpikeTimes{neuronIndices(c)},obj.elSpikeTimes{obj.elLoaded});
+                [~,~,indices] = intersect(...
+                    obj.neuronSpikeTimes{neuronIndices(c)},...
+                    obj.elSpikeTimes{obj.elLoaded});
                 obj.spikeTrains{c} = obj.neuronSpikeTimes{neuronIndices(c)};
-                if reductionFrac < 1
-                    subind = randsample(numel(obj.spikeTrains{c}),floor(reductionFrac*numel(obj.spikeTrains{c})));
-                    obj.prjTrains{c} = obj.prjLoaded(indices(subind),:);
-                end
+                obj.prjTrains{c} = obj.prjLoaded(indices,:);
             end
             
             obj.isDataReady = true;
