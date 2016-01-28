@@ -10,12 +10,15 @@ classdef ClusterEditBackend < handle
     end
     
     properties(GetAccess = public,SetAccess = protected)
+        nNeurons
         nElectrodes
+        nSamples
         
         neuronEls
         neuronClusters
         neuronIDs
         neuronSpikeTimes
+        neuronStatuses
         
         elSpikeTimes
         
@@ -27,11 +30,17 @@ classdef ClusterEditBackend < handle
         
         nClusters
         displayIDs
-        % contaminationValues
+        contaminationValues
+        spikeCounts
+        status
         % ACF
         spikeTrains % for spike rate
         prjTrains
         % cleaning status
+    end
+    
+    properties % public setting access
+        statusBarHandle
     end
     
     methods
@@ -63,6 +72,12 @@ classdef ClusterEditBackend < handle
                 validateattributes(varargin{2},{'char'},{},'','neuron file',3);
                 validateattributes(varargin{3},{'char'},{},'','model file',4);
             end
+            
+            % nSamples - do that clean
+            files = dir([analysisPath,filesep,'*.spikes.mat']);
+            spikePath = [analysisPath,filesep,files(1).name];
+            load(spikePath,'nSamples');
+            obj.nSamples = nSamples;
             
             % Look for a .prj.mat, a .neurons.mat and a .model.mat
             % Projections file
@@ -128,15 +143,35 @@ classdef ClusterEditBackend < handle
             obj.elSpikeTimes = spikeTimes;
             
             obj.nElectrodes = size(spikeTimes,1);
+            obj.nNeurons = size(obj.neuronEls,1);
+            
+            % CleanPattern - do that clean
+            cleanPatternPath = [analysisPath,filesep,'cleanPattern.mat'];
+            load(cleanPatternPath);
+            obj.neuronStatuses = zeros(obj.nNeurons,2);
+            [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
+            obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
+            [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
+            obj.neuronStatuses(i,1) = 2; % 2 - merged
+            obj.neuronStatuses(i,2) = IDsMerged(j,1);
+            if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
+                [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
+                obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                obj.neuronStatuses(i,2) = -1;
+            else
+                [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
+                obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+            end
         end
         
-        function msg = loadEl(obj,el)
+        function loadEl(obj,el)
             if el == obj.elLoaded
-                msg = sprintf('Electrode %u already loaded.',el);
-                return
+                obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el);
+                return;
             end
             if (el <= 1) || (el > obj.nElectrodes)
-                msg = sprintf('Electrode number %u invalid, nothing done.',el);
+                obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el);
                 return;
             else
                 obj.elLoaded = el;
@@ -148,6 +183,9 @@ classdef ClusterEditBackend < handle
             obj.nClusters = numel(obj.displayIDs);
             obj.spikeTrains = cell(obj.nClusters,1);
             obj.prjTrains = cell(obj.nClusters,1);
+            obj.contaminationValues = zeros(obj.nClusters,1);
+            obj.spikeCounts = zeros(obj.nClusters,1);
+            obj.status = cell(obj.nClusters,1);
             
             neuronIndices = find(obj.neuronEls == el);
             
@@ -157,20 +195,36 @@ classdef ClusterEditBackend < handle
                     obj.elSpikeTimes{obj.elLoaded});
                 obj.spikeTrains{c} = obj.neuronSpikeTimes{neuronIndices(c)};
                 obj.prjTrains{c} = obj.prjLoaded(indices,:);
+                obj.spikeCounts(c) = numel(obj.spikeTrains{c});
+                
+                obj.contaminationValues(c) = ...
+                    edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(obj.spikeTrains{c},int32(obj.nSamples));
+                % Neuron statuses
+                switch obj.neuronStatuses(neuronIndices(c),1)
+                    case 0
+                        obj.status{c} = 'Keep';
+                    case 1
+                        obj.status{c} = 'Contam / Low count';
+                    case 2
+                        obj.status{c} = sprintf('Merge with %u',obj.neuronStatuses(neuronIndices(c),2));
+                    case 3
+                        [e,~] = obj.getElClust(obj.neuronStatuses(neuronIndices(c),2));
+                        obj.status{c} = sprintf('Duplicate of %i on el %u',obj.neuronStatuses(neuronIndices(c),2),e);
+                end
             end
             
             obj.isDataReady = true;
-            msg = sprintf('Displaying electrode %u.',el);
+            obj.statusBarHandle.String = sprintf('Displaying electrode %u.',el);
         end
         
-        function msg = loadID(obj,ID)
+        function loadID(obj,ID)
             rowNum = find(obj.neuronIDs == ID);
             if numel(rowNum) ~= 1
-                msg = sprintf('Neuron ID invalid, nothing done.');
+                obj.statusBarHandle.String = sprintf('Neuron ID invalid, nothing done.');
                 return;
             else
                 el = obj.neuronEls(rowNum);
-                msg = obj.loadEl(el);
+                obj.loadEl(el);
             end
         end
         
