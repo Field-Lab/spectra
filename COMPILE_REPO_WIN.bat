@@ -4,7 +4,7 @@ REM This file to compile java and cpp-mex files in the repository after clones a
 REM Note that this repository works with a local copy of vision and cell finder jars to avoid multiplying dependencies.
 
 dir /s /B *.java > .\javacSourcesTemp.txt
-javac -cp ".\vision\Vision.jar;.\cellfinder\Cell-Finder.jar" @javacSourcesTemp.txt
+javac -source 1.7 -target 1.7 -cp ".\vision\Vision.jar;.\cellfinder\Cell-Finder.jar" @javacSourcesTemp.txt
 rm .\javacSourcesTemp.txt
 
 REM If this doesn't work, proceed to "mex -setup" and set compiler appropriately
