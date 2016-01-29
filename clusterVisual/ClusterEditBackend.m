@@ -165,13 +165,15 @@ classdef ClusterEditBackend < handle
             end
         end
         
-        function loadEl(obj,el)
+        function returnStatus = loadEl(obj,el)
             if el == obj.elLoaded
                 obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el);
+                returnStatus = 1;
                 return;
             end
             if (el <= 1) || (el > obj.nElectrodes)
                 obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el);
+                returnStatus = 1;
                 return;
             else
                 obj.elLoaded = el;
@@ -215,17 +217,17 @@ classdef ClusterEditBackend < handle
             
             obj.isDataReady = true;
             obj.statusBarHandle.String = sprintf('Displaying electrode %u.',el);
+            returnStatus = 0;
         end
         
-        function loadID(obj,ID)
+        function el = checkID(obj,ID)
             rowNum = find(obj.neuronIDs == ID);
             if numel(rowNum) ~= 1
                 obj.statusBarHandle.String = sprintf('Neuron ID invalid, nothing done.');
+                el = -1;
                 return;
-            else
-                el = obj.neuronEls(rowNum);
-                obj.loadEl(el);
             end
+            [el,~] = obj.getElClust(ID);
         end
         
     end
