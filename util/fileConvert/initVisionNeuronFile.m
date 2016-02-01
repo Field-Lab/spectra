@@ -86,7 +86,13 @@ visionHeader.minNeuronSpikes = MIN_SPIKES;
 visionHeader.maxContamination = MAX_CONTAM;
 
 % TTL times should be integers. Cast them to int32 just in case
-ttlTimes = int32(ttlTimes);
+% Vision neuron files also don't like empty TTL lists, so if there were none,
+% we just add a TTL at time 0
+if isempty(ttlTimes)
+    ttlTimes = int32([0]);
+else
+    ttlTimes = int32(ttlTimes);
+end
 
 % Now we can instantiate the new neuron file
 newNeuronFile = edu.ucsc.neurobiology.vision.io.NeuronFile(newNeuronFilePath, ...
