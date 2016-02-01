@@ -40,7 +40,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % get data length
     datasource = DataFileUpsampler([dataPath,timeTag]);
-    nSamples = datasource.stopSample - datasource.startSample; % horribly ugly - won't go through concatenation patch, etc...
+    load([saveFolder,filesep,datasetName,'.neurons.mat'],'nSamples');
     datasource = [];
     
     % Load Configuration
@@ -248,7 +248,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     toRemove(bestNeuronIndex) = wasRemoved;
                     
                     % Discarding Pattern
-                    discardPairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
+                    discardPairs = NeuronSaverM.getIDs(...
+                        neuronEls([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]),...
                         neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
                     discardPairs(b,:) = [];
                     IDsDuplicatesRemoved = [IDsDuplicatesRemoved;discardPairs];
@@ -259,6 +260,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     
     %% Save IDs to clear
+    IDsDuplicatesRemoved = unique(IDsDuplicatesRemoved,'rows');
     save([saveFolder,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);

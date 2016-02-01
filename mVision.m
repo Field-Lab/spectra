@@ -235,7 +235,10 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
         
         % Save a neurons-raw file (.neurons.mat)
-        save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+        if ~exist(nSamples)
+            load([saveFolder,filesep,datasetName,'.spikes.mat'],'nSamples');
+        end
+        save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','nSamples');
         
         fprintf('Time for clustering %.2f seconds\n',toc);
     else
