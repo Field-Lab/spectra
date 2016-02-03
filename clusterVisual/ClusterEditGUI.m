@@ -34,7 +34,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     graphLayout = uiextras.VBoxFlex(...
         'Parent',mainLayout,...
         'Spacing',spacerWidth);
-    mainLayout.Sizes = [402 -1];
+    mainLayout.Sizes = [-1 -1];
     
     % graph box children
     % Graph 3D
@@ -131,6 +131,8 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Parent',leftColumns,...
         'Spacing',0,...
         'Background','g');
+    eistaBox = uiextras.HBox('Parent',leftColumns,...
+        'Spacing',0,'background','b');
     statusBar = uicontrol(...
         'Parent',leftColumns,...
         'Style','text',...
@@ -141,7 +143,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % Pass status bar handle to backend
     backEndHandle.statusBarHandle = statusBar;
     
-    leftColumns.Sizes = [24 -1 24];
+    leftColumns.Sizes = [24 -1 0 24];
     
     
     % Left column menu - described by rows.
@@ -224,7 +226,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     
     % Column names and column format
     columnName = {'ID','','Disp','Status','#Spikes','Rate (Hz)','Contam'};
-    columnFormat = {'numeric','char','logical','char','shortg','shortg','shortg'};
+    columnFormat = {'numeric','char','logical','char','numeric','numeric','numeric'};
     columnEdit = [false, false, true, false, false, false, false];
     px = 10;colWidth =  {px*4, px*4, px*3, px*12, px*5, px*6, px*6};
     d = cell(0,7);
@@ -249,6 +251,9 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % Finish left menu
     menu.Sizes = [34 34 -1];
     
+    eiPanel = uipanel('Parent',eistaBox);
+    staPanel = uipanel('Parent',eistaBox);
+    eistaBox.Sizes = [-1 -1];
     
     %---------------------------------------------------------------
     % CALLBACKS AND SUBFUNCTIONS
@@ -265,7 +270,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             return;
         end
         refreshView();
-        if source == loadButton
+        if source == loadButton || source == elNumberBox
             clustNumberBox.String = 'ID#';
         end
     end
@@ -286,6 +291,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         makeColors();
         clustMgmt.Data = getClusterData();
         refreshGraphics();
+        refreshEISTA();
     end
     
     function makeColors()
@@ -302,7 +308,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     
-    function refreshGraphics()
+    function refreshGraphics(varargin)
         % varargin to handle (source,callbackdata) as used for button callback
         % Go for plots
         PC123Plots = cell(backEndHandle.nClusters,1);
@@ -366,6 +372,68 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     
+    % Refresh EI and STA display
+    % Show if 1 neuron selected
+    % Hide otherwise
+    function refreshEISTA()
+        [k,c] = nClustSelected();
+        if k == 1
+            leftColumns.Sizes(3) = -1;
+            % EI Panel
+            if numel(backEndHandle.eisLoaded{c}) > 0
+                [eiJPanel,eiHPanel] = ...
+                    javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.PhysiologicalImagePanel(...
+                    backEndHandle.eisLoaded{c},...
+                    [],2,...
+                    backEndHandle.electrodeMap,...
+                    backEndHandle.elLoaded - 1));
+                eiHPanel.Parent = eiPanel;
+                eiHPanel.Units = 'norm';
+                eiHPanel.Position = [0 0 1 1];
+                isEI = true;
+            else
+                noEIString = uicontrol(...
+                    'Parent',eiPanel,...
+                    'Style','text',...
+                    'fontsize',12,...
+                    'String','No EI for this neuron');
+                noEIString.Units = 'Norm';
+                noEIString.Position = [0 0 1 1];
+                isEI = false;
+            end
+            
+            % STA Panel
+            if numel(backEndHandle.stasLoaded{c}) > 0
+                [staJPanel,staHPanel] = ...
+                    javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.STAPlotMaker.makeSTAPanel(...
+                    backEndHandle.stasLoaded{c},...
+                    false,1,1.0,false,true,false,...
+                    backEndHandle.globalsFile,...
+                    ''));
+                staHPanel.Parent = staPanel;
+                staHPanel.Units = 'norm';
+                staHPanel.Position = [0 0 1 1];
+                isSTA = true;
+            else
+                noSTAString = uicontrol(...
+                    'Parent',staPanel,...
+                    'Style','text',...
+                    'fontsize',12,...
+                    'String','No STA for this neuron');
+                noSTAString.Units = 'Norm';
+                noSTAString.Position = [0 0 1 1];
+                isSTA = false;
+            end
+            
+            if ~isEI && ~isSTA
+                leftColumns.Sizes(3) = 26;
+            end
+        else
+            leftColumns.Sizes(3) = 0;
+            return
+        end
+    end
+    
     % Displays the info table in the left columns
     % operates by side effects
     % To split:
@@ -418,6 +486,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             ACFPlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
             uistack(ACFPlots{callbackdata.Indices(1)},'top');
         end
+        refreshEISTA();
     end
     
     function view3DCallback(source,callbackdata)
@@ -454,8 +523,9 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     
-    function p = nClustSelected()
-        p = sum(cell2mat(clustMgmt.Data(:,3))); 
+    function [k,c] = nClustSelected()
+        k = sum(cell2mat(clustMgmt.Data(:,3)));
+        c = find(cell2mat(clustMgmt.Data(:,3)));
     end
     % Instantiate backend
     % Backend deals with all argument checking, partial arguments, etc...

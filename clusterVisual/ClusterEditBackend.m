@@ -7,6 +7,14 @@ classdef ClusterEditBackend < handle
         neurons % struct - {bool exists ; String path}
         
         config
+        
+        % Java related stuff for ei and sta display
+        eiFile
+        staFile
+        globalsFile
+        
+        arrayID
+        electrodeMap
     end
     
     properties(GetAccess = public,SetAccess = protected)
@@ -36,6 +44,8 @@ classdef ClusterEditBackend < handle
         % ACF
         spikeTrains % for spike rate
         prjTrains
+        eisLoaded
+        stasLoaded
         % cleaning status
     end
     
@@ -122,7 +132,7 @@ classdef ClusterEditBackend < handle
                 obj.model.exist = true;
                 obj.model.path = [analysisPath,filesep,files(1).name];
             else if numel(files) == 0
-                    fprintf('ClusterEditBackend:ClusterEditBackend - No model file found, skipping');
+                    fprintf('ClusterEditBackend:ClusterEditBackend - No model file found, skipping\n');
                     obj.model.exist = false;
                 else
                     throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple model files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
@@ -163,6 +173,42 @@ classdef ClusterEditBackend < handle
                 obj.neuronStatuses(i,1) = 3; % 3 - duplicate
                 obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
             end
+            
+            % Initialize EI
+            files = dir([analysisPath,filesep,'*.ei']);
+            if numel(files) > 0
+                eiPath = [analysisPath,filesep,files(1).name];
+                obj.eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
+            else
+                obj.eiFile = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No EI file found, skipping\n');
+            end
+            
+            % Initialize STA
+            files = dir([analysisPath,filesep,'*.sta']);
+            if numel(files) > 0
+                staPath = [analysisPath,filesep,files(1).name];
+                obj.staFile = edu.ucsc.neurobiology.vision.io.STAFile(staPath);
+            else
+                obj.staFile = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No STA file found, skipping\n');
+            end
+            
+            % Grab the globals file
+            files = dir([analysisPath,filesep,'*.globals']);
+            if numel(files) > 0
+                globalsPath = [analysisPath,filesep,files(1).name];
+                obj.globalsFile = edu.ucsc.neurobiology.vision.io.chunk.GlobalsFile(globalsPath);
+            else
+                obj.globalsFile = [];
+                obj.staFile = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No Globals file found, STAs Unavailable\n');
+            end
+            
+            % electrode map
+            obj.arrayID = obj.eiFile.arrayID;
+            obj.electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(obj.arrayID);
+            
         end
         
         function returnStatus = loadEl(obj,el)
@@ -215,9 +261,39 @@ classdef ClusterEditBackend < handle
                 end
             end
             
-            obj.isDataReady = true;
             obj.statusBarHandle.String = sprintf('Displaying electrode %u.',el);
+            pause(0.1);
+            
+            if numel(obj.eiFile) > 0
+                obj.loadEI();
+            end
+            if numel(obj.staFile) > 0
+                obj.loadSTA();
+            end
+            obj.isDataReady = true;
             returnStatus = 0;
+        end
+        
+        function loadEI(obj)
+            obj.eisLoaded = cell(obj.nClusters,1);
+            for c = 1:obj.nClusters
+                try
+                    obj.eisLoaded{c} = obj.eiFile.getImage(obj.displayIDs(c));
+                catch
+                    obj.eisLoaded{c} = [];
+                end     
+            end
+        end
+        
+        function loadSTA(obj)
+            obj.stasLoaded = cell(obj.nClusters,1);
+            for c = 1:obj.nClusters
+                try
+                    obj.stasLoaded{c} = obj.staFile.getSTA(obj.displayIDs(c));
+                catch
+                    obj.stasLoaded{c} = [];
+                end
+            end
         end
         
         function el = checkID(obj,ID)
