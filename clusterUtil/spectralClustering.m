@@ -33,6 +33,9 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % in sharing the java path with workers
     if ~exist('UtilSpectral','class')
         javaaddpath(['.',filesep,'clusterUtil']);
+        if ~exist('UtilSpectral','class')
+            throw(MException('','spectralClustering:java compatibility issues, check compile and runtime jvms.'));
+        end
     end
     
     %% Big data subsampling for laplacian computation (quadratic in time and memory)

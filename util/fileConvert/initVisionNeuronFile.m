@@ -47,14 +47,13 @@ rawDataFile.close();
 % Magic number for the Vision Header. 
 % If things break look for the value of 
 %   edu.ucsc.neurobiology.vision.util.VisionParams.NEURONS_HEADER_CAPACITY
-% in the Vision source code. Not sure how to link to it directly from
-% Matlab as there is no public constructor for this class.
-NEURONS_HEADER_CAPACITY = 10000;
+% in the Vision source code. 
+NEURONS_HEADER_CAPACITY = edu.ucsc.neurobiology.vision.util.VisionParams.NEURONS_HEADER_CAPACITY;
 % Same with the Vision Version value (also found in VisionParams)
-VISION_VERSION = 8001010;
+VISION_VERSION = edu.ucsc.neurobiology.vision.util.VisionParams.VERSION;
 % Now the neurons file header version is hidden in:
 %   edu.ucsc.neurobiology.vision.io.NeuronFile.INT_VERSION
-VERSION = 32;
+VERSION = edu.ucsc.neurobiology.vision.io.NeuronFile.INT_VERSION;
 
 % Instantiate a new Vision header 
 visionHeader = edu.ucsc.neurobiology.vision.io.VisionHeader();
@@ -87,7 +86,13 @@ visionHeader.minNeuronSpikes = MIN_SPIKES;
 visionHeader.maxContamination = MAX_CONTAM;
 
 % TTL times should be integers. Cast them to int32 just in case
-ttlTimes = int32(ttlTimes);
+% Vision neuron files also don't like empty TTL lists, so if there were none,
+% we just add a TTL at time 0
+if isempty(ttlTimes)
+    ttlTimes = int32([0]);
+else
+    ttlTimes = int32(ttlTimes);
+end
 
 % Now we can instantiate the new neuron file
 newNeuronFile = edu.ucsc.neurobiology.vision.io.NeuronFile(newNeuronFilePath, ...

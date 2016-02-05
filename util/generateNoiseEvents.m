@@ -39,6 +39,10 @@ function noiseSpikes = generateNoiseEvents( realSpikes )
     end % el
     
     noiseSpikes = vertcat(noiseSpikes{:}); % Merge electrodes
-    noiseSpikes = sortrows(noiseSpikes,1); % Required sorting for Covariance calculation
+    if numel(noiseSpikes) > 0
+        noiseSpikes = sortrows(noiseSpikes,1); % Required sorting for Covariance calculation
+    else
+        noiseSpikes = zeros(0,2);
+    end
 end
 
