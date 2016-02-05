@@ -13,6 +13,19 @@ function [CC,varargout] = returnL2MergeClasses( arrays, threshold )
     % CC - connected compents in a column cell array - each cell being a row of all indices to
     % merge
     
+    % Corner case handling - single array
+    if size(arrays,1) == 0
+        CC = {};
+        varargout{1} = [];
+        return;
+    end
+    if size(arrays,1) == 1
+        CC = { 1 };
+        varargout{1} = 0;
+        return;
+    end
+    
+    
     % Distance matrix
     dists = sum(bsxfun(@minus,permute(arrays,[3,1,2]),permute(arrays,[1,3,2])).^2,3);
     

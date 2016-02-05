@@ -109,7 +109,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     ACFPlot.Title.String = 'ACF';
     ACFPlot.XLabel.String = 'Time \Delta (msec)';
     ACFPlot.YLabel.String = 'Autocorr. (pair fraction/msec \Delta)';
-    ACFPlot.XLim = [0, 201];
+    ACFPlot.XLim = [0, 101];
     
     % 4th col bottom
     PC45Plots = {}; % global handle to subplots handle defined in load callback
@@ -225,11 +225,11 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % finish selectorRow
     
     % Column names and column format
-    columnName = {'ID','','Disp','Status','#Spikes','Rate (Hz)','Contam'};
-    columnFormat = {'numeric','char','logical','char','numeric','numeric','numeric'};
-    columnEdit = [false, false, true, false, false, false, false];
-    px = 10;colWidth =  {px*4, px*4, px*3, px*12, px*5, px*6, px*6};
-    d = cell(0,7);
+    columnName = {'ID','','Disp','Status','#Spikes','Rate (Hz)','Contam','Classification'};
+    columnFormat = {'numeric','char','logical','char','numeric','numeric','numeric','char'};
+    columnEdit = [false, false, true, false, false, false, false, false];
+    px = 10;colWidth =  {px*4, px*4, px*3, px*12, px*5, px*6, px*6, px*10};
+    d = cell(0,8);
     clustMgmt = uitable(...
         'Parent',menu,...
         'ColumnName', columnName,...
@@ -252,7 +252,31 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     menu.Sizes = [34 34 -1];
     
     eiPanel = uipanel('Parent',eistaBox);
+    eiJPanel = []; eiHPanel = []; % Globalize the java panels
+    eiDistAxes = axes('Parent',eiPanel,...
+        'Visible','off');
+    noEIString = uicontrol(...
+        'Parent',eiPanel,...
+        'Style','text',...
+        'fontsize',12,...
+        'String','No EI for this neuron',...
+        'Visible','off');
+    noEIString.Units = 'Norm';
+    noEIString.Position = [0 0 1 1];
+    
     staPanel = uipanel('Parent',eistaBox);
+    staJPanel = []; staHPanel = []; % Globalize the java panels
+    corrDistAxes = axes('Parent',staPanel,...
+        'Visible','off');
+    noSTAString = uicontrol(...
+        'Parent',staPanel,...
+        'Style','text',...
+        'fontsize',12,...
+        'String','No STA for this neuron',...
+        'Visible','off');
+    noSTAString.Units = 'Norm';
+    noSTAString.Position = [0 0 1 1];
+    
     eistaBox.Sizes = [-1 -1];
     
     %---------------------------------------------------------------
@@ -283,15 +307,17 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             return;
         end
         el = backEndHandle.checkID(c);
-        elNumberBox.String = el;
-        loadButtonCallback(source,callbackdata);
+        if el ~= -1
+            elNumberBox.String = el;
+            loadButtonCallback(source,callbackdata);
+        end
     end
     
     function refreshView()
         makeColors();
-        clustMgmt.Data = getClusterData();
+        clustMgmt.Data = getClusterData(); pause(.1);
         refreshGraphics();
-        refreshEISTA();
+        refreshLowLeftPanels();
     end
     
     function makeColors()
@@ -360,7 +386,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 'Visible',bool2onoff(clustMgmt.Data{c,3}),...
                 'LineWidth',1.5);
             correlator = edu.ucsc.neurobiology.vision.analysis.AutocorrelationCalculator.calculate(...
-                backEndHandle.spikeTrains{c},200,1); % 200 msec extent @1msec resolution
+                backEndHandle.spikeTrains{c},100,0.5); % 200 msec extent @1msec resolution
                 corrFun = correlator.toArray();
                 corrFun = filter(0.125*ones(1,8),1,corrFun ./ sqrt(sum(corrFun.^2)));
             ACFPlots{c} = plot(ACFPlot,...
@@ -375,12 +401,24 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % Refresh EI and STA display
     % Show if 1 neuron selected
     % Hide otherwise
-    function refreshEISTA()
+    function refreshLowLeftPanels()
+        
+        if numel(eiJPanel) > 0 % Clear previous ei java panel
+            delete(eiJPanel); eiJPanel = [];
+            delete(eiHPanel); eiHPanel = [];
+        end
+        if numel(staJPanel) > 0 % Clear previous ei java panel
+            delete(staJPanel); staJPanel = [];
+            delete(staHPanel); staHPanel = [];
+        end
+        
         [k,c] = nClustSelected();
-        if k == 1
+        if k == 1 % Single neuron selected - display EI and STA
             leftColumns.Sizes(3) = -1;
             % EI Panel
-            if numel(backEndHandle.eisLoaded{c}) > 0
+            if numel(backEndHandle.eiFile) > 0 && numel(backEndHandle.eisLoaded{c}) > 0
+                eiDistAxes.Visible = 'off';
+                noEIString.Visible = 'off';
                 [eiJPanel,eiHPanel] = ...
                     javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.PhysiologicalImagePanel(...
                     backEndHandle.eisLoaded{c},...
@@ -392,18 +430,13 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 eiHPanel.Position = [0 0 1 1];
                 isEI = true;
             else
-                noEIString = uicontrol(...
-                    'Parent',eiPanel,...
-                    'Style','text',...
-                    'fontsize',12,...
-                    'String','No EI for this neuron');
-                noEIString.Units = 'Norm';
-                noEIString.Position = [0 0 1 1];
                 isEI = false;
+                eiDistAxes.Visible = 'off';
+                noEIString.Visible = 'on';
             end
             
             % STA Panel
-            if numel(backEndHandle.stasLoaded{c}) > 0
+            if numel(backEndHandle.staFile) > 0 && numel(backEndHandle.stasLoaded{c}) > 0
                 [staJPanel,staHPanel] = ...
                     javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.STAPlotMaker.makeSTAPanel(...
                     backEndHandle.stasLoaded{c},...
@@ -415,23 +448,74 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 staHPanel.Position = [0 0 1 1];
                 isSTA = true;
             else
-                noSTAString = uicontrol(...
-                    'Parent',staPanel,...
-                    'Style','text',...
-                    'fontsize',12,...
-                    'String','No STA for this neuron');
-                noSTAString.Units = 'Norm';
-                noSTAString.Position = [0 0 1 1];
                 isSTA = false;
+                corrDistAxes.Visible = 'off';
+                noSTAString.Visible = 'on';
             end
             
             if ~isEI && ~isSTA
                 leftColumns.Sizes(3) = 26;
             end
-        else
-            leftColumns.Sizes(3) = 0;
-            return
+            
+        else % Multiple neurons selected - display EI distance and xCorr distance
+            leftColumns.Sizes(3) = -1;
+            % EI Panel (Left)
+            noEIString.Visible = 'off';
+            
+            eiMatrix = imagesc(backEndHandle.EIdistMatrix,...
+                'AlphaData',~isnan(backEndHandle.EIdistMatrix),...
+                'Parent',eiDistAxes);
+            title(eiDistAxes,'Pairwise EI distance');
+            eiDistAxes.DataAspectRatio = [1 1 1];
+            eiDistAxes.XAxisLocation = 'top';
+            eiDistAxes.XTick = 1:backEndHandle.nClusters;
+            eiDistAxes.YTick = 1:backEndHandle.nClusters;
+            eiDistAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
+            eiDistAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
+            eiDistAxes.XTickLabelRotation = 35;    
+            eiDistAxes.YTickLabelRotation = 35;
+            eiDistAxes.TickLength = [0,0];
+            colorbar(eiDistAxes,'eastoutside');
+            eiDistAxes.Position = [0.1    0    0.68    0.9];
+            eiDistAxes.CLim = [0,1];
+            eiDistAxes.Visible = 'on';
+            
+            nc = backEndHandle.nClusters;
+            hold(eiDistAxes,'on');
+            plot(eiDistAxes,repmat([0.5,nc + 0.5],nc-1,1)',((0.5+(1:(nc-1)))'*[1,1])','k-','linewidth',1);
+            plot(eiDistAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
+            hold(eiDistAxes,'off');
+            
+            % STA Panel (Right)
+            noSTAString.Visible = 'off';
+            
+            corrMatrix = imagesc(backEndHandle.spikeTrainCorr,...
+                'AlphaData',~isnan(backEndHandle.spikeTrainCorr),...
+                'Parent',corrDistAxes);
+            title(corrDistAxes,'Spike train correlation');
+            colormap(corrDistAxes,flipud(colormap(eiDistAxes)));
+            corrDistAxes.DataAspectRatio = [1 1 1];
+            corrDistAxes.XAxisLocation = 'top';
+            corrDistAxes.XTick = 1:backEndHandle.nClusters;
+            corrDistAxes.YTick = 1:backEndHandle.nClusters;
+            corrDistAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
+            corrDistAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
+            corrDistAxes.XTickLabelRotation = 35;    
+            corrDistAxes.YTickLabelRotation = 35;
+            corrDistAxes.TickLength = [0,0];
+            colorbar(corrDistAxes,'eastoutside');
+            corrDistAxes.Position = [0.1    0    0.68    0.9];
+            corrDistAxes.CLim = [0,1];
+            corrDistAxes.Visible = 'on';
+            
+            nc = backEndHandle.nClusters;
+            hold(corrDistAxes,'on');
+            plot(corrDistAxes,repmat([0.5,nc + 0.5],nc-1,1)',((0.5+(1:(nc-1)))'*[1,1])','k-','linewidth',1);
+            plot(corrDistAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
+            hold(corrDistAxes,'off');
         end
+        % eiPanel.Children
+        % staPanel.Children
     end
     
     % Displays the info table in the left columns
@@ -456,9 +540,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         contam = num2cell(backEndHandle.contaminationValues);
         spcount = num2cell(backEndHandle.spikeCounts);
         sprate = num2cell(backEndHandle.spikeCounts * 20000 / backEndHandle.nSamples);
+        comment = backEndHandle.comment;
         % Define the data
         % ID - Color - Display - Status - Contam
-        d = [IDs, colors, display, status, spcount, sprate, contam];
+        d = [IDs, colors, display, status, spcount, sprate, contam, comment];
     end
     
     function selectorCallback(source,callbackdata)
@@ -468,15 +553,21 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             fakeCallbackData.NewData = false;
         end
         fakeCallbackData.Indices = [0,3];
-        for c = 1:backEndHandle.nClusters
+        for c = 1:(backEndHandle.nClusters-1)
             clustMgmt.Data{c,3} = fakeCallbackData.NewData;
             fakeCallbackData.Indices(1) = c;
-            tableEditCallback(source,fakeCallbackData);
+            tableEditCallback(source,fakeCallbackData,false);
         end
+        c = backEndHandle.nClusters;
+        clustMgmt.Data{c,3} = fakeCallbackData.NewData;
+        fakeCallbackData.Indices(1) = c;
+        tableEditCallback(source,fakeCallbackData,true);
     end
     
-    function tableEditCallback(source,callbackdata)
-        if callbackdata.Indices(2) == 3
+    function tableEditCallback(source,callbackdata,varargin)
+        if ~(callbackdata.Indices(2) == 3)
+            throw(MException('','ClusterEditGUI:tableEditCallback - Call from not a tickbox'));
+        end
             PC123Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
             uistack(PC123Plots{callbackdata.Indices(1)},'top');
             PC45Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
@@ -485,8 +576,11 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             uistack(ratePlots{callbackdata.Indices(1)},'top');
             ACFPlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
             uistack(ACFPlots{callbackdata.Indices(1)},'top');
+        % Filter if caller requests manual refresh or not - Allows to skip refresh in case
+        % of successive calls from "(Un)Select All" buttons.
+        if nargin == 2 || (nargin == 3 && varargin{1} == true)
+            refreshLowLeftPanels();
         end
-        refreshEISTA();
     end
     
     function view3DCallback(source,callbackdata)
@@ -527,6 +621,11 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         k = sum(cell2mat(clustMgmt.Data(:,3)));
         c = find(cell2mat(clustMgmt.Data(:,3)));
     end
+    
+    
+    
+    
+    
     % Instantiate backend
     % Backend deals with all argument checking, partial arguments, etc...
     % And data management

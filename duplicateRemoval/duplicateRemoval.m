@@ -125,7 +125,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Single Electrode removal and merges
     % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
-    IDsMerged = [];
+    IDsMerged = zeros(0,2);
     
     for el = 2:nElectrodes
         elNeurInd = find(neuronEls == el);
@@ -200,7 +200,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Global duplicate removal and discard (inc. axonal detections of strong cells)
     % As we may need ALL realigned EI pieces, EI access strategy is changed
-    IDsDuplicatesRemoved = [];
+    IDsDuplicatesRemoved = zeros(0,2);
     
     for el = 2:nElectrodes
         for el2 = (el+1):nElectrodes

@@ -27,6 +27,7 @@ classdef ClusterEditBackend < handle
         neuronIDs
         neuronSpikeTimes
         neuronStatuses
+        classification
         
         elSpikeTimes
         
@@ -41,10 +42,13 @@ classdef ClusterEditBackend < handle
         contaminationValues
         spikeCounts
         status
+        comment
         % ACF
         spikeTrains % for spike rate
+        spikeTrainCorr
         prjTrains
         eisLoaded
+        EIdistMatrix
         stasLoaded
         % cleaning status
     end
@@ -205,6 +209,19 @@ classdef ClusterEditBackend < handle
                 fprintf('ClusterEditBackend:ClusterEditBackend - No Globals file found, STAs Unavailable\n');
             end
             
+            % Try to find a classification file
+            obj.classification = cell(obj.nNeurons,1);
+            files = dir([analysisPath,filesep,'*.txt']);
+            if numel(files) == 1
+                fid = fopen([analysisPath,filesep,files(1).name]);
+                classesRaw = textscan(fid, '%u All/%s', 'delimiter', '\n');
+                pos = arrayfun(@(x) find(obj.neuronIDs == x),classesRaw{1});
+                obj.classification(pos) = classesRaw{2};
+                fclose(fid);
+            else
+                fprintf('ClusterEditBackend:ClusterEditBackend - Can''t find classification .txt file\n.');
+            end
+            
             % electrode map
             obj.arrayID = obj.eiFile.arrayID;
             obj.electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(obj.arrayID);
@@ -227,15 +244,17 @@ classdef ClusterEditBackend < handle
                 eval(sprintf('obj.prjLoaded = projSpikes%u;',el));
             end
             
-            obj.displayIDs = obj.neuronIDs(obj.neuronEls == el);
+            neuronIndices = find(obj.neuronEls == el);
+            
+            obj.displayIDs = obj.neuronIDs(neuronIndices);
             obj.nClusters = numel(obj.displayIDs);
             obj.spikeTrains = cell(obj.nClusters,1);
             obj.prjTrains = cell(obj.nClusters,1);
             obj.contaminationValues = zeros(obj.nClusters,1);
             obj.spikeCounts = zeros(obj.nClusters,1);
             obj.status = cell(obj.nClusters,1);
+            obj.comment = obj.classification(neuronIndices);
             
-            neuronIndices = find(obj.neuronEls == el);
             
             for c = 1:obj.nClusters
                 [~,~,indices] = intersect(...
@@ -266,10 +285,13 @@ classdef ClusterEditBackend < handle
             
             if numel(obj.eiFile) > 0
                 obj.loadEI();
+                obj.loadEIDistances();
             end
             if numel(obj.staFile) > 0
                 obj.loadSTA();
             end
+            obj.loadCorrelations();
+            
             obj.isDataReady = true;
             returnStatus = 0;
         end
@@ -282,6 +304,62 @@ classdef ClusterEditBackend < handle
                 catch
                     obj.eisLoaded{c} = [];
                 end     
+            end
+        end
+        
+        function loadEIDistances(obj)
+            % Purpose of this function is to select relevant electrodes as in merging,
+            % Realign EIs and compute the matrix of distances.
+            % The process is meant to be identical as merging analysis in duplicate removal
+            cfg = mVisionConfig();
+            cleanConfig = cfg.getCleanConfig();
+            
+            eiSize = cleanConfig.EILP + cleanConfig.EIRP + 1;
+            minWindowSize = cleanConfig.globMinWin(2) - cleanConfig.globMinWin(1);
+            samplingVal = cleanConfig.globMinWin(1):cleanConfig.resamplePitch:cleanConfig.globMinWin(2);
+            basicValues = 1:(eiSize - minWindowSize);
+            
+            [adjacent2,~] = catchAdjWJava( obj.eiFile, 2);
+            
+            trace = zeros(obj.nClusters, (eiSize - minWindowSize) * numel(adjacent2{obj.elLoaded}));
+            
+            % EI upsampling handling
+            traceTemp = zeros(eiSize - minWindowSize, numel(adjacent2{obj.elLoaded}));
+            hasEI = cellfun(@(x) numel(x) > 0,obj.eisLoaded);
+            for n = 1:obj.nClusters
+                if ~hasEI(n)
+                    continue
+                end
+                % Realignment procedure
+                for neighborElInd = 1:numel(adjacent2{obj.elLoaded});
+                    neighborEl = adjacent2{obj.elLoaded}(neighborElInd);
+                    
+                    interpolant = griddedInterpolant(1:eiSize,squeeze(obj.eisLoaded{n}(1,neighborEl,:)),'spline');
+                    [~, offset] = min(interpolant(samplingVal));
+                    traceTemp(:,neighborElInd) = interpolant(basicValues + (offset - 1) * cleanConfig.resamplePitch);
+                end
+                trace(n,:) = traceTemp(:)';
+            end % n
+            % L2 normalization
+            trace(hasEI,:) = bsxfun(@rdivide,trace(hasEI,:),sqrt(sum(trace(hasEI,:).^2,2)));
+            
+            % Distance computation
+            [~,dists] = returnL2MergeClasses(trace(hasEI,:), 0);
+            obj.EIdistMatrix = nan(obj.nClusters);
+            obj.EIdistMatrix(hasEI,hasEI) = dists;
+        end
+        
+        function loadCorrelations(obj)
+            visionCoincidenceTime = 10;
+            obj.spikeTrainCorr = ones(obj.nClusters);
+            for i = 1:obj.nClusters
+                for j = (i+1):obj.nClusters
+                    obj.spikeTrainCorr(i,j) = ...
+                        edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getCorrVal(...
+                        obj.spikeTrains{i},obj.spikeTrains{j},...
+                        visionCoincidenceTime);
+                    obj.spikeTrainCorr(j,i) = obj.spikeTrainCorr(i,j);
+                end
             end
         end
         
@@ -305,7 +383,6 @@ classdef ClusterEditBackend < handle
             end
             [el,~] = obj.getElClust(ID);
         end
-        
     end
     
     
