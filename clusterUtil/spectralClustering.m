@@ -33,6 +33,9 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % in sharing the java path with workers
     if ~exist('UtilSpectral','class')
         javaaddpath(['.',filesep,'clusterUtil']);
+        if ~exist('UtilSpectral','class')
+            throw(MException('','spectralClustering:java compatibility issues, check compile and runtime jvms.'));
+        end
     end
     
     %% Big data subsampling for laplacian computation (quadratic in time and memory)
@@ -60,9 +63,10 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     
     % Normalized (Id - Laplacian) of the graph
     laplacian = bsxfun(@times,dinv',bsxfun(@times,dinv,wmat)); % D^(-1/2) * A * D^(-1/2)
+    laplacian = (laplacian + laplacian.')/2;
     
     % Extraction of dominant eigenvalues and eigenvectors
-    options.issym = true; options.isreal = true;
+    options.issym = 1; options.isreal = 1;
     options.maxit = specConfig.eigsMaxIter;
     options.tol = specConfig.eigsTol;
     [evectors, evalues] = eigs(laplacian,specConfig.maxEV + 5,'lm',options);

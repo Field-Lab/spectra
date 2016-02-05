@@ -40,7 +40,13 @@ function whitened = whitenMatrices( datapath, totSpikes, covMatrix, noiseCovMatr
         discardTags = discardTags(:)';
         
         % Whitening and replacement of disconnected blocks
-        invMat = noiseCovMatrix{el}(~discardTags,~discardTags)^(-1/2);
+        invMat = noiseCovMatrix{el}(~discardTags,~discardTags);
+        if rank(invMat) < size(invMat,1)
+            whitened{el}(~discardTags,~discardTags) = ...
+                covMatrix{el}(~discardTags,~discardTags);
+            continue
+        end
+        invMat = invMat^(-1/2);
         whitened{el} = zeros(size(covMatrix{el}));
         whitened{el}(~discardTags,~discardTags) = invMat * ...
             covMatrix{el}(~discardTags,~discardTags) * invMat;

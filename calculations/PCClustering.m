@@ -46,7 +46,6 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
         parpool(parConfig.nWorkers);
     end
     parfor el = 2:nElectrodes
-        
         % Subfunction loadprj is necessary to maintain parfor body transparency.
         projSpikes = loadPrj(prjFilePath,el);
         
@@ -82,12 +81,16 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                     spikeTimesNeuron{el}{gsn} = spikeTimesEl{el}(clusterIndexes == gsn);
                 end
                 
+                % fprintf('Success at electrode %u after %u tries!\n',el,nTry);
                 break; % if nothing is catched, break - at most 10 tries
             catch error
                 if nTry == clustConfig.maxTries
                     % error.getReport()
                     fprintf('Error at electrode %u after %u tries, skipping.\n',el,nTry);
-                    % throw(error) % debug rethrow
+                    % If it's the detected java version failure error, rethrow.
+                    if error.message((end-4):end) == 'jvms.'
+                        throw(error)
+                    end
                 end
             end
         end
