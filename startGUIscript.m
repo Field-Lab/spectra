@@ -1,5 +1,4 @@
 cd /Volumes/Lab/Projects/spikesorting/mvision/mvision
-qload
 addpath(genpath(['.',filesep]));
 javaaddpath ./vision/Vision.jar -end
 javaaddpath ./vision/
