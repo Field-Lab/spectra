@@ -15,7 +15,6 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     
     %%
     mainFigure = frontEndHandle;
-    
     spacerWidth = 10;
     displayPoints = 8000;
     
@@ -160,6 +159,26 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'fontsize',11,...
         'callback',@loadButtonCallback);
     
+    ppmmButtonBox = uiextras.VBox(...
+        'Parent',loadRow,...
+        'Spacing',0,...
+        'Padding',0);
+    
+    ppButton = uicontrol(...
+        'Parent',ppmmButtonBox,...
+        'Style', 'pushbutton',...
+        'String',char(hex2dec('25B2')),...
+        'fontsize',8,...
+        'callback',@loadButtonCallback);
+    
+    mmButton = uicontrol(...
+        'Parent',ppmmButtonBox,...
+        'Style', 'pushbutton',...
+        'String',char(hex2dec('25BC')),...
+        'fontsize',8,...
+        'callback',@loadButtonCallback);
+    ppmmButtonBox.Sizes = [-1 -1];
+    
     loadButton = uicontrol(...
         'Parent',loadRow,...
         'Style', 'pushbutton',...
@@ -189,7 +208,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Background',[0 0.5 0.5]);
     
     % finish loadRow
-    loadRow.Sizes = [34, 50, 45, 60, -1];
+    loadRow.Sizes = [34, 20, 50, 45, 60, -1];
     
     % selector row w/ "(un)select all"
     selectorRow = uiextras.HBox(...
@@ -289,12 +308,21 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             statusBar.String = sprintf('Requested electrode %s not a number.',elNumberBox.String);
             return;
         end
+        if source == ppButton
+            elNumberBox.String = num2str(e+1);
+            e = e+1;
+        end
+        if source == mmButton
+            elNumberBox.String = num2str(e-1);
+            e = e-1;
+        end
+        
         status = backEndHandle.loadEl(e);
         if status ~= 0
             return;
         end
         refreshView();
-        if source == loadButton || source == elNumberBox
+        if source == loadButton || source == elNumberBox || source == ppButton || source == mmButton
             clustNumberBox.String = 'ID#';
         end
     end
