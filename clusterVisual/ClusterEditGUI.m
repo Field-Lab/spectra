@@ -272,20 +272,22 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     
     eiPanel = uipanel('Parent',eistaBox);
     eiJPanel = []; eiHPanel = []; % Globalize the java panels
-    eiDistAxes = axes('Parent',eiPanel,...
-        'Visible','off');
+    bottomLeftAxes = axes('Parent',eiPanel,...
+            'Visible','off');
+    
     noEIString = uicontrol(...
         'Parent',eiPanel,...
         'Style','text',...
         'fontsize',12,...
-        'String','No EI for this neuron',...
+        'String','No EI for this selection',...
         'Visible','off');
     noEIString.Units = 'Norm';
     noEIString.Position = [0 0 1 1];
     
     staPanel = uipanel('Parent',eistaBox);
     staJPanel = []; staHPanel = []; % Globalize the java panels
-    corrDistAxes = axes('Parent',staPanel,...
+
+    bottomRightAxes = axes('Parent',staPanel,...
         'Visible','off');
     noSTAString = uicontrol(...
         'Parent',staPanel,...
@@ -443,23 +445,24 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         [k,c] = nClustSelected();
         if k == 1 % Single neuron selected - display EI and STA
             leftColumns.Sizes(3) = -1;
+            bottomLeftAxes.Visible = 'off';
+            bottomRightAxes.Visible = 'off';
             % EI Panel
             if numel(backEndHandle.eiFile) > 0 && numel(backEndHandle.eisLoaded{c}) > 0
-                eiDistAxes.Visible = 'off';
                 noEIString.Visible = 'off';
                 [eiJPanel,eiHPanel] = ...
                     javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.PhysiologicalImagePanel(...
                     backEndHandle.eisLoaded{c},...
                     [],2,...
                     backEndHandle.electrodeMap,...
-                    backEndHandle.elLoaded - 1));
+                    backEndHandle.elLoaded - 1,...
+                    '','',false,false,1.,true,false,true,40,true,3,0));
                 eiHPanel.Parent = eiPanel;
                 eiHPanel.Units = 'norm';
                 eiHPanel.Position = [0 0 1 1];
                 isEI = true;
             else
                 isEI = false;
-                eiDistAxes.Visible = 'off';
                 noEIString.Visible = 'on';
             end
             
@@ -477,7 +480,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 isSTA = true;
             else
                 isSTA = false;
-                corrDistAxes.Visible = 'off';
+                bottomLeftAxes.Visible = 'off';
                 noSTAString.Visible = 'on';
             end
             
@@ -488,59 +491,54 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         else % Multiple neurons selected - display EI distance and xCorr distance
             leftColumns.Sizes(3) = -1;
             % EI Panel (Left)
-            noEIString.Visible = 'off';
+            
+            if k > 0 && numel(backEndHandle.eiFile) > 0 && all(cellfun(@(x) numel(x),backEndHandle.eisLoaded(c)))
+                noEIString.Visible = 'off';
+                compoundEI = zeros(size(backEndHandle.eisLoaded{c(1)}));
+                for neur = 1:numel(c)
+                    compoundEI(1,:,:) = compoundEI(1,:,:) + backEndHandle.spikeCounts(c(neur)) .* backEndHandle.eisLoaded{c(neur)}(1,:,:);
+                end
+                compoundEI(1,:,:) = compoundEI(1,:,:) ./ sum(backEndHandle.spikeCounts(c));
+                [eiJPanel,eiHPanel] = ...
+                    javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.PhysiologicalImagePanel(...
+                    compoundEI,...
+                    [],2,...
+                    backEndHandle.electrodeMap,...
+                    backEndHandle.elLoaded - 1,...
+                    '','',false,false,1.,true,false,true,40,true,3,0));
+                eiHPanel.Parent = eiPanel;
+                eiHPanel.Units = 'norm';
+                eiHPanel.Position = [0 0 1 1];
+            else
+                noEIString.Visible = 'on';
+            end
+            
+            % EI Dist Panel - Right
+            noSTAString.Visible = 'off';
             
             eiMatrix = imagesc(backEndHandle.EIdistMatrix,...
                 'AlphaData',~isnan(backEndHandle.EIdistMatrix),...
-                'Parent',eiDistAxes);
-            title(eiDistAxes,'Pairwise EI distance');
-            eiDistAxes.DataAspectRatio = [1 1 1];
-            eiDistAxes.XAxisLocation = 'top';
-            eiDistAxes.XTick = 1:backEndHandle.nClusters;
-            eiDistAxes.YTick = 1:backEndHandle.nClusters;
-            eiDistAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
-            eiDistAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
-            eiDistAxes.XTickLabelRotation = 35;    
-            eiDistAxes.YTickLabelRotation = 35;
-            eiDistAxes.TickLength = [0,0];
-            colorbar(eiDistAxes,'eastoutside');
-            eiDistAxes.Position = [0.1    0    0.68    0.9];
-            eiDistAxes.CLim = [0,1];
-            eiDistAxes.Visible = 'on';
+                'Parent',bottomRightAxes);
+            title(bottomRightAxes,'Pairwise EI distance');
+            bottomRightAxes.DataAspectRatio = [1 1 1];
+            bottomRightAxes.XAxisLocation = 'top';
+            bottomRightAxes.XTick = 1:backEndHandle.nClusters;
+            bottomRightAxes.YTick = 1:backEndHandle.nClusters;
+            bottomRightAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
+            bottomRightAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
+            bottomRightAxes.XTickLabelRotation = 35;    
+            bottomRightAxes.YTickLabelRotation = 35;
+            bottomRightAxes.TickLength = [0,0];
+            colorbar(bottomRightAxes,'eastoutside');
+            bottomRightAxes.Position = [0.1    0    0.68    0.9];
+            bottomRightAxes.CLim = [0,1];
+            bottomRightAxes.Visible = 'on';
             
             nc = backEndHandle.nClusters;
-            hold(eiDistAxes,'on');
-            plot(eiDistAxes,repmat([0.5,nc + 0.5],nc-1,1)',((0.5+(1:(nc-1)))'*[1,1])','k-','linewidth',1);
-            plot(eiDistAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
-            hold(eiDistAxes,'off');
-            
-            % STA Panel (Right)
-            noSTAString.Visible = 'off';
-            
-            corrMatrix = imagesc(backEndHandle.spikeTrainCorr,...
-                'AlphaData',~isnan(backEndHandle.spikeTrainCorr),...
-                'Parent',corrDistAxes);
-            title(corrDistAxes,'Spike train correlation');
-            colormap(corrDistAxes,flipud(colormap(eiDistAxes)));
-            corrDistAxes.DataAspectRatio = [1 1 1];
-            corrDistAxes.XAxisLocation = 'top';
-            corrDistAxes.XTick = 1:backEndHandle.nClusters;
-            corrDistAxes.YTick = 1:backEndHandle.nClusters;
-            corrDistAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
-            corrDistAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
-            corrDistAxes.XTickLabelRotation = 35;    
-            corrDistAxes.YTickLabelRotation = 35;
-            corrDistAxes.TickLength = [0,0];
-            colorbar(corrDistAxes,'eastoutside');
-            corrDistAxes.Position = [0.1    0    0.68    0.9];
-            corrDistAxes.CLim = [0,1];
-            corrDistAxes.Visible = 'on';
-            
-            nc = backEndHandle.nClusters;
-            hold(corrDistAxes,'on');
-            plot(corrDistAxes,repmat([0.5,nc + 0.5],nc-1,1)',((0.5+(1:(nc-1)))'*[1,1])','k-','linewidth',1);
-            plot(corrDistAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
-            hold(corrDistAxes,'off');
+            hold(bottomRightAxes,'on');
+            plot(bottomRightAxes,repmat([0.5,nc + 0.5],nc-1,1)',((0.5+(1:(nc-1)))'*[1,1])','k-','linewidth',1);
+            plot(bottomRightAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
+            hold(bottomRightAxes,'off');
         end
         % eiPanel.Children
         % staPanel.Children
@@ -649,38 +647,6 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         k = sum(cell2mat(clustMgmt.Data(:,3)));
         c = find(cell2mat(clustMgmt.Data(:,3)));
     end
-    
-    
-    
-    
-    
-    % Instantiate backend
-    % Backend deals with all argument checking, partial arguments, etc...
-    % And data management
-    
-    % Instantiate figure
-    % Instatiate axes/subplots
-    % Plot PC 1-2-3
-    % Plot PC 4-5
-    % Plot ACF
-    %
-    
-    % Instantiate buttons
-    % Each button:
-    % Type
-    % Position
-    % Specifics
-    % Callback
-    
-    % For plot PC 1-2-3
-    % x view num boxes
-    % y view num boxes
-    % z view num boxes
-    % "Refresh view"
-    
-    % For plot PC 4-5
-    % x view boxes
-    % y view boxes
     
     mainFigure.Visible = 'on';
     'done'
