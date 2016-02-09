@@ -329,22 +329,21 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     myGlobalLoadInterrupt = 0;
     function loadButtonCallback(source,callbackdata)
         myGlobalLoadInterrupt = 1;
-        statusBar.String = sprintf('Loading electrode %s...',elNumberBox.String);
         
-        e = str2num(elNumberBox.String);
+        e = str2num(elNumberBox.String) + 1; % String is in JAVA numbering, e is in matlab numbering.
         if numel(e) ~= 1 || isnan(e)
             statusBar.String = sprintf('Requested electrode %s not a number.',elNumberBox.String);
             return;
         end
         if source == ppButton
-            elNumberBox.String = num2str(e+1);
+            elNumberBox.String = num2str(e);
             e = e+1;
         end
         if source == mmButton
-            elNumberBox.String = num2str(e-1);
+            elNumberBox.String = num2str(e-2);
             e = e-1;
         end
-        
+        statusBar.String = sprintf('Loading electrode %s...',elNumberBox.String);
         % Grab the interruption queue if there is one.
         % If there is none, disable interruption while uploading backend
         pause(.5); % Give us time to get interrupted (avoid redudancy queuing in case of frantic clicking on ++/-- buttons)

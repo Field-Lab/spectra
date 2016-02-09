@@ -230,12 +230,12 @@ classdef ClusterEditBackend < handle
         
         function returnStatus = loadEl(obj,el)
             if el == obj.elLoaded
-                obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el);
+                obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el-1);
                 returnStatus = 1;
                 return;
             end
             if (el <= 1) || (el > obj.nElectrodes)
-                obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el);
+                obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el-1);
                 returnStatus = 1;
                 return;
             else
@@ -279,8 +279,6 @@ classdef ClusterEditBackend < handle
                         obj.status{c} = sprintf('Dup. of ID %i, El %u',obj.neuronStatuses(neuronIndices(c),2),e);
                 end
             end
-            
-            obj.statusBarHandle.String = sprintf('Displaying electrode %u.',el);
             
             if numel(obj.eiFile) > 0
                 obj.loadEI();
