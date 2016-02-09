@@ -11,8 +11,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'MenuBar', 'none', ...
         'Toolbar', 'figure', ...
         'NumberTitle', 'off',...
-        'Visible', 'off');
-    
+        'Visible', 'off',...
+        'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90]);
+    customizeTools(frontEndHandle);
+
     %%
     mainFigure = frontEndHandle;
     spacerWidth = 10;
@@ -79,47 +81,61 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'ClippingStyle','rectangle',...
         'View',[45,15],...
         'XGrid','on','YGrid','on','ZGrid','on',...
-        'DataAspectRatio',[1 1 1]);
+        'DataAspectRatio',[1 1 1],...
+        'XLimMode','manual','YLimMode','manual','ZLimMode','manual');
     plot3D.Title.String = 'Principal Components 1-2-3';
     plot3D.XLabel.String = 'PC 1';
     plot3D.YLabel.String = 'PC 2';
     plot3D.ZLabel.String = 'PC 3';
     
-    bottomGraphs = uiextras.HBox(...
+    bottomGraphs = uiextras.HBoxFlex(...
         'Parent',graphLayout,...
-        'Spacing',0*spacerWidth);
+        'Spacing',spacerWidth);
     graphLayout.Sizes = [-3 -2];
+    bottomGraphsLeftBox = uiextras.VBox(...
+        'Parent',bottomGraphs,...
+        'Spacing',0);
+    bottomGraphsRightPanel = uipanel(...
+        'Parent',bottomGraphs);
+    bottomGraphs.Sizes = [-1 -1];
     
     % Three 2D plots at bottom right
     % Panels
+    ratePanel = uipanel(...
+        'Parent',bottomGraphsLeftBox);
     ratePlots = {}; % global handle to subplots handle defined in load callback
     ratePlot = axes(...
-        'Parent',bottomGraphs,...
-        'XGrid','on','YGrid','on');
-    ratePlot.Title.String = 'Spike rates';
-    ratePlot.XLabel.String = 'Time (sec)';
-    ratePlot.YLabel.String = 'Spike rate (Hz)';
+        'Parent',ratePanel,...
+        'XGrid','on','YGrid','on',...
+        'OuterPosition',[0 0 1 1]);
+    ratePlot.Title.String = 'Spike rates'; ratePlot.Title.FontSize = 9;
+    ratePlot.XLabel.String = 'Time (sec)'; ratePlot.XLabel.FontSize = 9;
+    ratePlot.YLabel.String = 'Spike rate (Hz)'; ratePlot.YLabel.FontSize = 9;
     ratePlot.XLim = [0, backEndHandle.nSamples / 20000 + 1];
     
+    ACFPanel = uipanel(...
+        'Parent',bottomGraphsLeftBox);
     ACFPlots = {}; % global handle to subplots handle defined in load callback
     ACFPlot = axes(...
-        'Parent',bottomGraphs,...
-        'XGrid','on','YGrid','on');
-    ACFPlot.Title.String = 'ACF';
-    ACFPlot.XLabel.String = 'Time \Delta (msec)';
-    ACFPlot.YLabel.String = 'Autocorr. (pair fraction/msec \Delta)';
+        'Parent',ACFPanel,...
+        'XGrid','on','YGrid','on',...
+        'OuterPosition',[0 0 1 1]);
+    ACFPlot.Title.String = 'ACF'; ACFPlot.Title.FontSize = 9;
+    ACFPlot.XLabel.String = 'Time \Delta (msec)'; ACFPlot.XLabel.FontSize = 9;
+    ACFPlot.YLabel.String = 'Autocorr. (pair fraction/msec \Delta)'; ACFPlot.YLabel.FontSize = 9;
     ACFPlot.XLim = [0, 101];
+    bottomGraphsLeftBox.Sizes = [-1 -1];
     
     % 4th col bottom
     PC45Plots = {}; % global handle to subplots handle defined in load callback
     PC45Plot = axes(...
-        'Parent',bottomGraphs,...
-        'XGrid','on','YGrid','on');
+        'Parent',bottomGraphsRightPanel,...
+        'XGrid','on','YGrid','on',...
+        'OuterPosition',[0 0 1 1],...
+        'XLimMode','manual','YLimMode','manual','ZLimMode','manual');
     PC45Plot.Title.String = 'Principal Components 4-5';
     PC45Plot.XLabel.String = 'PC 4';
     PC45Plot.YLabel.String = 'PC 5';
-    
-    bottomGraphs.Sizes = [-1 -1 -1];
     
     datasetName = uicontrol(...
         'Parent',leftColumns,...
@@ -155,7 +171,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Parent',loadRow,...
         'Style', 'edit',...
         'Max',1,'Min',1,...
-        'String','El#',...
+        'String','EL#',...
         'fontsize',11,...
         'callback',@loadButtonCallback);
     
@@ -170,6 +186,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String',char(hex2dec('25B2')),...
         'fontsize',8,...
         'callback',@loadButtonCallback);
+
     
     mmButton = uicontrol(...
         'Parent',ppmmButtonBox,...
@@ -228,19 +245,25 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String','Unselect All',...
         'fontsize',11,...
         'callback',@selectorCallback);
-    refreshButton = uicontrol(...
+    reScatterButton = uicontrol(...
         'Parent',selectorRow,...
         'Style', 'pushbutton',...
         'String','Re-scatter',...
         'fontsize',11,...
         'callback',@refreshGraphics);
+    autoscaleButton = uicontrol(...
+        'Parent',selectorRow,...
+        'Style', 'pushbutton',...
+        'String','Rescale Axes',...
+        'fontsize',11,...
+        'callback',@autoScalePCPlots);
     fillerSelectorRow = uicontrol(...
         'Parent',selectorRow,...
         'Style','text',...
         'String','',...
         'Background',[0.5 0.5 0]);
     
-    selectorRow.Sizes = [75 90 75 -1];
+    selectorRow.Sizes = [75 90 75 95 -1];
     % finish selectorRow
     
     % Column names and column format
@@ -303,8 +326,11 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     %---------------------------------------------------------------
     % CALLBACKS AND SUBFUNCTIONS
     %---------------------------------------------------------------
+    myGlobalLoadInterrupt = 0;
     function loadButtonCallback(source,callbackdata)
+        myGlobalLoadInterrupt = 1;
         statusBar.String = sprintf('Loading electrode %s...',elNumberBox.String);
+        
         e = str2num(elNumberBox.String);
         if numel(e) ~= 1 || isnan(e)
             statusBar.String = sprintf('Requested electrode %s not a number.',elNumberBox.String);
@@ -319,14 +345,34 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             e = e-1;
         end
         
+        % Grab the interruption queue if there is one.
+        % If there is none, disable interruption while uploading backend
+        pause(.5); % Give us time to get interrupted (avoid redudancy queuing in case of frantic clicking on ++/-- buttons)
+        % If interrupted, do not resume
+        if ~myGlobalLoadInterrupt
+            return;
+        end
+        source.Interruptible = 'off';
+        
         status = backEndHandle.loadEl(e);
         if status ~= 0
             return;
         end
+        
+        % Allow for interruption again - before refreshing front end
+        % And grab interruption queue
+        source.Interruptible = 'on';
+        drawnow;
+        if ~myGlobalLoadInterrupt
+            return;
+        end
+        % If interrupted, do not resume
+        
         refreshView();
         if source == loadButton || source == elNumberBox || source == ppButton || source == mmButton
             clustNumberBox.String = 'ID#';
         end
+        myGlobalLoadInterrupt = 0;
     end
     
     function loadClustButtonCallback(source,callbackdata)
@@ -345,9 +391,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     
     function refreshView()
         makeColors();
-        clustMgmt.Data = getClusterData(); pause(.1);
+        clustMgmt.Data = getClusterData();
         refreshGraphics();
         refreshLowLeftPanels();
+        autoScalePCPlots();
     end
     
     function makeColors()
@@ -540,15 +587,8 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             plot(bottomRightAxes,((0.5+(1:(nc-1)))'*[1,1])',repmat([0.5,nc + 0.5],nc-1,1)','k-','linewidth',1);
             hold(bottomRightAxes,'off');
         end
-        % eiPanel.Children
-        % staPanel.Children
     end
     
-    % Displays the info table in the left columns
-    % operates by side effects
-    % To split:
-    % Column headers and format when instantiating the table
-    % table data when refreshing after load.
     function d = getClusterData()
         % HTML trick
         colorgen = @(color,text) sprintf('<html><table border=0 width=30 bgcolor=#%02X%02X%02X><TR><TD>%s</TD></TR> </table></html>',...
@@ -621,6 +661,19 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     
+    function autoScalePCPlots(varargin)
+        listObj = [plot3D;PC45Plot];
+        set(listObj,'Interruptible','off');
+        set(listObj,'XLimMode','auto');
+        set(listObj,'YLimMode','auto');
+        set(listObj,'ZLimMode','auto');
+        drawnow;
+        set(listObj,'XLimMode','manual');
+        set(listObj,'YLimMode','manual');
+        set(listObj,'ZLimMode','manual');
+        set(listObj,'Interruptible','on');
+    end
+    
     function s = bool2onoff(b)
         if b == 0
             s = 'off';
@@ -648,6 +701,22 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         c = find(cell2mat(clustMgmt.Data(:,3)));
     end
     
+    function customizeTools(figureHandle)
+        allTools = findall(figureHandle);
+        %%
+        deleteTags = {'Plottools*',...
+            'Annotation*',...
+            'DataManager*','Standard*'};
+        for i = 1:numel(deleteTags);
+            t = findobj(allTools,'-regexp','Tag',deleteTags{i});
+            set(t,'Separator','off');
+            set(t,'Visible','off');
+        end
+        t = findobj(allTools,'Tag','Exploration.ZoomIn');
+        t.Separator = 'off';
+        t = findobj(allTools,'TooltipString','Brush/Select Data');
+        set(t,'Visible','off');
+    end
+    
     mainFigure.Visible = 'on';
-    'done'
 end

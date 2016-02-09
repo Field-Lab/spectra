@@ -281,7 +281,6 @@ classdef ClusterEditBackend < handle
             end
             
             obj.statusBarHandle.String = sprintf('Displaying electrode %u.',el);
-            pause(0.1);
             
             if numel(obj.eiFile) > 0
                 obj.loadEI();
