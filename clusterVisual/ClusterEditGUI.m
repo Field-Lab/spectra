@@ -405,9 +405,16 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         % make HSV colors
         %clusterColors.HSV = [randperm(backEndHandle.nClusters)' / backEndHandle.nClusters,...
         %    ones(backEndHandle.nClusters,1)*[0.8 0.7]];
-        clusterColors.HSV = [(1:backEndHandle.nClusters)' / backEndHandle.nClusters,...
+        tmp = backEndHandle.statusRaw;
+        tmp(tmp(:,1) ~= 2,2) = backEndHandle.displayIDs(tmp(:,1) ~= 2);
+        tmp = tmp(:,2) - min(tmp(:,2)) + 1;
+        [tmp,i] = sort(tmp); [~,j] = sort(i);
+        tmp = tmp + 0.75 * (0:(backEndHandle.nClusters-1))';
+        % Number    ----  is the merge color spacing coefficient. Increase or decrease
+        % to have merge clusters be more or less close in color.
+        tmp = tmp(j);
+        clusterColors.HSV = [tmp ./ max(tmp),...
             ones(backEndHandle.nClusters,1)*[0.8 0.7]];
-        
         if backEndHandle.nClusters > 0
             clusterColors.RGB = hsv2rgb(clusterColors.HSV); % convert to RGB
         else
@@ -605,7 +612,21 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         colors = cellfun(@(x) colorgen(x,''),...
             mat2cell(clusterColors.RGB,ones(backEndHandle.nClusters,1)),...
             'uni',false);
-        status = backEndHandle.status;
+        status = cell(backEndHandle.nClusters,1);
+        % Parse neuron statuses
+        for c = 1:backEndHandle.nClusters
+            switch backEndHandle.statusRaw(c,1)
+                case 0
+                    status{c} = 'Keep';
+                case 1
+                    status{c} = 'Contam / Low count';
+                case 2
+                    status{c} = sprintf('Merge with %u',backEndHandle.statusRaw(c,2));
+                case 3
+                    [e,~] = backEndHandle.getElClust(backEndHandle.statusRaw(c,2));
+                    status{c} = sprintf('Dup. of ID %i, El %u',backEndHandle.statusRaw(c,2),e-1);
+            end
+        end
         display = cellfun(@(x) ~strcmp(x(1:3),'Con'),status,'uni',false);
         contam = num2cell(backEndHandle.contaminationValues);
         spcount = num2cell(backEndHandle.spikeCounts);

@@ -41,7 +41,7 @@ classdef ClusterEditBackend < handle
         displayIDs
         contaminationValues
         spikeCounts
-        status
+        statusRaw
         comment
         % ACF
         spikeTrains % for spike rate
@@ -252,7 +252,7 @@ classdef ClusterEditBackend < handle
             obj.prjTrains = cell(obj.nClusters,1);
             obj.contaminationValues = zeros(obj.nClusters,1);
             obj.spikeCounts = zeros(obj.nClusters,1);
-            obj.status = cell(obj.nClusters,1);
+            obj.statusRaw = obj.neuronStatuses(neuronIndices,:);
             obj.comment = obj.classification(neuronIndices);
             
             
@@ -266,18 +266,6 @@ classdef ClusterEditBackend < handle
                 
                 obj.contaminationValues(c) = ...
                     edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(obj.spikeTrains{c},int32(obj.nSamples));
-                % Neuron statuses
-                switch obj.neuronStatuses(neuronIndices(c),1)
-                    case 0
-                        obj.status{c} = 'Keep';
-                    case 1
-                        obj.status{c} = 'Contam / Low count';
-                    case 2
-                        obj.status{c} = sprintf('Merge with %u',obj.neuronStatuses(neuronIndices(c),2));
-                    case 3
-                        [e,~] = obj.getElClust(obj.neuronStatuses(neuronIndices(c),2));
-                        obj.status{c} = sprintf('Dup. of ID %i, El %u',obj.neuronStatuses(neuronIndices(c),2),e-1);
-                end
             end
             
             if numel(obj.eiFile) > 0
