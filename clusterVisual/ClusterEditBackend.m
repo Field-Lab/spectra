@@ -276,7 +276,7 @@ classdef ClusterEditBackend < handle
                         obj.status{c} = sprintf('Merge with %u',obj.neuronStatuses(neuronIndices(c),2));
                     case 3
                         [e,~] = obj.getElClust(obj.neuronStatuses(neuronIndices(c),2));
-                        obj.status{c} = sprintf('Dup. of ID %i, El %u',obj.neuronStatuses(neuronIndices(c),2),e);
+                        obj.status{c} = sprintf('Dup. of ID %i, El %u',obj.neuronStatuses(neuronIndices(c),2),e-1);
                 end
             end
             

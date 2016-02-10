@@ -44,8 +44,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Spacing',spacerWidth);
     buttonColumn = uiextras.VBox(...
         'Parent',graph3DBox,...
-        'Spacing',spacerWidth,...
-        'Background','y');
+        'Spacing',spacerWidth);
     buttonDefaultView = uicontrol(...
         'Parent',buttonColumn,...
         'Style', 'pushbutton',...
@@ -144,10 +143,9 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String',datasetFolder);
     menu = uiextras.VBox(...
         'Parent',leftColumns,...
-        'Spacing',0,...
-        'Background','g');
+        'Spacing',0);
     eistaBox = uiextras.HBox('Parent',leftColumns,...
-        'Spacing',0,'background','b');
+        'Spacing',0);
     statusBar = uicontrol(...
         'Parent',leftColumns,...
         'Style','text',...
@@ -221,8 +219,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     fillerLoadRow = uicontrol(...
         'Parent',loadRow,...
         'Style','text',...
-        'String','',...
-        'Background',[0 0.5 0.5]);
+        'String','');
     
     % finish loadRow
     loadRow.Sizes = [34, 20, 50, 45, 60, -1];
@@ -260,8 +257,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     fillerSelectorRow = uicontrol(...
         'Parent',selectorRow,...
         'Style','text',...
-        'String','',...
-        'Background',[0.5 0.5 0]);
+        'String','');
     
     selectorRow.Sizes = [75 90 75 95 -1];
     % finish selectorRow
@@ -293,21 +289,28 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % Finish left menu
     menu.Sizes = [34 34 -1];
     
-    eiPanel = uipanel('Parent',eistaBox);
+    
+    eiBox = uiextras.VBox(...
+        'Parent',eistaBox,...
+        'Padding',0,'Spacing',0);
+    noEIString = uicontrol(...
+        'Parent',eiBox,...
+        'Style','text',...
+        'fontsize',12,...
+        'String','EI Display',...
+        'Visible','on');
+    noEIString.Units = 'Norm';
+    noEIString.Position = [0 0 1 1];
+    eiPanel = uipanel('Parent',eiBox,...
+        'BorderType','none');
     eiJPanel = []; eiHPanel = []; % Globalize the java panels
     bottomLeftAxes = axes('Parent',eiPanel,...
             'Visible','off');
+
+    eiBox.Sizes = [26 -1];
     
-    noEIString = uicontrol(...
-        'Parent',eiPanel,...
-        'Style','text',...
-        'fontsize',12,...
-        'String','No EI for this selection',...
-        'Visible','off');
-    noEIString.Units = 'Norm';
-    noEIString.Position = [0 0 1 1];
-    
-    staPanel = uipanel('Parent',eistaBox);
+    staPanel = uipanel('Parent',eistaBox,...
+        'BorderType','none');
     staJPanel = []; staHPanel = []; % Globalize the java panels
 
     bottomRightAxes = axes('Parent',staPanel,...
@@ -367,7 +370,9 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
         % If interrupted, do not resume
         
+        statusBar.String = 'Refreshing View...'; drawnow;
         refreshView();
+        statusBar.String = sprintf('Displaying electrode %u.',e-1);
         if source == loadButton || source == elNumberBox || source == ppButton || source == mmButton
             clustNumberBox.String = 'ID#';
         end
@@ -383,7 +388,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         end
         el = backEndHandle.checkID(c);
         if el ~= -1
-            elNumberBox.String = el;
+            elNumberBox.String = el-1;
             loadButtonCallback(source,callbackdata);
         end
     end
@@ -495,7 +500,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             bottomRightAxes.Visible = 'off';
             % EI Panel
             if numel(backEndHandle.eiFile) > 0 && numel(backEndHandle.eisLoaded{c}) > 0
-                noEIString.Visible = 'off';
+                noEIString.String = 'Real neuron EI';
                 [eiJPanel,eiHPanel] = ...
                     javacomponent(edu.ucsc.neurobiology.vision.neuronviewer.PhysiologicalImagePanel(...
                     backEndHandle.eisLoaded{c},...
@@ -509,7 +514,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 isEI = true;
             else
                 isEI = false;
-                noEIString.Visible = 'on';
+                noEIString.String = 'No EI for this neuron';
             end
             
             % STA Panel
@@ -539,7 +544,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             % EI Panel (Left)
             
             if k > 0 && numel(backEndHandle.eiFile) > 0 && all(cellfun(@(x) numel(x),backEndHandle.eisLoaded(c)))
-                noEIString.Visible = 'off';
+                noEIString.String = 'Make-up EI of selection';
                 compoundEI = zeros(size(backEndHandle.eisLoaded{c(1)}));
                 for neur = 1:numel(c)
                     compoundEI(1,:,:) = compoundEI(1,:,:) + backEndHandle.spikeCounts(c(neur)) .* backEndHandle.eisLoaded{c(neur)}(1,:,:);
@@ -556,7 +561,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 eiHPanel.Units = 'norm';
                 eiHPanel.Position = [0 0 1 1];
             else
-                noEIString.Visible = 'on';
+                noEIString.String = 'No EI for this selection';
             end
             
             % EI Dist Panel - Right
