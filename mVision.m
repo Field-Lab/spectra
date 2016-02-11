@@ -147,8 +147,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         
         [spikes,ttlTimes,nSamples] = SpikeFindingM(dataPath, saveFolder, timeCommand, sigmaFileName);
         spikeSave = int32(spikes(:,1:2));
-        save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes','nSamples');
-        %     save([saveFolder,filesep,datasetName,nameExt,'.spikes.mat'],'spikeSave','ttlTimes');
+        save([saveFolder,filesep,datasetName,'.spikes.mat'],'spikeSave','ttlTimes','nSamples','-v7.3');
         
         fprintf('Time for spike finding %.2f seconds\n',toc);
     else
@@ -176,7 +175,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
            covMatrix = whitenMatrices(dataPath, totSpikes, covMatrix, noiseCovMatrix);
 %          covMatrix = noiseCovMatrix;
         end
-        save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes');
+        save([saveFolder,filesep,datasetName,'.cov.mat'],'covMatrix','averages','totSpikes','-v7.3');
         
         fprintf('Time for covariance calculation %.2f seconds\n',toc);
     else
@@ -232,10 +231,13 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
             PCClustering([saveFolder,filesep,datasetName,'.prj.mat'],spikeTimes);
         
         % Save a model file
-        save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams');
+        save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams','-v7.3');
         
         % Save a neurons-raw file (.neurons.mat)
-        save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+        if ~exist(nSamples)
+            load([saveFolder,filesep,datasetName,'.spikes.mat'],'nSamples');
+        end
+        save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','-v7.3');
         
         fprintf('Time for clustering %.2f seconds\n',toc);
     else
