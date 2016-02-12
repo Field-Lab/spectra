@@ -25,11 +25,8 @@ classdef ClusterEditBackend < handle
         neuronEls
         neuronClusters
         neuronIDs
-        neuronSpikeTimes
         neuronStatuses
         classification
-        
-        elSpikeTimes
         
         elLoaded
         prjLoaded % only handles 1 loaded prj. Caching effect TODO
@@ -143,20 +140,19 @@ classdef ClusterEditBackend < handle
                 end
             end
             % All files now referenced and checked
+            % Partial loading for neuronSpikeTimes and elSpikeTimes
+            obj.prj.matfile = matfile(obj.prj.path);
+            obj.neurons.matfile = matfile(obj.neurons.path);
             
             % Load everything useful and RAM OK
             % Generate metadata
             
-            load(obj.neurons.path); % Loads neuronClusters, neuronEls, neuronSpikeTimes
+            load(obj.neurons.path,'neuronEls','neuronClusters'); % Loads neuronClusters, neuronEls
             obj.neuronEls = neuronEls;
             obj.neuronClusters = neuronClusters;
-            obj.neuronSpikeTimes = neuronSpikeTimes;
             obj.neuronIDs = ClusterEditBackend.getIDs(obj.neuronEls, obj.neuronClusters);
             
-            load(obj.prj.path,'spikeTimes');
-            obj.elSpikeTimes = spikeTimes;
-            
-            obj.nElectrodes = size(spikeTimes,1);
+            obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
             obj.nNeurons = size(obj.neuronEls,1);
             
             % CleanPattern - do that clean
@@ -255,14 +251,17 @@ classdef ClusterEditBackend < handle
             obj.statusRaw = obj.neuronStatuses(neuronIndices,:);
             obj.comment = obj.classification(neuronIndices);
             
+            elSpikeTimes = obj.prj.matfile.spikeTimes(obj.elLoaded,1);
+            elSpikeTimes = elSpikeTimes{1};
+            
+            obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
+            obj.spikeCounts = cellfun(@numel, obj.spikeTrains,'uni',true);
             
             for c = 1:obj.nClusters
                 [~,~,indices] = intersect(...
-                    obj.neuronSpikeTimes{neuronIndices(c)},...
-                    obj.elSpikeTimes{obj.elLoaded});
-                obj.spikeTrains{c} = obj.neuronSpikeTimes{neuronIndices(c)};
+                    obj.spikeTrains{c},...
+                    elSpikeTimes);
                 obj.prjTrains{c} = obj.prjLoaded(indices,:);
-                obj.spikeCounts(c) = numel(obj.spikeTrains{c});
                 
                 obj.contaminationValues(c) = ...
                     edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(obj.spikeTrains{c},int32(obj.nSamples));

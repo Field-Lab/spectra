@@ -60,7 +60,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
     configUsed = cleanConfig;
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed');
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);

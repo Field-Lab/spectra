@@ -1,47 +1,50 @@
 function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % function ClusterEditGUI
-    %% Instantiate - return handles
-    narginchk(1,2);
+    % Some comments here
+    
+    %% Instantiation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    narginchk(1,2); % Existing back-end may be passed in varargin{1}
     if nargin == 1
         backEndHandle = ClusterEditBackend(datasetFolder);
     else
         backEndHandle = varargin{1};
     end
+    % Front-end main figure
     frontEndHandle = figure( 'Name', 'Cluster Editor 0.0', ...
         'MenuBar', 'none', ...
         'Toolbar', 'figure', ...
         'NumberTitle', 'off',...
         'Visible', 'off',...
         'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90]);
-    customizeTools(frontEndHandle);
-
-    %%
-    mainFigure = frontEndHandle;
+    customizeTools(frontEndHandle); % Remove useless buttons
+    
+    %% Some configuration %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     spacerWidth = 10;
     displayPoints = 8000;
-    
     clusterColors = zeros(0,3);
     
-    % Main box and childre
+    %% GUI layout %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Main box and children
     mainLayout = uiextras.HBoxFlex(...
-        'Parent',mainFigure,...
+        'Parent',frontEndHandle,...
         'Position',[0 0 1 1],...
         'Spacing',2);
-    % Left VBox
+    % Left VBox - Menu, title, table, EI/STA displays
     leftColumns = uiextras.VBox(...
         'Parent',mainLayout,...
         'Spacing',spacerWidth);
-    
+    % Right VBox - PC, ACF and spRate
     graphLayout = uiextras.VBoxFlex(...
         'Parent',mainLayout,...
         'Spacing',spacerWidth);
     mainLayout.Sizes = [-1 -1];
-    
-    % graph box children
-    % Graph 3D
+    % Graph 3D + view buttons strip
     graph3DBox = uiextras.HBox(...
         'Parent',graphLayout,...
         'Spacing',spacerWidth);
+    % View button column
+    %{
+    % Removing button column - available w/ right click while rotate tool
     buttonColumn = uiextras.VBox(...
         'Parent',graph3DBox,...
         'Spacing',spacerWidth);
@@ -70,10 +73,9 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'fontsize',11,...
         'callback',@view3DCallback);
     buttonColumn.Sizes = [24 24 24 24];
-    
+    %}
+    % Panel for 3D box axes
     supportPanel3D = uipanel('Parent',graph3DBox);
-    graph3DBox.Sizes = [50 -1];
-    
     PC123Plots = {}; % handle to subplots handle defined in load callback
     plot3D = axes(...
         'Parent',supportPanel3D,...
@@ -86,7 +88,8 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     plot3D.XLabel.String = 'PC 1';
     plot3D.YLabel.String = 'PC 2';
     plot3D.ZLabel.String = 'PC 3';
-    
+    axis(plot3D,'tight');
+    graph3DBox.Sizes = -1; %[50 -1]; % Sizes with button column
     bottomGraphs = uiextras.HBoxFlex(...
         'Parent',graphLayout,...
         'Spacing',spacerWidth);
@@ -135,6 +138,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     PC45Plot.Title.String = 'Principal Components 4-5';
     PC45Plot.XLabel.String = 'PC 4';
     PC45Plot.YLabel.String = 'PC 5';
+    axis(PC45Plot,'tight');
     
     datasetName = uicontrol(...
         'Parent',leftColumns,...
@@ -184,7 +188,6 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String',char(hex2dec('25B2')),...
         'fontsize',8,...
         'callback',@loadButtonCallback);
-
     
     mmButton = uicontrol(...
         'Parent',ppmmButtonBox,...
@@ -305,14 +308,14 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'BorderType','none');
     eiJPanel = []; eiHPanel = []; % Globalize the java panels
     bottomLeftAxes = axes('Parent',eiPanel,...
-            'Visible','off');
-
+        'Visible','off');
+    
     eiBox.Sizes = [26 -1];
     
     staPanel = uipanel('Parent',eistaBox,...
         'BorderType','none');
     staJPanel = []; staHPanel = []; % Globalize the java panels
-
+    
     bottomRightAxes = axes('Parent',staPanel,...
         'Visible','off');
     noSTAString = uicontrol(...
@@ -475,14 +478,14 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
                 'LineWidth',1.5);
             correlator = edu.ucsc.neurobiology.vision.analysis.AutocorrelationCalculator.calculate(...
                 backEndHandle.spikeTrains{c},100,0.5); % 200 msec extent @1msec resolution
-                corrFun = correlator.toArray();
-                corrFun = filter(0.125*ones(1,8),1,corrFun ./ sqrt(sum(corrFun.^2)));
+            corrFun = correlator.toArray();
+            corrFun = filter(0.125*ones(1,8),1,corrFun ./ sqrt(sum(corrFun.^2)));
             ACFPlots{c} = plot(ACFPlot,...
                 correlator.getXValues,corrFun,...
                 'color',clusterColors.RGB(c,:),...
                 'Visible',bool2onoff(clustMgmt.Data{c,3}),...
                 'LineWidth',1.5);
-                
+            
         end
     end
     
@@ -584,7 +587,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             bottomRightAxes.YTick = 1:backEndHandle.nClusters;
             bottomRightAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
             bottomRightAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
-            bottomRightAxes.XTickLabelRotation = 35;    
+            bottomRightAxes.XTickLabelRotation = 35;
             bottomRightAxes.YTickLabelRotation = 35;
             bottomRightAxes.TickLength = [0,0];
             colorbar(bottomRightAxes,'eastoutside');
@@ -659,14 +662,14 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         if ~(callbackdata.Indices(2) == 3)
             throw(MException('','ClusterEditGUI:tableEditCallback - Call from not a tickbox'));
         end
-            PC123Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
-            uistack(PC123Plots{callbackdata.Indices(1)},'top');
-            PC45Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
-            uistack(PC45Plots{callbackdata.Indices(1)},'top');
-            ratePlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
-            uistack(ratePlots{callbackdata.Indices(1)},'top');
-            ACFPlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
-            uistack(ACFPlots{callbackdata.Indices(1)},'top');
+        PC123Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
+        uistack(PC123Plots{callbackdata.Indices(1)},'top');
+        PC45Plots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
+        uistack(PC45Plots{callbackdata.Indices(1)},'top');
+        ratePlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
+        uistack(ratePlots{callbackdata.Indices(1)},'top');
+        ACFPlots{callbackdata.Indices(1)}.Visible = bool2onoff(callbackdata.NewData);
+        uistack(ACFPlots{callbackdata.Indices(1)},'top');
         % Filter if caller requests manual refresh or not - Allows to skip refresh in case
         % of successive calls from "(Un)Select All" buttons.
         if nargin == 2 || (nargin == 3 && varargin{1} == true)
@@ -743,5 +746,5 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         set(t,'Visible','off');
     end
     
-    mainFigure.Visible = 'on';
+    frontEndHandle.Visible = 'on';
 end
