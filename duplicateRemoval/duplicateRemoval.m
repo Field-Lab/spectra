@@ -60,7 +60,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
     configUsed = cleanConfig;
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed');
+    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -125,7 +125,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Single Electrode removal and merges
     % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
-    IDsMerged = [];
+    IDsMerged = zeros(0,2);
     
     for el = 2:nElectrodes
         elNeurInd = find(neuronEls == el);
@@ -200,7 +200,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Global duplicate removal and discard (inc. axonal detections of strong cells)
     % As we may need ALL realigned EI pieces, EI access strategy is changed
-    IDsDuplicatesRemoved = [];
+    IDsDuplicatesRemoved = zeros(0,2);
     
     for el = 2:nElectrodes
         for el2 = (el+1):nElectrodes
