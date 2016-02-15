@@ -2,6 +2,8 @@ classdef ClusterEditBackend < handle
     %CLUSTEREDITBACKEND Handles persistently the backend of the cluster visualizer
     
     properties (GetAccess = public, SetAccess = immutable)
+        analysisPath
+        
         prj % struct - {bool exists ; String path}
         model % struct - {bool exists ; String path}
         neurons % struct - {bool exists ; String path}
@@ -68,7 +70,7 @@ classdef ClusterEditBackend < handle
         % in which case constructor looks for a file with correct extension
         % in the analysis path.
         function obj = ClusterEditBackend(analysisPath,varargin)
-            
+            obj.analysisPath = analysisPath;
             obj.config = mVisionConfig();
             
             % Argument check
@@ -158,6 +160,7 @@ classdef ClusterEditBackend < handle
             % CleanPattern - do that clean
             cleanPatternPath = [analysisPath,filesep,'cleanPattern.mat'];
             load(cleanPatternPath);
+            IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
             obj.neuronStatuses = zeros(obj.nNeurons,2);
             [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
             obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
@@ -254,7 +257,11 @@ classdef ClusterEditBackend < handle
             elSpikeTimes = obj.prj.matfile.spikeTimes(obj.elLoaded,1);
             elSpikeTimes = elSpikeTimes{1};
             
-            obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
+            if numel(neuronIndices) > 0
+                obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
+            else
+                obj.spikeTrains = cell(0,1);
+            end
             obj.spikeCounts = cellfun(@numel, obj.spikeTrains,'uni',true);
             
             for c = 1:obj.nClusters
@@ -390,6 +397,18 @@ classdef ClusterEditBackend < handle
             el = floor((ID-1)./maxClust) + 2;
             clust = mod(ID-1,maxClust) + 1;
         end
-    end
-end
-
+        
+        function IDPairs = shortenDuplicatesPath(IDPairs)
+            % 1st column - ID for which it is deleted
+            % 2nd column - ID deleted
+            while true
+                [~,i,j] = intersect(IDPairs(:,1),IDPairs(:,2));
+                if numel(i) == 0
+                    break
+                end
+                IDPairs(i,1) = IDPairs(j,1);
+            end
+        end
+        
+    end % Static methods
+end % Class
