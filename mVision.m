@@ -234,7 +234,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         save([saveFolder,filesep,datasetName,'.model.mat'],'clusterParams','-v7.3');
         
         % Save a neurons-raw file (.neurons.mat)
-        if ~exist(nSamples)
+        if ~exist('nSamples')
             load([saveFolder,filesep,datasetName,'.spikes.mat'],'nSamples');
         end
         save([saveFolder,filesep,datasetName,'.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','-v7.3');
