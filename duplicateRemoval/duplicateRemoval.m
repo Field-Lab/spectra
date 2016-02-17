@@ -23,7 +23,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %   neuronSpikeTimes: same spec as input
     %
     % Saves:
-    %   IDs of removed neurons and merged neurons, in file cleanPattern.mat
+    %   IDs of removed neurons and merged neurons, in file .clean.mat
     %   For purpose of broadcasting the cleaning pattern in concatenated analyses.
     %
     % Author -- Vincent Deo -- Stanford University -- October 12, 2015
@@ -60,7 +60,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
     configUsed = cleanConfig;
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -179,7 +179,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     end % el
     
     % Save IDs to clear
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsMerged','-append');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
@@ -261,7 +261,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Save IDs to clear
     IDsDuplicatesRemoved = unique(IDsDuplicatesRemoved,'rows');
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);

@@ -37,7 +37,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     end
     % Save IDs to clear - superfluous as concat.neurons.mat is overwritten below, nevermind
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveRoot,filesep,'cleanPattern.mat'],'IDsRemovedAtContam');
+    save([saveRoot,filesep,'concat.clean.mat'],'IDsRemovedAtContam','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -47,7 +47,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     toRemove = false(nNeurons,1);
     
     % Update concat.neurons.mat
-    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
     
     %%%
     fprintf('After low count and high contamination: %u\n',nNeurons);
@@ -65,7 +65,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     vcfg = sprintf('.%svision%sconfig.xml',filesep,filesep);
     calc = '"Electrophysiological Imaging Fast"';
     s = '';
-        for d = 1:numel(saveFolderAndName)
+    for d = 1:numel(saveFolderAndName)
         [saveFolder,datasetName,~] = fileparts(saveFolderAndName{d});
         
         % Build a neurons file
@@ -76,25 +76,25 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
         
         s = [s,...
             sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" %3$s -c %4$s %5$s %6$s %7$s %8$f %9$u %10$u %11$u %12$u',...
-        filesep,sepchar,cmgr,vcfg,calc,saveFolder,datasets{d},...
-        cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
-        cleanConfig.EISp, cleanConfig.EInThreads),' &;'];
+            filesep,sepchar,cmgr,vcfg,calc,saveFolder,datasets{d},...
+            cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
+            cleanConfig.EISp, cleanConfig.EInThreads),' &;'];
     end
-        % Effective EI computation
+    % Effective EI computation
     system([s,'wait;']);
     % All EIs are computed at the end of the child wait command
     % this puts tcsh syntax to good use for OS level parallel processing
-
+    
     %% Join EIs for concatenated analysis
     % This should cope with missing IDs in some datasets but not all, ie neurons that are not
     % present in all sub datasets.
     s = '';
     for d = 1:numel(saveFolderAndName)
         [saveFolder,~,~] = fileparts(saveFolderAndName{d});
-                s = [s,saveFolder,';'];
+        s = [s,saveFolder,';'];
     end
     s = ['"',s,'"'];
-        % EIMerger is a custom vision class, which is now compiled inside the jar.
+    % EIMerger is a custom vision class, which is now compiled inside the jar.
     system(sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" edu.ucsc.neurobiology.vision.io.EIMerger %3$s %4$s',...
         filesep,sepchar,s,saveRoot));
     
@@ -102,7 +102,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     load([saveRoot,filesep,'concat.neurons.mat']);
     
     % EI access setup
-        [~,rootName,~] = fileparts(saveRoot);
+    [~,rootName,~] = fileparts(saveRoot);
     system(sprintf('mv %1$s%2$s%3$s.ei %1$s%2$sconcat.ei',saveRoot,filesep,rootName));
     eiPath = [saveRoot, filesep,'concat.ei'];
     eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
@@ -117,7 +117,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     [adjacent,~] = catchAdjWJava( eiFile, 2 );
     
     % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
-    IDsMerged = [];
+    IDsMerged = zeros(0,2);
     
     % Single Electrode removal and merges
     for el = 2:nElectrodes
@@ -144,7 +144,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
         end % n
         
         % Distance computation
-                parts = returnL2MergeClasses(trace, cleanConfig.eiThrW);
+        parts = returnL2MergeClasses(trace, cleanConfig.eiThrW);
         
         for cc = 1:numel(parts)
             if numel(parts{cc}) > 1
@@ -157,17 +157,17 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
                 
                 % Merging Pattern
                 mergePairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
-                neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
+                    neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
                 mergePairs(b,:) = [];
                 IDsMerged = [IDsMerged;mergePairs];
-                              
+                
                 neuronSpikeTimes{bestNeuronIndex} = sort(horzcat(neuronSpikeTimes{elNeurInd(parts{cc})}));
             end
         end % cc
     end % el
     
     % Save IDs to clear
-    save([saveRoot,filesep,'cleanPattern.mat'],'IDsMerged','-append');
+    save([saveRoot,filesep,'concat.clean.mat'],'IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
@@ -206,11 +206,11 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
                     [~, offset] = min(interpolant(samplingVal));
                     traceTemp(:,neighborEl) = interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
                 end
-                trace(n,:) = traceTemp(:)'; 
+                trace(n,:) = traceTemp(:)';
             end % n
             
             % Distance computation
-            parts = returnL2MergeClasses(trace, cleanConfig.eiThrA);
+            parts = returnL2MergeClasses(trace, cleanConfig.eiThrG);
             
             for cc = 1:numel(parts)
                 if numel(parts{cc}) > 1
@@ -229,7 +229,10 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     
     % Save IDs to clear
     IDsDuplicatesRemoved = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveRoot,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
+    if numel(IDsDuplicatesRemoved) == 0
+        IDsDuplicatesRemoved = zeros(0,2);
+    end
+    save([saveRoot,filesep,'concat.clean.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
@@ -240,7 +243,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     %%%
     
     % Update concat.neurons.mat
-    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
     
     %% Apply cleaning pattern to all sub datasets and convert to .neurons
     
@@ -251,7 +254,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
             applyCleaningPattern( IDsRemovedAtContam, IDsMerged, IDsDuplicatesRemoved,...
             neuronEls, neuronClusters, neuronSpikeTimes );
         save([saveFolderAndName{d},'.neurons.mat'],...
-            'neuronEls','neuronClusters','neuronSpikeTimes');
+            'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
         
         % Matlab to vision neuron file convert
         [saveFolder,datasetName,~] = fileparts(saveFolderAndName{d});

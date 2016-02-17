@@ -16,14 +16,14 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     datasetName = cell(size(datasets)); %stores just dataxxx
     
     % Open a parpool for parallel dataset processing
-    %     if numel(datasets) < parConfig.nWorkers
-    %         parpool(numel(datasets));
-    %     else
-    %         parpool(parConfig.nWorkers);
-    %     end
+    if numel(datasets) < parConfig.nWorkers
+        parpool(numel(datasets));
+    else
+        parpool(parConfig.nWorkers);
+    end
     % Process all datasets noise + spikes + cov
     % parfor
-    for d = 1:numel(datasets)
+    parfor d = 1:numel(datasets)
         if isempty(timeCommands{d})
             timeCommands{d} = '';
         end
@@ -40,7 +40,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     % Projections for all datasets
     % parfor
     for d = 1:numel(datasets)
-        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0 0],'all');
+        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0],'all');
     end
     
     mergePrj(saveRoot, saveFolderAndName, timeCommands);
@@ -52,7 +52,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
         delete(gcp);
         parpool(parConfig.nWorkers);
     end
-    mVision([filesep,'concat'], saveRoot, '', '', [0 0 0 0 1 0 0],'all');
+    mVision([filesep,'concat'], saveRoot, '', '', [0 0 0 0 1 0],'all');
     
     concatenatedDuplicateRemoval(datasets, saveRoot, saveFolderAndName, timeCommands);
     
