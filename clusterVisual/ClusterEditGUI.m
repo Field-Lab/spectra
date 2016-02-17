@@ -10,6 +10,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         backEndHandle = varargin{1};
         datasetFolder = backEndHandle.analysisPath;
     end
+    
     % Front-end main figure
     frontEndHandle = figure( 'Name', 'Cluster Editor 0.0', ...
         'MenuBar', 'none', ...

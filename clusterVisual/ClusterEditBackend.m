@@ -159,22 +159,24 @@ classdef ClusterEditBackend < handle
             
             % CleanPattern - do that clean
             cleanPatternPath = [analysisPath,filesep,'cleanPattern.mat'];
-            load(cleanPatternPath);
-            IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
             obj.neuronStatuses = zeros(obj.nNeurons,2);
-            [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
-            obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
-            [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
-            obj.neuronStatuses(i,1) = 2; % 2 - merged
-            obj.neuronStatuses(i,2) = IDsMerged(j,1);
-            if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
-                [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
-                obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                obj.neuronStatuses(i,2) = -1;
-            else
-                [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
-                obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+            if exist(cleanPatternPath)
+                load(cleanPatternPath);
+                IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
+                [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
+                obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
+                [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
+                obj.neuronStatuses(i,1) = 2; % 2 - merged
+                obj.neuronStatuses(i,2) = IDsMerged(j,1);
+                if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
+                    [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
+                    obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                    obj.neuronStatuses(i,2) = -1;
+                else
+                    [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
+                    obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                    obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+                end
             end
             
             % Initialize EI
@@ -214,17 +216,18 @@ classdef ClusterEditBackend < handle
             if numel(files) == 1
                 fid = fopen([analysisPath,filesep,files(1).name]);
                 classesRaw = textscan(fid, '%u All/%s', 'delimiter', '\n');
-                pos = arrayfun(@(x) find(obj.neuronIDs == x),classesRaw{1});
-                obj.classification(pos) = classesRaw{2};
+                [~,pos,pos2] = intersect(obj.neuronIDs,classesRaw{1});
+                obj.classification(pos) = classesRaw{2}(pos2);
                 fclose(fid);
             else
                 fprintf('ClusterEditBackend:ClusterEditBackend - Can''t find classification .txt file\n.');
             end
             
             % electrode map
-            obj.arrayID = obj.eiFile.arrayID;
-            obj.electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(obj.arrayID);
-            
+            if numel(obj.eiFile) > 0
+                obj.arrayID = obj.eiFile.arrayID;
+                obj.electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(obj.arrayID);
+            end
         end
         
         function returnStatus = loadEl(obj,el)
