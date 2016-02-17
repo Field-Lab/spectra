@@ -23,12 +23,12 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %   neuronSpikeTimes: same spec as input
     %
     % Saves:
-    %   IDs of removed neurons and merged neurons, in file cleanPattern.mat
+    %   IDs of removed neurons and merged neurons, in file .clean.mat
     %   For purpose of broadcasting the cleaning pattern in concatenated analyses.
     %
     % Author -- Vincent Deo -- Stanford University -- October 12, 2015
     %% Setup
-
+    
     nNeurons = size(neuronEls,1);
     validateattributes(neuronEls,{'numeric'},{'size',[nNeurons, 1]},'','neuronEls');
     validateattributes(neuronClusters,{'numeric'},{'size',[nNeurons, 1]},'','neuronClusters');
@@ -40,9 +40,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % get data length
     datasource = DataFileUpsampler([dataPath,timeTag]);
-    nSamples = datasource.stopSample - datasource.startSample; % horribly ugly - won't go through concatenation patch, etc...
+    load([saveFolder,filesep,datasetName,'.neurons.mat'],'nSamples');
     datasource = [];
-    
     
     % Load Configuration
     cfg = mVisionConfig();
@@ -60,15 +59,17 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     % Save IDs to clear
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsRemovedAtContam');
+    configUsed = cleanConfig;
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
     neuronSpikeTimes = neuronSpikeTimes(~toRemove);
     nNeurons = size(neuronEls,1);
-    toRemove = false(nNeurons,1);
     
+    % Reinitialize
+    toRemove = false(nNeurons,1);
     
     %%%
     fprintf('After low count and high contamination: %u\n',nNeurons);
@@ -89,13 +90,13 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     cmgr = 'edu.ucsc.neurobiology.vision.calculations.CalculationManager';
     vcfg = sprintf('.%svision%sconfig.xml',filesep,filesep);
     calc = '"Electrophysiological Imaging Fast"';
-    
+    % Grind-style call for EIs computation at system level
     system(sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" %3$s -c %4$s %5$s %6$s %7$s %8$f %9$u %10$u %11$u %12$u',...
         filesep,sepchar,cmgr,vcfg,calc,saveFolder,dataPath,...
         cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
         cleanConfig.EISp, cleanConfig.EInThreads));
     delete([saveFolder, filesep, datasetName,'.neurons']);
-
+    
     %% EI access setup
     eiPath = [saveFolder, filesep, datasetName,'.ei'];
     eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
@@ -103,37 +104,56 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     % Misc for dup removal algorithm
     eiSize = cleanConfig.EILP + cleanConfig.EIRP + 1;
     minWindowSize = cleanConfig.globMinWin(2) - cleanConfig.globMinWin(1);
-    samplingVal = cleanConfig.globMinWin(1):0.01:cleanConfig.globMinWin(2);
+    samplingVal = cleanConfig.globMinWin(1):cleanConfig.resamplePitch:cleanConfig.globMinWin(2);
+    basicValues = 1:(eiSize - minWindowSize);
     
     nElectrodes = eiFile.nElectrodes;
-    [adjacent,~] = catchAdjWJava( eiFile, 2 );
+    [adjacent1,~] = catchAdjWJava( eiFile, 1 );
+    [adjacent2,~] = catchAdjWJava( eiFile, 2 );
     
-    % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
-    IDsMerged = [];
+    % EI loader
+    eiStorage = cell(nNeurons,1); % full remaining neurons EIs
+    isRealigned = false(nNeurons,nElectrodes); % tag to upsample any ID/electrode only once
+    
+    % Preload all EIs
+    allIDs = NeuronSaverM.getIDs(neuronEls,neuronClusters);
+    for n = 1:nNeurons
+        eiStorage{n} = eiFile.getImage(allIDs(n));
+        eiStorage{n} = squeeze(eiStorage{n}(1,:,:))';
+    end
+    fprintf('EIs loaded.\n');
     
     %% Single Electrode removal and merges
+    % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
+    IDsMerged = zeros(0,2);
+    
     for el = 2:nElectrodes
         elNeurInd = find(neuronEls == el);
         if numel(elNeurInd) <= 1
             continue;
         end
         
-        trace = zeros(numel(elNeurInd), (eiSize - minWindowSize) * numel(adjacent{el}));
-        elNeuronIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), elNeurInd);
+        trace = zeros(numel(elNeurInd), (eiSize - minWindowSize) * numel(adjacent2{el}));
         
-        % EI load
+        % EI upsampling handling
+        traceTemp = zeros(eiSize - minWindowSize, numel(adjacent2{el}));
         for n = 1:numel(elNeurInd)
-            fullEI = eiFile.getImage(elNeuronIDs(n));
-            ei = squeeze(fullEI(1,adjacent{el},:))';
-            % Realignment of minima
-            traceTemp = zeros(size(ei,1)-minWindowSize, size(ei,2));
-            for neighborEl = 1:size(ei,2)
-                interpolant = griddedInterpolant(1:size(ei,1),ei(:,neighborEl),'spline');
-                [~, offset] = min(interpolant(samplingVal));
-                traceTemp(:,neighborEl) = interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
+            % Realignment procedure
+            for neighborElInd = 1:numel(adjacent2{el});
+                neighborEl = adjacent2{el}(neighborElInd);
+                if ~isRealigned(elNeurInd(n),neighborEl)
+                    interpolant = griddedInterpolant(1:eiSize,eiStorage{elNeurInd(n)}(:,neighborEl),'spline');
+                    [~, offset] = min(interpolant(samplingVal));
+                    eiStorage{elNeurInd(n)}(basicValues,neighborEl) =...
+                        interpolant(basicValues + (offset - 1) * cleanConfig.resamplePitch);
+                    isRealigned(elNeurInd(n),neighborEl) = true;
+                end
+                traceTemp(:,neighborElInd) = eiStorage{elNeurInd(n)}(basicValues,neighborEl);
             end
             trace(n,:) = traceTemp(:)';
         end % n
+        % L2 normalization
+        trace = bsxfun(@rdivide,trace,sqrt(sum(trace.^2,2)));
         
         % Distance computation
         parts = returnL2MergeClasses(trace, cleanConfig.eiThrW);
@@ -149,9 +169,9 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                 
                 % Merging Pattern
                 mergePairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
-                                        neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
+                    neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
                 mergePairs(b,:) = [];
-                                IDsMerged = [IDsMerged;mergePairs];
+                IDsMerged = [IDsMerged;mergePairs];
                 
                 neuronSpikeTimes{bestNeuronIndex} = sort(horzcat(neuronSpikeTimes{elNeurInd(parts{cc})}));
             end
@@ -159,51 +179,64 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     end % el
     
     % Save IDs to clear
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsMerged','-append');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
     neuronSpikeTimes = neuronSpikeTimes(~toRemove);
     nNeurons = size(neuronEls,1);
+    
+    allIDs = allIDs(~toRemove);
+    eiStorage = eiStorage(~toRemove);
+    isRealigned = isRealigned(~toRemove,:);
+    
+    % Reinitialize
     toRemove = false(nNeurons,1);
     
     %%%
     fprintf('After single electrode pair merges: %u\n',nNeurons);
     %%%
     
-    %% Dual Neighbor electrodes duplicate removal and discard
+    %% Global duplicate removal and discard (inc. axonal detections of strong cells)
+    % As we may need ALL realigned EI pieces, EI access strategy is changed
+    IDsDuplicatesRemoved = zeros(0,2);
+    
     for el = 2:nElectrodes
-        for el2Index = 2:numel(adjacent{el})
-            el2 = adjacent{el}(el2Index);
+        for el2 = (el+1):nElectrodes
+            elNeurInd1 = find(neuronEls == el);
+            elNeurInd2 = find(neuronEls == el2);
+            intersectEls = union(adjacent1{el},adjacent1{el2});
             
-            elNeurInd = find(or(neuronEls == el, neuronEls == el2));
-            intersectEls = intersect(adjacent{el},adjacent{el2});
-            
-            if numel(elNeurInd) <= 1
+            if numel(elNeurInd1) == 0 || numel(elNeurInd2) == 0
                 continue;
             end
+            elNeurInd = [elNeurInd1;elNeurInd2];
             
             trace = zeros(numel(elNeurInd), (eiSize - minWindowSize) * numel(intersectEls));
-            elNeuronIDs = arrayfun(@(x) neuronSaver.getNeuronID(neuronEls(x),neuronClusters(x)), elNeurInd);
             
-            % EI load
+            % EI upsampling handling
+            traceTemp = zeros(eiSize - minWindowSize, numel(intersectEls));
             for n = 1:numel(elNeurInd)
-                fullEI = eiFile.getImage(elNeuronIDs(n));
-                ei = squeeze(fullEI(1,intersectEls,:))';
-                % Realignment of minima
-                traceTemp = zeros(size(ei,1)-minWindowSize, size(ei,2));
-                for neighborEl = 1:size(ei,2)
-                    interpolant = griddedInterpolant(1:size(ei,1),ei(:,neighborEl),'spline');
-                    [~, offset] = min(interpolant(samplingVal));
-                    traceTemp(:,neighborEl) = interpolant((1:size(traceTemp,1)) + (offset - 1) / 100);
+                % Realignment procedure
+                for neighborElInd = 1:numel(intersectEls);
+                    neighborEl = intersectEls(neighborElInd);
+                    if ~isRealigned(elNeurInd(n),neighborEl)
+                        interpolant = griddedInterpolant(1:eiSize,eiStorage{elNeurInd(n)}(:,neighborEl),'spline');
+                        [~, offset] = min(interpolant(samplingVal));
+                        eiStorage{elNeurInd(n)}(basicValues,neighborEl) =...
+                            interpolant(basicValues + (offset - 1) * cleanConfig.resamplePitch);
+                        isRealigned(elNeurInd(n),neighborEl) = true;
+                    end
+                    traceTemp(:,neighborElInd) = eiStorage{elNeurInd(n)}(basicValues,neighborEl);
                 end
-                trace(n,:) = traceTemp(:)'; 
+                trace(n,:) = traceTemp(:)';
             end % n
+            % L2 normalization
+            trace = bsxfun(@rdivide,trace,sqrt(sum(trace.^2,2)));
             
             % Distance computation
-            parts = returnL2MergeClasses(trace, cleanConfig.eiThrA);
-            
+            [parts,~] = returnL2MergeClasses(trace, cleanConfig.eiThrG);
             for cc = 1:numel(parts)
                 if numel(parts{cc}) > 1
                     spikeCounts = cellfun(@(spikeTrain) numel(spikeTrain), neuronSpikeTimes(elNeurInd(parts{cc})));
@@ -213,15 +246,22 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     wasRemoved = toRemove(bestNeuronIndex);
                     toRemove(elNeurInd(parts{cc})) = true;
                     toRemove(bestNeuronIndex) = wasRemoved;
+                    
+                    % Discarding Pattern
+                    discardPairs = NeuronSaverM.getIDs(...
+                        neuronEls([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]),...
+                        neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
+                    discardPairs(b,:) = [];
+                    IDsDuplicatesRemoved = [IDsDuplicatesRemoved;discardPairs];
                 end
             end % cc
         end % el2
     end % el
     
     
-    % Save IDs to clear
-    IDsDuplicatesRemoved = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveFolder,filesep,'cleanPattern.mat'],'IDsDuplicatesRemoved','-append');
+    %% Save IDs to clear
+    IDsDuplicatesRemoved = unique(IDsDuplicatesRemoved,'rows');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsDuplicatesRemoved','-append');
     
     neuronEls = neuronEls(~toRemove);
     neuronClusters = neuronClusters(~toRemove);
@@ -232,4 +272,3 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     fprintf('After neighbor electrode pair discard: %u\n',nNeurons);
     %%%
 end
-

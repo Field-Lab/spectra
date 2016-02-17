@@ -111,6 +111,19 @@ public class Graph {
         return allNodes;
     }
     
+    /*
+     * Same as getFinalForest but with added null row
+     * as to force matlab to accept data as cell array
+     */
+    public int[][] getFinalForestEmptyRow() {
+        int[][] allNodes = new int[connComp.size() + 1][];
+        for (int i = 0 ; i < allNodes.length - 1; i++) {
+            AdjacencyTree tree = connComp.get(i);
+            allNodes[i] = tree.sortedSubNodes.clone();
+        }
+        return allNodes;
+    }
+    
     /**
      * Removes all singleton connected components from the Graph
      * This is useful when singletons remain after processing all non-zero, non-nan edges,

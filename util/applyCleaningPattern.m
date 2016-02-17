@@ -47,7 +47,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     end
     
     % Remove non-merge neurons
-    [~,~,ind] = intersect(union(union(IDsRemovedAtContam,IDsDuplicatesRemoved),IDsMerged(:,2)), allIDs);    
+    if size(IDsDuplicatesRemoved,2) == 2 % Stored removal tracking
+        [~,~,ind] = intersect(union(union(IDsRemovedAtContam,IDsDuplicatesRemoved(:,2)),IDsMerged(:,2)), allIDs);    
+    else % Did not store removal tracking
+        [~,~,ind] = intersect(union(union(IDsRemovedAtContam,IDsDuplicatesRemoved(:,1)),IDsMerged(:,2)), allIDs);
+    end
     neuronEls(ind) = [];
     neuronClusters(ind) = [];
     neuronSpikeTimes(ind) = [];
