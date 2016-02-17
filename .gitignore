@@ -30,7 +30,12 @@ duplicateRemoval/removeDuplicatesOrig.m
 
 # Compiled mex
 *.mex*
+
 vision/config.xml
 Thumbs.db
 qload.m
 mexSourcesTemp.txt
+/bin
+
+.project
+.classpath
