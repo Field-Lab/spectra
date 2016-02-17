@@ -37,7 +37,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     end
     % Save IDs to clear - superfluous as concat.neurons.mat is overwritten below, nevermind
     IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    save([saveRoot,filesep,'concat.clean.mat'],'IDsRemovedAtContam');
+    save([saveRoot,filesep,'concat.clean.mat'],'IDsRemovedAtContam','-v7.3');
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -47,7 +47,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     toRemove = false(nNeurons,1);
     
     % Update concat.neurons.mat
-    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
     
     %%%
     fprintf('After low count and high contamination: %u\n',nNeurons);
@@ -243,7 +243,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     %%%
     
     % Update concat.neurons.mat
-    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes');
+    save([saveRoot,filesep,'concat.neurons.mat'],'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
     
     %% Apply cleaning pattern to all sub datasets and convert to .neurons
     
@@ -254,7 +254,7 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
             applyCleaningPattern( IDsRemovedAtContam, IDsMerged, IDsDuplicatesRemoved,...
             neuronEls, neuronClusters, neuronSpikeTimes );
         save([saveFolderAndName{d},'.neurons.mat'],...
-            'neuronEls','neuronClusters','neuronSpikeTimes');
+            'neuronEls','neuronClusters','neuronSpikeTimes','-v7.3');
         
         % Matlab to vision neuron file convert
         [saveFolder,datasetName,~] = fileparts(saveFolderAndName{d});
