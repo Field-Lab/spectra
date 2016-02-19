@@ -2,6 +2,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     % function ClusterEditGUI
     % Some comments here
     
+    %%% VERSION NUMBER %%%
+    % Increment at each master merge
+    version = '0.1';
+    
     %% Instantiation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     narginchk(1,2); % Existing back-end may be passed in varargin{1}
     if nargin == 1
@@ -12,7 +16,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     end
     
     % Front-end main figure
-    frontEndHandle = figure( 'Name', 'Cluster Editor 0.0', ...
+    frontEndHandle = figure( 'Name',sprintf('Cluster Editor %s',version), ...
         'MenuBar', 'none', ...
         'Toolbar', 'figure', ...
         'NumberTitle', 'off',...
