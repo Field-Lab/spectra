@@ -14,8 +14,8 @@
 
 nWorkers = 4
 
-spikesForLaplacian = 300
-spikesForKMeans = 2000
+spikesForLaplacian = 2500
+spikesForKMeans = 20000
 
-minSpikes = 200
+minSpikes = 100
 maxContamination = 0.1

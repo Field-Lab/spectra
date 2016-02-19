@@ -115,7 +115,13 @@ classdef mVisionConfig < handle
                     execLines(commentLines) = [];
                     for l = 1:numel(execLines)
                         k = find(execLines{l} ~= ' ',1);
-                        eval(sprintf('obj.%s;',execLines{l}(k:end)));
+                        try
+                            eval(sprintf('obj.%s;',execLines{l}(k:end)));
+                        catch error
+                            throw(MException('',sprintf(...
+                                'mVisionConfig::mVisionConfig - Invalid custom configuration command at line %u for tag %s\n"...%s..."',...
+                                l+numel(commentLines),varargin{1},execLines{l}(k:end))));
+                        end
                     end
                     fclose(fid2);
                     return;
