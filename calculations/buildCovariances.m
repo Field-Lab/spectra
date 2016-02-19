@@ -7,8 +7,8 @@ function [covMatrix,averages,totSpikes] = buildCovariances(spikesTotal, dataPath
     end
     
     %% Load covariance configuration
-    config = mVisionConfig();
-    covConfig = config.getCovConfig();
+    global GLOBAL_CONFIG
+    covConfig = GLOBAL_CONFIG.getCovConfig();
     
     rawDataSource = [dataPath,timeCommand];
     

@@ -112,15 +112,21 @@ classdef NeuronSaverM < handle
         % Rather than the pattern of successive removals
         % See duplicateRemoval.m, variables saved in .clean.mat file        
         function IDs = getIDs(el, clust)
-            cfg = mVisionConfig();
-            cfg = cfg.getSpectralConfig();
+            global GLOBAL_CONFIG
+            if numel(GLOBAL_CONFIG) == 0 % Default
+                GLOBAL_CONFIG = mVisionConfig();
+            end
+            cfg = GLOBAL_CONFIG.getSpectralConfig();
             maxClust = cfg.maxEV;
             IDs = (el-2)*maxClust + clust;
         end
         
         function [el, clust] = getElClust(ID)
-            cfg = mVisionConfig();
-            cfg = cfg.getSpectralConfig();
+            global GLOBAL_CONFIG
+            if numel(GLOBAL_CONFIG) == 0 % Default
+                GLOBAL_CONFIG = mVisionConfig();
+            end
+            cfg = GLOBAL_CONFIG.getSpectralConfig();
             maxClust = cfg.maxEV;
             el = floor((ID-1)./maxClust) + 2;
             clust = mod(ID-1,maxClust) + 1;

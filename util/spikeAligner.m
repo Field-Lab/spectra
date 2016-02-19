@@ -35,8 +35,8 @@ classdef spikeAligner < handle
             obj.dataSource = dataSource;
             
             % Load config
-            config = mVisionConfig();
-            alignConfig = config.getCovConfig();
+            global GLOBAL_CONFIG
+            alignConfig = GLOBAL_CONFIG.getCovConfig();
             
             % Set aligner config
             obj.nLPoints = alignConfig.nLPoints;

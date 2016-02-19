@@ -1,6 +1,7 @@
 function spikeConverter(dataPath, saveFolder, datasetName)
     % Converts the spikes.mat file of a dataset into a vision
     % compatible .spikes
+    global GLOBAL_CONFIG
     
     spikeFilePath = [saveFolder,filesep,datasetName,'.spikes'];
     matSpikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
@@ -8,8 +9,7 @@ function spikeConverter(dataPath, saveFolder, datasetName)
     load(matSpikeFilePath);
     % This loads spikeSave, ttlTimes and nSamples
     
-    cfg = mVisionConfig();
-    cfg = cfg.getSpikeConfig();
+    cfg = GLOBAL_CONFIG.getSpikeConfig();
     threshold = cfg.spikeThreshold;
     meanTimeConstant = cfg.meanTimeConstant;
     

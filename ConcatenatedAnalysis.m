@@ -1,10 +1,14 @@
-function ConcatenatedAnalysis( dataCommand, saveRoot )
-    %CONCATENATEDANALYSIS Summary of this function goes here
-    %   Detailed explanation goes here
+function ConcatenatedAnalysis( dataCommand, saveRoot, varargin )
+    %CONCATENATEDANALYSIS
     
-    %% Load mVision configuration - start parallel pool if neede
-    config = mVisionConfig();
-    parConfig = config.getParConfig();
+    %% Load mVision configuration - start parallel pool if needed
+    global GLOBAL_CONFIG
+    if numel(varargin) == 1
+        GLOBAL_CONFIG = mVisionConfig(varargin{1});
+    else % == 0
+        GLOBAL_CONFIG = mVisionConfig();
+    end
+    parConfig = GLOBAL_CONFIG.getParConfig();
     
     %% Parse input string
     javaaddpath ./vision/Vision.jar
@@ -30,7 +34,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
         [~,datasetName{d},~] = fileparts(datasets{d});
         saveFolderSub{d} = [saveRoot,filesep,datasetName{d}];
         saveFolderAndName{d} = [saveFolderSub{d},filesep,datasetName{d}];
-        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', 'noisetocov','all');
+        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', 'noisetocov','all',varargin);
     end
     
     % Build global spike file and cov file
@@ -40,7 +44,7 @@ function ConcatenatedAnalysis( dataCommand, saveRoot )
     % Projections for all datasets
     % parfor
     for d = 1:numel(datasets)
-        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0],'all');
+        mVision(datasets{d}, saveFolderSub{d}, timeCommands{d}, '', [0 0 0 1 0 0],'all',varargin);
     end
     
     mergePrj(saveRoot, saveFolderAndName, timeCommands);

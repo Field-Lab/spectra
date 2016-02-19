@@ -31,8 +31,8 @@ function [projSpikes,eigenValues,eigenVectors,spikeTimes] = PCProj(dataPath, tim
     end
     
     %% Load projections configuration
-    config = mVisionConfig();
-    projConfig = config.getProjConfig();
+    global GLOBAL_CONFIG
+    projConfig = GLOBAL_CONFIG.getProjConfig();
     
     rawDataSource = [dataPath,timeCommand];
     

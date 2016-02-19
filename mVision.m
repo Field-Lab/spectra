@@ -1,4 +1,4 @@
-function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
+function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     %MVISION Main function for single dataset white noise analysis
     %
     % This script manages the successive steps of serial neuron finding
@@ -31,6 +31,11 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
     %       String arguments 'all' and 'none' are allowed as shorthand for
     %       respectively all ones and all zeros.
     %
+    %   OPTIONALLY
+    %   varargin{1} : configTag - a valid configuration tag (string) in the STATIC_CONFIG_LIST file
+    %       Otherwise, configuration initializes to defaults as listed in mVisionConfig.m
+    %
+    %
     % This function successively calls if requested or necessary the calculations:
     %       1/ Noise evaluation
     %       2/ Spike Finding
@@ -47,11 +52,20 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
     % "Generate globals file" then "Copy Raw Data Header To Globals"
     % You can the compute EIs, STAs and the parameter file.
     %
-    % Author -- Vincent Deo -- Stanford University -- January 4, 2016
+    % Author -- Vincent Deo -- Stanford University -- February 19, 2016
     
     %% SETUP
     % Add subfolders to the matlab path
     addpath(genpath(['.',filesep]));
+    
+    % Create global configuration handle
+    narginchk(5,6);
+    global GLOBAL_CONFIG
+    if numel(varargin) == 1
+        GLOBAL_CONFIG = mVisionConfig(varargin{1});
+    else % == 0
+        GLOBAL_CONFIG = mVisionConfig();
+    end
     
     % generate repository path
     repoPath = pwd;
@@ -168,7 +182,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         
         [covMatrix,averages,totSpikes] = buildCovariances(double(spikeSave), dataPath, timeCommand);
         
-        cfg = mVisionConfig(); covConfig = cfg.getCovConfig();
+        covConfig = GLOBAL_CONFIG.getCovConfig();
         if covConfig.whitening
             noiseSpikes = generateNoiseEvents(double(spikeSave));
            [noiseCovMatrix,~,~] = buildCovariances(noiseSpikes,dataPath,timeCommand);
@@ -258,9 +272,6 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force)
         [neuronEls, neuronClusters, neuronSpikeTimes] = ...
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
-        
-        cfg = mVisionConfig(); dataConfig = cfg.getDataConfig();
-        sampleRate = dataConfig.sampleRate;
         
         neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);

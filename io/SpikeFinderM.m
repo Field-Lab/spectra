@@ -58,8 +58,8 @@ classdef SpikeFinderM < handle
             obj.maxAmplitude = zeros(obj.nElectrodes,1);
             obj.startTime = zeros(obj.nElectrodes,1);
             
-            config = mVisionConfig();
-            spConfig = config.getSpikeConfig();
+            global GLOBAL_CONFIG
+            spConfig = GLOBAL_CONFIG.getSpikeConfig();
             obj.maxSpikeWidth = spConfig.maxSpikeWidth;
             obj.minTimeSeparation = spConfig.minSpikeSeparation;
             

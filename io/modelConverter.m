@@ -2,6 +2,9 @@ function modelConverter( dataPath, saveFolder, datasetName )
     % Converts the model.mat file of a dataset into a vision
     % compatible .model (hopefully)
     
+    global GLOBAL_CONFIG
+    covConfig = GLOBAL_CONFIG.getCovConfig();
+    
     modelFilePath = [saveFolder,filesep,datasetName,'.model'];
     matModelFilePath = [saveFolder,filesep,datasetName,'.model.mat'];
     matSpikeFilePath = [saveFolder,filesep,datasetName,'.spikes.mat'];
@@ -9,9 +12,8 @@ function modelConverter( dataPath, saveFolder, datasetName )
     load(matSpikeFilePath,'nSamples');
     
     datasource = DataFileUpsampler(dataPath);
-    cfg = mVisionConfig();
-    cfg = cfg.getCovConfig();
-    [adj,~] = catchAdjWJava(datasource,cfg.electrodeUsage);
+    
+    [adj,~] = catchAdjWJava(datasource,covConfig.electrodeUsage);
     datasource = [];
     
     % ------------- DO NOT TRY TO UNDERSTAND THIS SECTION -----------------
@@ -42,9 +44,9 @@ function modelConverter( dataPath, saveFolder, datasetName )
     visionHeader.nSamples = nSamples;
     visionHeader.samplingFrequency = rawDataHeader.getSamplingFrequency();
     visionHeader.visionVersion = VISION_VERSION;
-    cfg = mVisionConfig();
-    cfg = cfg.getProjConfig();
-    visionHeader.nDimensions = cfg.nDims;
+    
+    projConfig = GLOBAL_CONFIG.getProjConfig();
+    visionHeader.nDimensions = projConfig.nDims;
     visionHeader.minNeuronSpikes = MIN_SPIKES;
     visionHeader.maxContamination = MAX_CONTAM;
     visionHeader.nEMSpikes = 3000;
