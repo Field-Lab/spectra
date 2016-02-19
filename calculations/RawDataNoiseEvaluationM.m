@@ -24,8 +24,8 @@ if ~(exist(saveFolder,'file') == 7)
 end
 
 % Load up config
-config = mVisionConfig();
-noiseConfig = config.getNoiseConfig();
+global GLOBAL_CONFIG
+noiseConfig = GLOBAL_CONFIG.getNoiseConfig();
 
 % Set up parameters and data source
 time = noiseConfig.time; % Compute noise from 5 secs of data

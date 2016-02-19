@@ -9,7 +9,9 @@
 % Author -- Vincent Deo -- Stanford University -- August 5, 2015
 
 %% Load mVision configuration - start parallel pool if needed
-config = mVisionConfig();
+CONFIG_TAG = ''; % Put your config tag here. It is passed down to mVision
+% But not globalized from this level.
+cfg = mVisionConfig(CONFIG_TAG);
 parConfig = config.getParConfig();
 
 parpool(parConfig.nWorkers);
@@ -27,7 +29,13 @@ movieprefix = '/Volumes/Analysis/stimuli/white-noise-xml/'
 % for k = 1:n
 for k = 1:1
 %    try
-        mVision([prefix,fileList{k}],[outputPrefix,fileList{k}],'',[movieprefix,movieList{k},'.xml'],[0 1 0 0 0 0 0],'all');
+        mVision([prefix,fileList{k}],... % Data folder
+            [outputPrefix,fileList{k}],... % Output folder
+            '',... % Time tag
+            [0 1 0 0 0 0 0],... % Requested computation
+            'all',... % force overwrite
+            CONFIG_TAG); % Config tag
+        
 %    catch error
 %       disp(['Error in file ',fileList{k}]);
 %       disp(error);

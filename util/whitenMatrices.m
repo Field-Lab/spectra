@@ -14,8 +14,8 @@ function whitened = whitenMatrices( datapath, totSpikes, covMatrix, noiseCovMatr
     %
     % Author -- Vincent Deo -- Stanford University -- August 11, 2015
     
-    
-    config = mVisionConfig(); covConfig = config.getCovConfig();
+    global GLOBAL_CONFIG
+    covConfig = GLOBAL_CONFIG.getCovConfig();
     
     % Not going to use data feed here, but need header properties
     dataSource = DataFileUpsampler(datapath);
@@ -41,13 +41,13 @@ function whitened = whitenMatrices( datapath, totSpikes, covMatrix, noiseCovMatr
         
         % Whitening and replacement of disconnected blocks
         invMat = noiseCovMatrix{el}(~discardTags,~discardTags);
+        whitened{el} = zeros(size(covMatrix{el}));
         if rank(invMat) < size(invMat,1)
             whitened{el}(~discardTags,~discardTags) = ...
                 covMatrix{el}(~discardTags,~discardTags);
             continue
         end
         invMat = invMat^(-1/2);
-        whitened{el} = zeros(size(covMatrix{el}));
         whitened{el}(~discardTags,~discardTags) = invMat * ...
             covMatrix{el}(~discardTags,~discardTags) * invMat;
     end % el

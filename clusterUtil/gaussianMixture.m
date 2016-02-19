@@ -19,8 +19,8 @@ function [clusterIndexes, model, numClusters] = gaussianMixture( spikes )
     % Author -- Vincent Deo -- Stanford University -- August 21, 2015
     
     %% Load mVision configuration
-    config = mVisionConfig();
-    clustConfig = config.getClustConfig();
+    global GLOBAL_CONFIG
+    clustConfig = GLOBAL_CONFIG.getClustConfig();
     
     maxGsn = clustConfig.maxGaussians; % Maximum number of clusters
     

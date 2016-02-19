@@ -92,9 +92,8 @@ classdef DataFileUpsampler < handle
             obj.nLPoints = nLPointsInput;
             obj.nRPoints = nRPointsInput;
             
-            
-            config = mVisionConfig();
-            dataConfig = config.getDataConfig();
+            global GLOBAL_CONFIG
+            dataConfig = GLOBAL_CONFIG.getDataConfig();
             obj.bufferMaxSize = dataConfig.bufferMaxSize;
             obj.upSampleRatio = dataConfig.upSampleRatio;
             

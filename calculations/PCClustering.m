@@ -24,8 +24,8 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
     % Load config
-    config = mVisionConfig();
-    clustConfig = config.getClustConfig();
+    global GLOBAL_CONFIG
+    clustConfig = GLOBAL_CONFIG.getClustConfig();
     
     nDims = clustConfig.nDims;
     
@@ -40,12 +40,17 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     % Optional parfor here - don't put if already parallelizing on files (parallelCaller level)
     % If using parfor, manage parallel pool
     ppool = gcp;
-    parConfig = config.getParConfig;
+    parConfig = GLOBAL_CONFIG.getParConfig;
+    LOCAL_CONFIG_COPY = GLOBAL_CONFIG;
+    
     if numel(ppool) == 0 || ppool.NumWorkers < parConfig.nWorkers
         delete(gcp);
         parpool(parConfig.nWorkers);
     end
     parfor el = 2:nElectrodes
+        % globalize configuration in worker workspace
+        parforGlobalizer(LOCAL_CONFIG_COPY,'GLOBAL_CONFIG');
+        
         % Subfunction loadprj is necessary to maintain parfor body transparency.
         projSpikes = loadPrj(prjFilePath,el);
         
@@ -85,7 +90,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
                 break; % if nothing is catched, break - at most 10 tries
             catch error
                 if nTry == clustConfig.maxTries
-                    % error.getReport()
+                    % error.getReport();
                     fprintf('Error at electrode %u after %u tries, skipping.\n',el,nTry);
                     % If it's the detected java version failure error, rethrow.
                     if error.message((end-4):end) == 'jvms.'

@@ -305,8 +305,7 @@ classdef ClusterEditBackend < handle
             % Purpose of this function is to select relevant electrodes as in merging,
             % Realign EIs and compute the matrix of distances.
             % The process is meant to be identical as merging analysis in duplicate removal
-            cfg = mVisionConfig();
-            cleanConfig = cfg.getCleanConfig();
+            cleanConfig = obj.config.getCleanConfig();
             
             eiSize = cleanConfig.EILP + cleanConfig.EIRP + 1;
             minWindowSize = cleanConfig.globMinWin(2) - cleanConfig.globMinWin(1);

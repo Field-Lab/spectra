@@ -1,6 +1,7 @@
 function prjConverter(dataPath, saveFolder, datasetName)
     % Converts the prj.mat file of a dataset into a vision
     % compatible .prj
+    global GLOBAL_CONFIG
     
     prjFilePath = [saveFolder,filesep,datasetName,'.prj'];
     matPrjFilePath = [saveFolder,filesep,datasetName,'.prj.mat'];
@@ -35,8 +36,9 @@ function prjConverter(dataPath, saveFolder, datasetName)
     visionHeader.nSamples = nSamples;
     visionHeader.samplingFrequency = rawDataHeader.getSamplingFrequency();
     visionHeader.visionVersion = VISION_VERSION;
-    cfg = mVisionConfig();
-    cfg = cfg.getProjConfig();
+    
+    cfg = GLOBAL_CONFIG.getProjConfig();
+    
     visionHeader.nDimensions = cfg.nDims;
     visionHeader.minNeuronSpikes = MIN_SPIKES;
     visionHeader.maxContamination = MAX_CONTAM;

@@ -5,8 +5,8 @@ function noiseSpikes = generateNoiseEvents( realSpikes )
     % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
     % Load config
-    config = mVisionConfig();
-    covConfig = config.getCovConfig();
+    global GLOBAL_CONFIG
+    covConfig = GLOBAL_CONFIG.getCovConfig();
     
     electrodes = unique(realSpikes(:,2),'sorted')';
     

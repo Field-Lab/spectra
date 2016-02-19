@@ -28,8 +28,8 @@ function [spikes,ttlTimes,nSamples] = SpikeFindingM(dataPath, saveFolder, timeCo
     end
     
     % Load spike finding configuration
-    config = mVisionConfig();
-    spikeConfig = config.getSpikeConfig();
+    global GLOBAL_CONFIG
+    spikeConfig = GLOBAL_CONFIG.getSpikeConfig();
     
     % Parameters and datasource setup
     rawDataSource = [dataPath,timeCommand];

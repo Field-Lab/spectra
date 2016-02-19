@@ -1,16 +1,16 @@
-classdef mVisionConfig
+classdef mVisionConfig < handle
     %MVISIONCONFIG Configuration class for mvision scripts
     %   Contains parameters to run ANF pipeline
     %   Without using a java/xml vision config object/file
     %
     % Author -- Vincent Deo -- Stanford University -- August 7, 2015
     
-    properties (SetAccess = immutable, GetAccess = private)
-        % General
+    properties (SetAccess = immutable, GetAccess = public)
+        %% General
         debug = false;
         
-        % Parallel (multi-file at parallelCaller level, clustering loop, ...)
-        nWorkers                = 32 % 01/04/16: Poorly managed, pool times out before reaching clustering
+        %% Parallel (multi-file at parallelCaller level, clustering loop, ...)
+        nWorkers                = 12
         
         %% Data Source management
         bufferMaxSize           = 16384 % samples
@@ -37,10 +37,10 @@ classdef mVisionConfig
         electrodeUsage          = 1
         
         whitening               = true  % whiten relative to noise floor on electrodes
-        expectedNoiseEvents     = 10000;
-        minNoiseSpacing         = 20;
+        expectedNoiseEvents     = 10000
+        minNoiseSpacing         = 20
         
-        covSpikeBufferSize      = 100;
+        covSpikeBufferSize      = 100
         
         %% Projections properties
         projNDimensions         = 5
@@ -75,11 +75,54 @@ classdef mVisionConfig
         EIMergeThresholdWithin  = 0.1  % Normalized metric
         EIMergeThresholdGlobal  = 0.1  % Normalized metric
         
-        EIGlobalMinWindow       =[18 44]% Sample window in which perform global min EI realignment
+        EIGlobalMinWindow       = [18 44]% Sample window in which perform global min EI realignment
         
     end % properties
     
     methods
+        
+        % Constructor
+        % Takes in a string that is the config path tag in STATIC_CONFIG_LIST
+        %
+        % The constructor parses the config list file
+        % Then calls the destination file as a m source file
+        % and will add 'obj.' at the beginning of each line
+        %
+        % A custom configuration file is a list of instructions (and comments)
+        % of the form _parameter_ =  value;
+        % Where parameter is a valid property name from the list above
+        function obj = mVisionConfig(varargin)
+            narginchk(0,1);
+            if nargin == 0 || ( ischar(varargin{1}) && numel(varargin{1}) == 0) % case ''
+                return;
+            end
+            
+            cfgListPath = './cfg/STATIC_CONFIG_LIST'; % Path to STATIC_CONFIG_LIST from repo root
+            fid = fopen(cfgListPath);
+            textscan(fid,'%s',6,'delimiter','\n'); % Skip header lines
+            configData = textscan(fid,'%[^:]::%[^:]::%[^:]','delimiter','\n','collectoutput',true);
+            configData = configData{1};
+            fclose(fid);
+            
+            for i = 1:size(configData,1)
+                if strcmp(varargin{1},configData{i,1});
+                    fprintf('Initializing configuration with model %s\n',configData{i,1});
+                    fprintf('"%s"\n',configData{i,3});
+                    fid2 = fopen(configData{i,2});
+                    execLines = textscan(fid2,'%s','delimiter','\n');
+                    execLines = execLines{1};
+                    commentLines = cellfun(@(x) numel(x) == 0 || (numel(x) > 0) && (x(1) == '%'),execLines,'uni',true);
+                    execLines(commentLines) = [];
+                    for l = 1:numel(execLines)
+                        k = find(execLines{l} ~= ' ',1);
+                        eval(sprintf('obj.%s;',execLines{l}(k:end)));
+                    end
+                    fclose(fid2);
+                    return;
+                end
+            end
+            throw(MException('',sprintf('mVisionConfig::mVisionConfig - Requested configuration tag "%s" is unknown.',varargin{1})));
+        end % Constructor
         
         function dataConfig = getDataConfig(obj)
             dataConfig.bufferMaxSize = obj.bufferMaxSize;
@@ -186,6 +229,5 @@ classdef mVisionConfig
         end
         
     end % methods
-    
 end
 

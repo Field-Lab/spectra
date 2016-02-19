@@ -24,8 +24,8 @@ function concatenatedDuplicateRemoval( datasets, saveRoot, saveFolderAndName, ti
     load([saveRoot,filesep,'concat.spikes.mat'],'nSamples');
     
     % Load Configuration
-    cfg = mVisionConfig();
-    cleanConfig = cfg.getCleanConfig();
+    global GLOBAL_CONFIG
+    cleanConfig = GLOBAL_CONFIG.getCleanConfig();
     
     % Remove low count and contaminated neurons - augment low count by number of datasets factor
     toRemove = cellfun(@(x) numel(x) < cleanConfig.minSpikes * numel(saveFolderAndName),...

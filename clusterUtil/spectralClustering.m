@@ -20,8 +20,10 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     % Author -- Vincent Deo -- Stanford University -- August 21, 2015
     
     %% Load mVision configuration - prep data
-    config = mVisionConfig();
-    specConfig = config.getSpectralConfig();
+    % Cannot pass global config as a parameter in case of parfor loop
+    % So mVisionconfig object is passed as argument from PCClustering.m
+    global GLOBAL_CONFIG
+    specConfig = GLOBAL_CONFIG.getSpectralConfig();
     
     % Cast in double if not - eigs does not support single (R2015a)
     if ~isa(spikes,'double')

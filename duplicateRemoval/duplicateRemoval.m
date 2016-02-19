@@ -44,8 +44,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     datasource = [];
     
     % Load Configuration
-    cfg = mVisionConfig();
-    cleanConfig = cfg.getCleanConfig();
+    global GLOBAL_CONFIG
+    cleanConfig = GLOBAL_CONFIG.getCleanConfig();
     
     %% Remove low count and contaminated neurons
     toRemove = cellfun(@(x) numel(x) < cleanConfig.minSpikes, neuronSpikeTimes);
