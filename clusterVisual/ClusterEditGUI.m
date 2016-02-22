@@ -320,7 +320,6 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String','EI Display',...
         'Visible','on');
     noEIString.Units = 'Norm';
-    noEIString.Position = [0 0 1 1];
     eiPanel = uipanel('Parent',eiBox,...
         'BorderType','none');
     eiJPanel = []; eiHPanel = []; % Globalize the java panels
@@ -328,13 +327,38 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Visible','off');
     
     eiBox.Sizes = [26 -1];
-    
     staPanel = uipanel('Parent',eistaBox,...
         'BorderType','none');
     staJPanel = []; staHPanel = []; % Globalize the java panels
     
-    bottomRightAxes = axes('Parent',staPanel,...
-        'Visible','off');
+    bottomRightAxesBox = uiextras.VBox(...
+        'Parent',staPanel,'Visible','off');
+    bottomRightControlRow = uiextras.HBox(...
+        'Parent',bottomRightAxesBox,...
+        'Spacing',6);
+    EIMatTitleString = uicontrol(...
+        'Parent',bottomRightControlRow,...
+        'Style','text',...
+        'fontsize',12,...
+        'String','Pairwise EI Distance   ',...
+        'Visible','on');
+    defaultPerm = uicontrol(...
+        'Parent',bottomRightControlRow,...
+        'String','Default',...
+        'callback',@defaultPermutationCallback);
+    customPerm = uicontrol(...
+        'Parent',bottomRightControlRow,...
+        'String','Custom ...',...
+        'callback',@customPermutationCallback);
+    currentPermutation = zeros(1,0);
+    bottomRightControlRow.Sizes = [-1 50 55];
+    bottomRightAxesPanel = uipanel(...
+        'Parent',bottomRightAxesBox,...
+        'Visible','on');
+    bottomRightAxesBox.Sizes = [26 -1];
+    bottomRightAxes = axes('Parent',bottomRightAxesPanel,...
+        'Visible','on');
+    
     noSTAString = uicontrol(...
         'Parent',staPanel,...
         'Style','text',...
@@ -525,7 +549,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         if k == 1 % Single neuron selected - display EI and STA
             leftColumns.Sizes(3) = -1;
             bottomLeftAxes.Visible = 'off';
-            bottomRightAxes.Visible = 'off';
+            bottomRightAxesBox.Visible = 'off';
             % EI Panel
             if numel(backEndHandle.eiFile) > 0 && numel(backEndHandle.eisLoaded{c}) > 0
                 noEIString.String = 'Real neuron EI';
@@ -595,23 +619,23 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             % EI Dist Panel - Right
             noSTAString.Visible = 'off';
             
-            eiMatrix = imagesc(backEndHandle.EIdistMatrix,...
-                'AlphaData',~isnan(backEndHandle.EIdistMatrix),...
+            eiMatrix = imagesc(backEndHandle.EIdistMatrix(currentPermutation,currentPermutation),...
+                'AlphaData',~isnan(backEndHandle.EIdistMatrix(currentPermutation,currentPermutation)),...
                 'Parent',bottomRightAxes);
-            title(bottomRightAxes,'Pairwise EI distance');
             bottomRightAxes.DataAspectRatio = [1 1 1];
             bottomRightAxes.XAxisLocation = 'top';
             bottomRightAxes.XTick = 1:backEndHandle.nClusters;
             bottomRightAxes.YTick = 1:backEndHandle.nClusters;
-            bottomRightAxes.XTickLabel = num2cell(backEndHandle.displayIDs);
-            bottomRightAxes.YTickLabel = num2cell(backEndHandle.displayIDs);
+            bottomRightAxes.XTickLabel = num2cell(backEndHandle.displayIDs(currentPermutation));
+            bottomRightAxes.YTickLabel = num2cell(backEndHandle.displayIDs(currentPermutation));
             bottomRightAxes.XTickLabelRotation = 35;
             bottomRightAxes.YTickLabelRotation = 35;
             bottomRightAxes.TickLength = [0,0];
             colorbar(bottomRightAxes,'eastoutside');
+            colormap(bottomRightAxes,flipud(jet));
             bottomRightAxes.Position = [0.1    0    0.68    0.9];
             bottomRightAxes.CLim = [0,1];
-            bottomRightAxes.Visible = 'on';
+            bottomRightAxesBox.Visible = 'on';
             
             nc = backEndHandle.nClusters;
             hold(bottomRightAxes,'on');
@@ -653,6 +677,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         spcount = num2cell(backEndHandle.spikeCounts);
         sprate = num2cell(backEndHandle.spikeCounts * 20000 / backEndHandle.nSamples);
         comment = backEndHandle.comment;
+        currentPermutation = 1:backEndHandle.nClusters;
         % Define the data
         % ID - Color - Display - Status - Contam
         d = [IDs, colors, display, status, spcount, sprate, contam, comment];
@@ -776,6 +801,58 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
             nnz(backEndHandle.statusRaw(:,1) == 2),...
             nnz(backEndHandle.statusRaw(:,1) == 3),...
             nnz(backEndHandle.statusRaw(:,1) == 0));
+    end
+    
+    function defaultPermutationCallback(varargin)
+        currentPermutation = 1:backEndHandle.nClusters;
+        refreshLowLeftPanels();
+    end
+    
+    function customPermutationCallback(varargin)
+        p = get(groot,'Screensize'); p(1:2) = p(3:4) / 2; p(3:4) = 0;
+        global popup;
+        popup = figure( 'Name',sprintf('Type in an ordered ID list... (as a matlab row)'), ...
+        'MenuBar', 'none', ...
+        'Toolbar', 'none', ...
+        'NumberTitle', 'off',...
+        'Visible', 'on',...
+        'OuterPosition', p +  [-250,-30,500,70],...
+        'deleteFcn',@del);
+        s = '[ ';
+        for i = 1:numel(currentPermutation)
+            s = [s,num2str(backEndHandle.displayIDs(currentPermutation(i))),', '];
+        end
+        s((end-1):end) = ' ]';
+        if numel(s) == 2
+            s = '[ ]';
+        end
+        fillBox = uicontrol(...
+            'Parent',popup,...
+            'Style','edit',...,
+            'Fontsize',11,...
+            'Units','norm',...
+            'Position',[0 0 1 1],...
+            'Visible','on',...
+            'String',s,...
+            'callback',@del2);
+        
+        waitfor(popup);
+        try
+            eval(['currentPermutation = ',saveString,';']);
+            currentPermutation = arrayfun(@(x) find(backEndHandle.displayIDs == x), currentPermutation);
+            statusBar.String = 'EI display permutation changed';
+            refreshLowLeftPanels();
+        catch error
+            statusBar.String = 'Invalid permutation entered';
+        end
+        
+        function del(~,~)
+            saveString = fillBox.String;
+        end
+        function del2(source,~)
+            saveString = fillBox.String;
+            delete(source.Parent);
+        end
     end
     
     frontEndHandle.Visible = 'on';
