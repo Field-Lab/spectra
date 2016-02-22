@@ -157,8 +157,9 @@ classdef ClusterEditBackend < handle
             obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
             obj.nNeurons = size(obj.neuronEls,1);
             
-            % CleanPattern - do that clean
-            cleanPatternPath = [analysisPath,filesep,'cleanPattern.mat'];
+            % Clean pattern - do that clean
+            files = dir([analysisPath,filesep,'*.clean.mat']);
+            cleanPatternPath = [analysisPath,filesep,files(1).name];
             obj.neuronStatuses = zeros(obj.nNeurons,2);
             if exist(cleanPatternPath)
                 load(cleanPatternPath);
