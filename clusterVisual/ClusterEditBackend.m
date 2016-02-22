@@ -213,7 +213,7 @@ classdef ClusterEditBackend < handle
             
             % Try to find a classification file
             obj.classification = cell(obj.nNeurons,1);
-            files = dir([analysisPath,filesep,'*.txt']);
+            files = dir([analysisPath,filesep,'*.classification.txt']);
             if numel(files) == 1
                 fid = fopen([analysisPath,filesep,files(1).name]);
                 classesRaw = textscan(fid, '%u All/%s', 'delimiter', '\n');
