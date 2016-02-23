@@ -1,16 +1,34 @@
-function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
+function varargout = ClusterEditGUI(datasetFolder,varargin)
     % function ClusterEditGUI
-    % Some comments here
+    % Manages all components of the GUI for the cluster visualizer
+    % Placement of all graphical boxes
+    % Callbacks for all user interaction
+    % Which makes quite a large file
+    %
+    % Input argument:
+    %       datasetFolder: path to analysis folder
+    %           Must mandatorily contain a neurons.mat and a prj.mat
+    %           Optionally, .clean.mat, .ei, .sta, and .classification.txt
+    %           Will be read and provide additional information
+    %       OPTIONAL - backEndHandle
+    %           Provides a shortcut to restart figure without building
+    %           A new data handling object of class ClusterEditBackEnd
+    %
+    % Outputs:
+    %       OPTIONAL - frontEndHandle (1st)
+    %           Handle to main GUI figure
+    %       OPTIONAL - backEndHandle (2nd)
+    %           handle to clusterEditBackend data handler
     
-    %%% VERSION NUMBER %%%
+    %% VERSION NUMBER %%
     % Increment at each master merge
     version = '0.1';
     
-    %% Instantiation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Main frontend and backend startup %%
     narginchk(1,2); % Existing back-end may be passed in varargin{1}
-    if nargin == 1
+    if nargin == 1 % New backend
         backEndHandle = ClusterEditBackend(datasetFolder);
-    else
+    else % Existing backend - overrides first argument datasetFolder
         backEndHandle = varargin{1};
         datasetFolder = backEndHandle.analysisPath;
     end
@@ -24,65 +42,41 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90]);
     [remainingTools,toolbarHandle] = customizeTools(frontEndHandle); % Remove useless buttons
        
-    %% Some configuration %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    spacerWidth = 10;
-    displayPoints = 8000;
-    clusterColors = zeros(0,3);
+    %% Config %%
+    spacerWidth = 10; % generic spacer size (pixel; but hardcoded values are often used)
+    displayPoints = 8000; % plot display
+    clusterColors = zeros(0,3); % Empty global initializer for display colors
     
-    %% GUI layout %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Main box and children
+    %% GUI layout %%
+    % Main box
     mainLayout = uiextras.HBoxFlex(...
         'Parent',frontEndHandle,...
         'Position',[0 0 1 1],...
         'Spacing',2);
+    
     % Left VBox - Menu, title, table, EI/STA displays
     leftColumns = uiextras.VBox(...
         'Parent',mainLayout,...
         'Spacing',spacerWidth);
-    % Right VBox - PC, ACF and spRate
+    
+    % Right VBox - PCs, ACF, Spike rate plots
     graphLayout = uiextras.VBoxFlex(...
         'Parent',mainLayout,...
         'Spacing',spacerWidth);
-    mainLayout.Sizes = [-1 -1];
-    % Graph 3D + view buttons strip
+    
+    mainLayout.Sizes = [-1 -1]; % Finish mainLayout
+    
+    % 3D plot box - HBox will allow to add a vertical button strip to the side
+    % of the 3D plot
     graph3DBox = uiextras.HBox(...
         'Parent',graphLayout,...
         'Spacing',spacerWidth);
-    % View button column
-    %{
-    % Removing button column - available w/ right click while rotate tool
-    buttonColumn = uiextras.VBox(...
-        'Parent',graph3DBox,...
-        'Spacing',spacerWidth);
-    buttonDefaultView = uicontrol(...
-        'Parent',buttonColumn,...
-        'Style', 'pushbutton',...
-        'String','Default',...
-        'fontsize',11,...
-        'callback',@view3DCallback);
-    buttonXY = uicontrol(...
-        'Parent',buttonColumn,...
-        'Style', 'pushbutton',...
-        'String','X-Y',...
-        'fontsize',11,...
-        'callback',@view3DCallback);
-    buttonXZ = uicontrol(...
-        'Parent',buttonColumn,...
-        'Style', 'pushbutton',...
-        'String','X-Z',...
-        'fontsize',11,...
-        'callback',@view3DCallback);
-    buttonYZ = uicontrol(...
-        'Parent',buttonColumn,...
-        'Style', 'pushbutton',...
-        'String','Y-Z',...
-        'fontsize',11,...
-        'callback',@view3DCallback);
-    buttonColumn.Sizes = [24 24 24 24];
-    %}
-    % Panel for 3D box axes
+    
+    % Panel for 3D box axes (always put a panel to encapsulate axes)
     supportPanel3D = uipanel('Parent',graph3DBox);
-    PC123Plots = {}; % handle to subplots handle defined in load callback
+    
+    % 3D plot initialization %
+    PC123Plots = {}; % handle to globalize 3D scatter plot access
     plot3D = axes(...
         'Parent',supportPanel3D,...
         'ClippingStyle','rectangle',...
@@ -95,23 +89,29 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     plot3D.YLabel.String = 'PC 2';
     plot3D.ZLabel.String = 'PC 3';
     axis(plot3D,'tight');
-    graph3DBox.Sizes = -1; %[50 -1]; % Sizes with button column
+    % End 3D plot initialization
+    
+    graph3DBox.Sizes = -1; %[50 -1]; Finish graph3DBox
+    
+    % HBox wrapper for [[Sp rate; ACF], PC45]
     bottomGraphs = uiextras.HBoxFlex(...
         'Parent',graphLayout,...
         'Spacing',spacerWidth);
-    graphLayout.Sizes = [-3 -2];
-    bottomGraphsLeftBox = uiextras.VBox(...
+    graphLayout.Sizes = [-3 -2]; % Finish graphLayout Vbox
+    % VBox wrapper for [Sp rate ; ACF]
+    bottomGraphsLeftBox = uiextras.VBox(... 
         'Parent',bottomGraphs,...
         'Spacing',0);
+    % Panel wrapper for PC45
     bottomGraphsRightPanel = uipanel(...
         'Parent',bottomGraphs);
-    bottomGraphs.Sizes = [-1 -1];
+    bottomGraphs.Sizes = [-1 -1]; % Finish bottom right graph panel
     
-    % Three 2D plots at bottom right
-    % Panels
+    % Spike rate panel
     ratePanel = uipanel(...
         'Parent',bottomGraphsLeftBox);
-    ratePlots = {}; % global handle to subplots handle defined in load callback
+    % Initialize Spike Rate plot %
+    ratePlots = {}; % global handle
     ratePlot = axes(...
         'Parent',ratePanel,...
         'XGrid','on','YGrid','on',...
@@ -120,10 +120,13 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     ratePlot.XLabel.String = 'Time (sec)'; ratePlot.XLabel.FontSize = 9;
     ratePlot.YLabel.String = 'Spike rate (Hz)'; ratePlot.YLabel.FontSize = 9;
     ratePlot.XLim = [0, backEndHandle.nSamples / 20000 + 1];
+    % end spike rate plot %
     
+    % Panel to hold ACF plot
     ACFPanel = uipanel(...
         'Parent',bottomGraphsLeftBox);
-    ACFPlots = {}; % global handle to subplots handle defined in load callback
+    % Initialize ACF plot %
+    ACFPlots = {}; % global handle
     ACFPlot = axes(...
         'Parent',ACFPanel,...
         'XGrid','on','YGrid','on',...
@@ -132,10 +135,12 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     ACFPlot.XLabel.String = 'Time \Delta (msec)'; ACFPlot.XLabel.FontSize = 9;
     ACFPlot.YLabel.String = 'Autocorr. (pair fraction/msec \Delta)'; ACFPlot.YLabel.FontSize = 9;
     ACFPlot.XLim = [0, 101];
-    bottomGraphsLeftBox.Sizes = [-1 -1];
+    % end ACF plot %
     
-    % 4th col bottom
-    PC45Plots = {}; % global handle to subplots handle defined in load callback
+    bottomGraphsLeftBox.Sizes = [-1 -1]; % Finish [Sp rate ; ACF] VBox
+    
+    % Initialize PC45 plot %
+    PC45Plots = {}; % global handle
     PC45Plot = axes(...
         'Parent',bottomGraphsRightPanel,...
         'XGrid','on','YGrid','on',...
@@ -145,17 +150,23 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     PC45Plot.XLabel.String = 'PC 4';
     PC45Plot.YLabel.String = 'PC 5';
     axis(PC45Plot,'tight');
+    % End PC45 Plot %
     
+    % Contents of the left half VBox
+    % Dataset name - title
     datasetName = uicontrol(...
         'Parent',leftColumns,...
         'Style','text',...
         'fontsize',12,...
         'String',datasetFolder);
+    % VBox encapsulating control features (button rows and table)
     menu = uiextras.VBox(...
         'Parent',leftColumns,...
         'Spacing',0);
+    % Bottom left box - wrapping EI, STA, EI dist matrix displays
     eistaBox = uiextras.HBox('Parent',leftColumns,...
         'Spacing',0);
+    % Status bar at bottom of left column
     statusBar = uicontrol(...
         'Parent',leftColumns,...
         'Style','text',...
@@ -163,13 +174,13 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String','Welcome to Cluster Editor 0.0 !',...
         'HorizontalAlignment','left');
     
-    % Pass status bar handle to backend
+    % Pass status bar handle to backend (deprecated?)
     backEndHandle.statusBarHandle = statusBar;
     
-    leftColumns.Sizes = [24 -1 0 24];
+    leftColumns.Sizes = [24 -1 0 24]; % Finish general layout of left half
     
-    
-    % Left column menu - described by rows.
+    % Menu VBox %
+    % First row - load buttons, text boxes
     loadRow = uiextras.HBox(...
         'Parent',menu,...
         'Spacing',6,...
@@ -228,18 +239,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     fillerLoadRow = uiextras.Empty(...
         'Parent',loadRow);
     
-    %{
-    buttons = uitoolbar(...
-        'Parent',loadRow);
-    for ii = 1:numel(remainingTools)
-        remainingTools(ii).Parent = 'buttons'; 
-    end
-    %}
-    
     % finish loadRow
     loadRow.Sizes = [ 34, 20, 50, 45, 60, -1];
     
-    % selector row w/ "(un)select all"
+    % selector row w/ "(un)select all", re-scatter and rescale axes buttons
     selectorRow = uiextras.HBox(...
         'Parent',menu,...
         'Spacing',6,...
@@ -272,9 +275,10 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'fontsize',10,...
         'callback',@autoScalePCPlots);
     
-    selectorRow.Sizes = [75 90 -1 75 95];
     % finish selectorRow
+    selectorRow.Sizes = [75 90 -1 75 95];
     
+    % Information row on selected electrode
     infoRow = uicontrol(...
         'Parent',menu,...
         'Style','text',...
@@ -282,6 +286,7 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'String','',...
         'HorizontalAlignment','center');
     
+    % Initializa data table %
     % Column names and column format
     columnName = {'ID','','Disp','Status','#Spikes','Rate (Hz)','Contam','Classification'};
     columnFormat = {'numeric','char','logical','char','numeric','numeric','numeric','char'};
@@ -306,10 +311,12 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     jtable.setPreserveSelectionsAfterSorting(true);
     clustMgmt.ColumnWidth = colWidth;
     clustMgmt.Data = d;
+    % End initialize data table %
+    
     % Finish left menu
     menu.Sizes = [24 24 24 -1];
     
-    
+    % Initialize EI and STA displays %
     eiBox = uiextras.VBox(...
         'Parent',eistaBox,...
         'Padding',0,'Spacing',0);
@@ -344,14 +351,18 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         'Visible','on');
     defaultPerm = uicontrol(...
         'Parent',bottomRightControlRow,...
-        'String','Default',...
+        'String','Dflt',...
         'callback',@defaultPermutationCallback);
+    optPerm = uicontrol(...
+        'Parent',bottomRightControlRow,...
+        'String','Optml',...
+        'callback',@optimalPermutationCallback);
     customPerm = uicontrol(...
         'Parent',bottomRightControlRow,...
         'String','Custom ...',...
         'callback',@customPermutationCallback);
     currentPermutation = zeros(1,0);
-    bottomRightControlRow.Sizes = [-1 50 55];
+    bottomRightControlRow.Sizes = [-1 45 45 55];
     bottomRightAxesPanel = uipanel(...
         'Parent',bottomRightAxesBox,...
         'Visible','on');
@@ -808,6 +819,11 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
         refreshLowLeftPanels();
     end
     
+    function optimalPermutationCallback(varargin)
+        currentPermutation = optimalBlockDiagPerm(0.5 * (2-backEndHandle.EIdistMatrix));
+        refreshLowLeftPanels();
+    end
+    
     function customPermutationCallback(varargin)
         p = get(groot,'Screensize'); p(1:2) = p(3:4) / 2; p(3:4) = 0;
         global popup;
@@ -856,4 +872,6 @@ function [backEndHandle,frontEndHandle] = ClusterEditGUI(datasetFolder,varargin)
     end
     
     frontEndHandle.Visible = 'on';
+    varargout{1} = frontEndHandle;
+    varargout{2} = backEndHandle;
 end

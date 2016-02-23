@@ -159,9 +159,9 @@ classdef ClusterEditBackend < handle
             
             % Clean pattern - do that clean
             files = dir([analysisPath,filesep,'*.clean.mat']);
-            cleanPatternPath = [analysisPath,filesep,files(1).name];
             obj.neuronStatuses = zeros(obj.nNeurons,2);
-            if exist(cleanPatternPath)
+            if numel(files) == 1
+                cleanPatternPath = [analysisPath,filesep,files(1).name];
                 load(cleanPatternPath);
                 IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
                 [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
