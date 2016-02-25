@@ -7,7 +7,6 @@ classdef NeuronSaverM < handle
     % Author -- Vincent Deo -- Stanford University -- August 27, 2015
     
     properties
-        nElectrodes
         initialOffset
         neuronFilePath
         neuronFile % edu.ucsc.neurobiology.vision.io.NeuronFile object
@@ -28,18 +27,6 @@ classdef NeuronSaverM < handle
             
             load(spikeFilePath,'ttlTimes'); % Load ttl times
             
-            % Creating data source and catching nElectrodes
-            dataSource = DataFileUpsampler(dataPath);
-            obj.nElectrodes = dataSource.nElectrodes;
-           
-            % Adjusting bin path to catch header properly
-            if strcmp(dataPath((end-3):end),'.bin')
-                binPath = dataPath;
-            else
-                files = dir([dataPath,filesep,datasetName,'*.bin']);
-                binPath = [dataPath,filesep,files(1).name];
-            end
-            
             % required to substract the initial spike time offset if the processing did not start at
             % beginning of .bin file.
             % This is because mVision uses a different convention than vision for spike labelling in case of
@@ -47,7 +34,7 @@ classdef NeuronSaverM < handle
             obj.initialOffset = initialOffset; % in samples
             
             % Initialize Neuron File
-            obj.neuronFile = initVisionNeuronFile(binPath, obj.neuronFilePath, ttlTimes);
+            obj.neuronFile = initVisionNeuronFile(dataPath, obj.neuronFilePath, ttlTimes);
         end
         
         % Gets a Neuron ID according to Vision's standards

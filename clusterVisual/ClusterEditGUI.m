@@ -820,7 +820,8 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     end
     
     function optimalPermutationCallback(varargin)
-        currentPermutation = optimalBlockDiagPerm(0.5 * (2-backEndHandle.EIdistMatrix));
+        validCol = find(cellfun(@(x) numel(x) > 0, backEndHandle.eisLoaded));
+        currentPermutation = validCol(optimalBlockDiagPerm(0.5 * (2-backEndHandle.EIdistMatrix(validCol,validCol))));
         refreshLowLeftPanels();
     end
     

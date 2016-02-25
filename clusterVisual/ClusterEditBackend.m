@@ -86,12 +86,6 @@ classdef ClusterEditBackend < handle
                 validateattributes(varargin{3},{'char'},{},'','model file',4);
             end
             
-            % nSamples - do that clean
-            files = dir([analysisPath,filesep,'*.spikes.mat']);
-            spikePath = [analysisPath,filesep,files(1).name];
-            load(spikePath,'nSamples');
-            obj.nSamples = nSamples;
-            
             % Look for a .prj.mat, a .neurons.mat and a .model.mat
             % Projections file
             if nargin == 1 || (nargin == 4 && strcmp(varargin{1},'')) % No forced file as optional argument
@@ -149,7 +143,8 @@ classdef ClusterEditBackend < handle
             % Load everything useful and RAM OK
             % Generate metadata
             
-            load(obj.neurons.path,'neuronEls','neuronClusters'); % Loads neuronClusters, neuronEls
+            load(obj.neurons.path,'neuronEls','neuronClusters','nSamples'); % Loads neuronClusters, neuronEls
+            obj.nSamples = nSamples;
             obj.neuronEls = neuronEls;
             obj.neuronClusters = neuronClusters;
             obj.neuronIDs = ClusterEditBackend.getIDs(obj.neuronEls, obj.neuronClusters);
