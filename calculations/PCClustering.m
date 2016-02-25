@@ -43,7 +43,7 @@ function [clusterParams,neuronEls,neuronClusters,spikeTimesNeuron] = PCClusterin
     parConfig = GLOBAL_CONFIG.getParConfig;
     LOCAL_CONFIG_COPY = GLOBAL_CONFIG;
     
-    if numel(ppool) == 0 || ppool.NumWorkers < parConfig.nWorkers
+    if numel(ppool) == 0 || ppool.NumWorkers ~= parConfig.nWorkers
         delete(gcp);
         parpool(parConfig.nWorkers);
     end
