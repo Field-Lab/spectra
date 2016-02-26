@@ -14,14 +14,14 @@ function trackPerm = optimalBlockDiagPerm( matrix )
     for k = 1:(2*n)
         transpoValue = Inf(n,n);
         for i = 1:(n-1)
-            for j = i:n
+            for j = (i+1):n
                 perm = 1:n;
                 perm(i) = j;
                 perm(j) = i;
                 transpoValue(i,j) = sum(sum(weight.*m(perm,perm).^2));
             end
         end
-        [i,j] = find(transpoValue == min(min(transpoValue)));
+        [i,j] = find(transpoValue == min(min(transpoValue)),1);
         perm = 1:n;
         perm(i) = j;
         perm(j) = i;

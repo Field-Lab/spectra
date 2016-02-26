@@ -672,6 +672,10 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         % Parse neuron statuses
         for c = 1:backEndHandle.nClusters
             switch backEndHandle.statusRaw(c,1)
+                case -2
+                    status{c} = 'Discard';
+                case -1
+                    status{c} = 'Unknown';
                 case 0
                     status{c} = 'Keep';
                 case 1
@@ -683,7 +687,8 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
                     status{c} = sprintf('Dup. of ID %i, El %u',backEndHandle.statusRaw(c,2),e-1);
             end
         end
-        display = cellfun(@(x) ~strcmp(x(1:3),'Con'),status,'uni',false);
+        % Do not spontaneously display contaminated and discarded without details
+        display = num2cell(~or(backEndHandle.statusRaw(:,1) == 1,backEndHandle.statusRaw(:,1) == -2));
         contam = num2cell(backEndHandle.contaminationValues);
         spcount = num2cell(backEndHandle.spikeCounts);
         sprate = num2cell(backEndHandle.spikeCounts * 20000 / backEndHandle.nSamples);

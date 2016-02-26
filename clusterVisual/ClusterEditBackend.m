@@ -2,11 +2,13 @@ classdef ClusterEditBackend < handle
     %CLUSTEREDITBACKEND Handles persistently the backend of the cluster visualizer
     
     properties (GetAccess = public, SetAccess = immutable)
+        typeIsSpectra
+        
         analysisPath
         
-        prj % struct - {bool exists ; String path}
-        model % struct - {bool exists ; String path}
-        neurons % struct - {bool exists ; String path}
+        prj % struct - {bool exists ; String path ; matfile or javafile}
+        % model % struct - {bool exists ; String path}
+        neurons % struct - {bool exists ; String path ; matfile or javafile}
         
         config
         
@@ -69,7 +71,7 @@ classdef ClusterEditBackend < handle
         % One or more of the optional arguments can be set to empty string ''
         % in which case constructor looks for a file with correct extension
         % in the analysis path.
-        function obj = ClusterEditBackend(analysisPath,varargin)
+        function obj = ClusterEditBackend(analysisPath)
             obj.analysisPath = analysisPath;
             obj.config = mVisionConfig();
             
@@ -79,101 +81,133 @@ classdef ClusterEditBackend < handle
                 throw(MException('','ClusterEditBackend:ClusterEditBackend - Analysis folder does not exist'));
             end
             
-            if nargin > 1
-                narginchk(4,4);
-                validateattributes(varargin{1},{'char'},{},'','projections file',2);
-                validateattributes(varargin{2},{'char'},{},'','neuron file',3);
-                validateattributes(varargin{3},{'char'},{},'','model file',4);
+            % Define the type
+            files = dir([analysisPath,filesep,'*.prj.mat']);
+            if numel(files) == 1
+                obj.typeIsSpectra = 1;
+            else
+                obj.typeIsSpectra = 0;
             end
             
-            % Look for a .prj.mat, a .neurons.mat and a .model.mat
-            % Projections file
-            if nargin == 1 || (nargin == 4 && strcmp(varargin{1},'')) % No forced file as optional argument
+            % Type specific loading
+            if obj.typeIsSpectra
+                % Projections file
                 files = dir([analysisPath,filesep,'*.prj.mat']);
-            else % File manually selected as optional argument
-                files = dir(varargin{1});
-            end
-            if numel(files) == 1
-                obj.prj.exist = true;
-                obj.prj.path = [analysisPath,filesep,files(1).name];
-            else if numel(files) == 0
-                    throw(MException('','ClusterEditBackend:ClusterEditBackend - No projections file found'));
-                else
-                    throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple projections files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                if numel(files) == 1
+                    obj.prj.exist = true;
+                    obj.prj.path = [analysisPath,filesep,files(1).name];
+                else if numel(files) == 0
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No projections file found'));
+                    else
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple projections files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                    end
                 end
-            end
-            
-            % Neurons file
-            if nargin == 1 || (nargin == 4 && numel(varargin{2}) == 0)
+                
+                % Neurons file
                 files = dir([analysisPath,filesep,'*.neurons.mat']);
-            else
-                files = dir(varargin{2});
-            end
-            if numel(files) == 1
-                obj.neurons.exist = true;
-                obj.neurons.path = [analysisPath,filesep,files(1).name];
-            else if numel(files) == 0
-                    throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons-raw file found'));
-                else
-                    throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                if numel(files) == 1
+                    obj.neurons.exist = true;
+                    obj.neurons.path = [analysisPath,filesep,files(1).name];
+                else if numel(files) == 0
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons-raw file found'));
+                    else
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                    end
                 end
-            end
-            
-            % (Optional) model file
-            if nargin == 1 || (nargin == 4 && numel(varargin{3}) == 0)
-                files = dir([analysisPath,filesep,'*.model.mat']);
-            else
-                files = dir(varargin{3});
-            end
-            if numel(files) == 1
-                obj.model.exist = true;
-                obj.model.path = [analysisPath,filesep,files(1).name];
-            else if numel(files) == 0
-                    fprintf('ClusterEditBackend:ClusterEditBackend - No model file found, skipping\n');
-                    obj.model.exist = false;
-                else
-                    throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple model files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                
+                % All files now referenced and checked
+                % Partial loading for neuronSpikeTimes and elSpikeTimes
+                obj.prj.matfile = matfile(obj.prj.path);
+                obj.neurons.matfile = matfile(obj.neurons.path);
+                
+                load(obj.neurons.path,'neuronEls','neuronClusters','nSamples'); % Loads neuronClusters, neuronEls
+                obj.nSamples = nSamples;
+                obj.neuronEls = neuronEls;
+                obj.neuronClusters = neuronClusters;
+                obj.neuronIDs = ClusterEditBackend.getIDs(obj.neuronEls, obj.neuronClusters);
+                
+                obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
+                obj.nNeurons = size(obj.neuronEls,1);
+                
+                % Clean pattern
+                files = dir([analysisPath,filesep,'*.clean.mat']);
+                obj.neuronStatuses = zeros(obj.nNeurons,2);
+                if numel(files) == 1
+                    cleanPatternPath = [analysisPath,filesep,files(1).name];
+                    load(cleanPatternPath);
+                    IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
+                    [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
+                    obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
+                    [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
+                    obj.neuronStatuses(i,1) = 2; % 2 - merged
+                    obj.neuronStatuses(i,2) = IDsMerged(j,1);
+                    if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
+                        [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
+                        obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                        obj.neuronStatuses(i,2) = -1;
+                    else
+                        [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
+                        obj.neuronStatuses(i,1) = 3; % 3 - duplicate
+                        obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+                    end
+                else % no cleaning info found
+                    obj.neuronStatuses(:,1) = -1;
                 end
-            end
-            % All files now referenced and checked
-            % Partial loading for neuronSpikeTimes and elSpikeTimes
-            obj.prj.matfile = matfile(obj.prj.path);
-            obj.neurons.matfile = matfile(obj.neurons.path);
-            
-            % Load everything useful and RAM OK
-            % Generate metadata
-            
-            load(obj.neurons.path,'neuronEls','neuronClusters','nSamples'); % Loads neuronClusters, neuronEls
-            obj.nSamples = nSamples;
-            obj.neuronEls = neuronEls;
-            obj.neuronClusters = neuronClusters;
-            obj.neuronIDs = ClusterEditBackend.getIDs(obj.neuronEls, obj.neuronClusters);
-            
-            obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
-            obj.nNeurons = size(obj.neuronEls,1);
-            
-            % Clean pattern - do that clean
-            files = dir([analysisPath,filesep,'*.clean.mat']);
-            obj.neuronStatuses = zeros(obj.nNeurons,2);
-            if numel(files) == 1
-                cleanPatternPath = [analysisPath,filesep,files(1).name];
-                load(cleanPatternPath);
-                IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
-                [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
-                obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
-                [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
-                obj.neuronStatuses(i,1) = 2; % 2 - merged
-                obj.neuronStatuses(i,2) = IDsMerged(j,1);
-                if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
-                    [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
-                    obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                    obj.neuronStatuses(i,2) = -1;
-                else
-                    [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
-                    obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                    obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+            else % Type is vision
+                % Projections file
+                files = dir([analysisPath,filesep,'*.prj']);
+                if numel(files) == 1
+                    obj.prj.exist = true;
+                    obj.prj.path = [analysisPath,filesep,files(1).name];
+                else if numel(files) == 0
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No projections file found'));
+                    else
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple projections files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                    end
                 end
-            end
+                
+                % Neurons file
+                files = dir([analysisPath,filesep,'*.neurons-raw']);
+                if numel(files) == 1
+                    obj.neurons.exist = true;
+                    obj.neurons.path = [analysisPath,filesep,files(1).name];
+                else if numel(files) == 0
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons-raw file found'));
+                    else
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                    end
+                end
+                
+                % All files now referenced and checked
+                % Partial loading for neuronSpikeTimes and elSpikeTimes
+                obj.prj.javaFile = edu.ucsc.neurobiology.vision.io.ProjectionsFile(obj.prj.path);
+                obj.neurons.javaFile = edu.ucsc.neurobiology.vision.io.NeuronFile(obj.neurons.path);
+                
+                % Generate information
+                
+                hdr = obj.neurons.javaFile.getHeader();
+                obj.nSamples = hdr.nSamples;
+                obj.neuronIDs = double(obj.neurons.javaFile.getIDList());
+                [obj.neuronEls,obj.neuronClusters] = ClusterEditBackend.getElClust(obj.neuronIDs);
+                obj.nNeurons = size(obj.neuronEls,1);
+                % Correct way - but header contains garbage arrayID
+                % elMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(hdr.arrayID);
+                % obj.nElectrodes = elMap.getNumberOfElectrodes();
+                obj.nElectrodes = max(obj.neuronEls); % Bypass
+                % no clean pattern in vision mode, unless we can find a final neurons file
+                obj.neuronStatuses = zeros(obj.nNeurons,2);
+                files = dir([analysisPath,filesep,'*.neurons']);
+                if numel(files) == 1
+                    neuronFile = edu.ucsc.neurobiology.vision.io.NeuronFile([analysisPath,filesep,files(1).name]);
+                    IDsKept = double(neuronFile.getIDList());
+                    neuronFile.close();
+                    [~,i,~] = intersect(obj.neuronIDs,IDsKept);
+                    obj.neuronStatuses(:,1) = -2;
+                    obj.neuronStatuses(i,1) = 0;
+                else
+                    obj.neuronStatuses(:,1) = -1;
+                end
+            end % type switch
             
             % Initialize EI
             files = dir([analysisPath,filesep,'*.ei']);
@@ -238,8 +272,13 @@ classdef ClusterEditBackend < handle
                 return;
             else
                 obj.elLoaded = el;
-                eval(sprintf('load(''%s'',''projSpikes%u'');',obj.prj.path,el));
-                eval(sprintf('obj.prjLoaded = projSpikes%u;',el));
+                if obj.typeIsSpectra
+                    eval(sprintf('load(''%s'',''projSpikes%u'');',obj.prj.path,el));
+                    eval(sprintf('obj.prjLoaded = projSpikes%u;',el));
+                else
+                    projToMatlabWrap = obj.prj.javaFile.readProjections(el-1);
+                    obj.prjLoaded = double(projToMatlabWrap.data)';
+                end
             end
             
             neuronIndices = find(obj.neuronEls == el);
@@ -253,14 +292,23 @@ classdef ClusterEditBackend < handle
             obj.statusRaw = obj.neuronStatuses(neuronIndices,:);
             obj.comment = obj.classification(neuronIndices);
             
-            elSpikeTimes = obj.prj.matfile.spikeTimes(obj.elLoaded,1);
-            elSpikeTimes = elSpikeTimes{1};
-            
-            if numel(neuronIndices) > 0
-                obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
+            if obj.typeIsSpectra
+                elSpikeTimes = obj.prj.matfile.spikeTimes(obj.elLoaded,1);
+                elSpikeTimes = elSpikeTimes{1};
+                
+                if numel(neuronIndices) > 0
+                    obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
+                else
+                    obj.spikeTrains = cell(0,1);
+                end
             else
-                obj.spikeTrains = cell(0,1);
+                elSpikeTimes = double(projToMatlabWrap.times);
+                obj.spikeTrains = cell(numel(obj.displayIDs),1);
+                for c = 1:obj.nClusters
+                    obj.spikeTrains{c} = double(obj.neurons.javaFile.getSpikeTimes(obj.displayIDs(c)));
+                end
             end
+            
             obj.spikeCounts = cellfun(@numel, obj.spikeTrains,'uni',true);
             
             for c = 1:obj.nClusters
@@ -293,7 +341,7 @@ classdef ClusterEditBackend < handle
                     obj.eisLoaded{c} = obj.eiFile.getImage(obj.displayIDs(c));
                 catch
                     obj.eisLoaded{c} = [];
-                end     
+                end
             end
         end
         
@@ -302,8 +350,11 @@ classdef ClusterEditBackend < handle
             % Realign EIs and compute the matrix of distances.
             % The process is meant to be identical as merging analysis in duplicate removal
             cleanConfig = obj.config.getCleanConfig();
+            eiSize = obj.eiFile.nlPoints + obj.eiFile.nrPoints + 1;
             
-            eiSize = cleanConfig.EILP + cleanConfig.EIRP + 1;
+            % Recenter global minima window if necessary
+            cleanConfig.globMinWin = cleanConfig.globMinWin - cleanConfig.EILP + obj.eiFile.nlPoints;
+            
             minWindowSize = cleanConfig.globMinWin(2) - cleanConfig.globMinWin(1);
             samplingVal = cleanConfig.globMinWin(1):cleanConfig.resamplePitch:cleanConfig.globMinWin(2);
             basicValues = 1:(eiSize - minWindowSize);
