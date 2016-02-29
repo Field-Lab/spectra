@@ -7,7 +7,6 @@ classdef ClusterEditBackend < handle
         analysisPath
         
         prj % struct - {bool exists ; String path ; matfile or javafile}
-        % model % struct - {bool exists ; String path}
         neurons % struct - {bool exists ; String path ; matfile or javafile}
         
         config
@@ -22,40 +21,43 @@ classdef ClusterEditBackend < handle
     end
     
     properties(GetAccess = public,SetAccess = protected)
-        nNeurons
-        nElectrodes
-        nSamples
+        % General dataset information
+        nNeurons % number of neurons
+        nElectrodes % number of electrodes
+        nSamples % number of samples
         
-        neuronEls
-        neuronClusters
-        neuronIDs
-        neuronStatuses
-        classification
+        neuronEls % electrode of each neuron
+        neuronClusters % cluster number of each cluster
+        neuronIDs % neuron ID of each cluster
+        neuronStatuses % cleaning status report for each cluster
+        classification % classification string for each cluster
         
-        elLoaded
-        prjLoaded % only handles 1 loaded prj. Caching effect TODO
+        elLoaded % electrode currently loaded - MATLAB numbering
+        
         
         % Front end friendly data
-        isDataReady
+        isDataReady % Marker if loading is complete. Is not currently used
         
-        nClusters
-        displayIDs
-        contaminationValues
-        spikeCounts
-        statusRaw
-        comment
-        % ACF
-        spikeTrains % for spike rate
-        spikeTrainCorr
-        prjTrains
-        eisLoaded
-        EIdistMatrix
-        stasLoaded
-        % cleaning status
+        % Information about the clusters on loaded electrode 
+        nClusters % Number of clusters
+        displayIDs % IDs
+        contaminationValues % Contamination values
+        spikeCounts % Spike train counts
+        statusRaw % Raw clean status markers
+        comment % string parsed from classification file
+        
+        spikeTrains % spike trains of clusters
+        spikeTrainCorr % Matrix of cross correlations between spike trains (actually irrelevant on a single electrode)
+        prjTrains % Projections of the spike train
+        eisLoaded % (available) EIs
+        EIdistMatrix % computed EI distance matrix
+        stasLoaded % (available) STAs
     end
     
     properties % public setting access
-        statusBarHandle
+        statusBarHandle = [] % Handle to the GUI status bar - set from the GUI
+        % To keep working without a GUI, a statusBarHandle.String = '' initializer is in the
+        % constructor
     end
     
     methods
@@ -258,31 +260,45 @@ classdef ClusterEditBackend < handle
                 obj.arrayID = obj.eiFile.arrayID;
                 obj.electrodeMap = edu.ucsc.neurobiology.vision.electrodemap.ElectrodeMapFactory.getElectrodeMap(obj.arrayID);
             end
+            
+            % Handling case where no GUI caller exists - user mode
+            % Code will pass through calls to the GUI status bar no questions asked.
+            obj.statusBarHandle.String = '';
         end
         
+        % function loadEl
+        %   loads the requested electrode and prepares all front-end friendly data
+        %   Input:
+        %       el: MATLAB numbered electrode number
+        %
+        %   Output:
+        %       returnStatus: 1 if load failed (same as already loaded, invalid)
+        %                     0 if load succeded
         function returnStatus = loadEl(obj,el)
-            if el == obj.elLoaded
+            if el == obj.elLoaded % Already loaded - save the work
                 obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el-1);
                 returnStatus = 1;
                 return;
             end
-            if (el <= 1) || (el > obj.nElectrodes)
+            if (el <= 1) || (el > obj.nElectrodes) % Invalid number
                 obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el-1);
                 returnStatus = 1;
                 return;
-            else
-                obj.elLoaded = el;
-                if obj.typeIsSpectra
-                    eval(sprintf('load(''%s'',''projSpikes%u'');',obj.prj.path,el));
-                    eval(sprintf('obj.prjLoaded = projSpikes%u;',el));
-                else
-                    projToMatlabWrap = obj.prj.javaFile.readProjections(el-1);
-                    obj.prjLoaded = double(projToMatlabWrap.data)';
-                end
             end
             
+            % Load the electrode
+            obj.elLoaded = el;
+            if obj.typeIsSpectra % Matfile prj loading in spectra mode
+                eval(sprintf('load(''%s'',''projSpikes%u'');',obj.prj.path,el));
+                eval(sprintf('prjLoaded = projSpikes%u;',el));
+            else % Java loading in vision mode
+                projToMatlabWrap = obj.prj.javaFile.readProjections(el-1);
+                prjLoaded = double(projToMatlabWrap.data)';
+            end
+            % position of relevant neurons in the global list
             neuronIndices = find(obj.neuronEls == el);
             
+            % Electrode data - initializers
             obj.displayIDs = obj.neuronIDs(neuronIndices);
             obj.nClusters = numel(obj.displayIDs);
             obj.spikeTrains = cell(obj.nClusters,1);
@@ -293,15 +309,21 @@ classdef ClusterEditBackend < handle
             obj.comment = obj.classification(neuronIndices);
             
             if obj.typeIsSpectra
+                % Get all spike times on electrode from prj.mat file
+                % Reconstruct projection trains by cluster
                 elSpikeTimes = obj.prj.matfile.spikeTimes(obj.elLoaded,1);
                 elSpikeTimes = elSpikeTimes{1};
                 
                 if numel(neuronIndices) > 0
+                    % Load spike trains
                     obj.spikeTrains = obj.neurons.matfile.neuronSpikeTimes(neuronIndices,1);
                 else
                     obj.spikeTrains = cell(0,1);
                 end
             else
+                % Get all spike times on electrode from the prj file
+                % projectionsToMatlab returned object
+                % Reconstruct projections trains
                 elSpikeTimes = double(projToMatlabWrap.times);
                 obj.spikeTrains = cell(numel(obj.displayIDs),1);
                 for c = 1:obj.nClusters
@@ -309,31 +331,38 @@ classdef ClusterEditBackend < handle
                 end
             end
             
+            % Compute front-end ready data
             obj.spikeCounts = cellfun(@numel, obj.spikeTrains,'uni',true);
             
             for c = 1:obj.nClusters
                 [~,~,indices] = intersect(...
                     obj.spikeTrains{c},...
                     elSpikeTimes);
-                obj.prjTrains{c} = obj.prjLoaded(indices,:);
+                obj.prjTrains{c} = prjLoaded(indices,:);
                 
                 obj.contaminationValues(c) = ...
                     edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(obj.spikeTrains{c},int32(obj.nSamples));
             end
             
+            % Load EIs
             if numel(obj.eiFile) > 0
                 obj.loadEI();
                 obj.loadEIDistances();
             end
+            % Load STAs
             if numel(obj.staFile) > 0
                 obj.loadSTA();
             end
+            % Load neuron time correlations
             obj.loadCorrelations();
             
+            % Finish
             obj.isDataReady = true;
             returnStatus = 0;
         end
         
+        % function loadEI
+        %   loads the EIs from the EI file for the IDs in obj.displayIDs
         function loadEI(obj)
             obj.eisLoaded = cell(obj.nClusters,1);
             for c = 1:obj.nClusters
@@ -345,20 +374,22 @@ classdef ClusterEditBackend < handle
             end
         end
         
+        % function loadEIDistances
+        %   Computes the EI distance matrix for the EIs loaded in obj.eisLoaded
+        %   Metric identical to duplicate removal (realignement per electrode, L2 norm,...)
         function loadEIDistances(obj)
-            % Purpose of this function is to select relevant electrodes as in merging,
-            % Realign EIs and compute the matrix of distances.
-            % The process is meant to be identical as merging analysis in duplicate removal
             cleanConfig = obj.config.getCleanConfig();
             eiSize = obj.eiFile.nlPoints + obj.eiFile.nrPoints + 1;
             
-            % Recenter global minima window if necessary
+            % Recenter global minima window if ei left and right are not identical to the configuration 
             cleanConfig.globMinWin = cleanConfig.globMinWin - cleanConfig.EILP + obj.eiFile.nlPoints;
             
+            % Utils for realignment
             minWindowSize = cleanConfig.globMinWin(2) - cleanConfig.globMinWin(1);
             samplingVal = cleanConfig.globMinWin(1):cleanConfig.resamplePitch:cleanConfig.globMinWin(2);
             basicValues = 1:(eiSize - minWindowSize);
             
+            % Electrode neighborhoods
             [adjacent2,~] = catchAdjWJava( obj.eiFile, 2);
             
             trace = zeros(obj.nClusters, (eiSize - minWindowSize) * numel(adjacent2{obj.elLoaded}));
@@ -383,12 +414,17 @@ classdef ClusterEditBackend < handle
             % L2 normalization
             trace(hasEI,:) = bsxfun(@rdivide,trace(hasEI,:),sqrt(sum(trace(hasEI,:).^2,2)));
             
-            % Distance computation
+            % Distance computation - nans for unavailable EIs
             [~,dists] = returnL2MergeClasses(trace(hasEI,:), 0);
             obj.EIdistMatrix = nan(obj.nClusters);
             obj.EIdistMatrix(hasEI,hasEI) = dists;
         end
         
+        % function loadCorrelations
+        %   Computes the time correlation between spike trains loaded in obj.spikeTrains
+        %   Using parameters corresponding to Vision's duplicate removal defaults
+        %   This information is not displayed anywhere at this point, because irrelevant
+        %   for neurons on the same electrode
         function loadCorrelations(obj)
             visionCoincidenceTime = 10;
             obj.spikeTrainCorr = ones(obj.nClusters);
@@ -403,6 +439,8 @@ classdef ClusterEditBackend < handle
             end
         end
         
+        % Function loadSTA
+        %   load the STAs in the STA file for the IDs in obj.displayIDs
         function loadSTA(obj)
             obj.stasLoaded = cell(obj.nClusters,1);
             for c = 1:obj.nClusters
@@ -414,6 +452,12 @@ classdef ClusterEditBackend < handle
             end
         end
         
+        % function checkID
+        %   returns the electrode number for an ID of the dataset
+        %   Input:
+        %       ID: cluster ID
+        %   Output:
+        %       el: electrode number for this ID if it exists, -1 otherwise
         function el = checkID(obj,ID)
             rowNum = find(obj.neuronIDs == ID);
             if numel(rowNum) ~= 1
@@ -423,10 +467,9 @@ classdef ClusterEditBackend < handle
             end
             [el,~] = obj.getElClust(ID);
         end
-    end
+    end % End of dynamic methods
     
-    
-    
+
     methods(Static)
         % Statically computes neuron IDs for electrode-clusterID pairs
         % Allows to store absolute neuron information during neuron cleaning
@@ -447,6 +490,15 @@ classdef ClusterEditBackend < handle
             clust = mod(ID-1,maxClust) + 1;
         end
         
+        % function shortenDuplicatePairs
+        %   shortens the duplicate discard paths for an array in duplicate removal syntax:
+        %   where each row is [ID of neuron 1, ID of neuron 2 discarded as a duplicate of neuron 1]
+        %   Shortens the chains meaning that the left columns finally only contains neurons that do
+        %   not appear in the second column (ie the only duplicate neuron that is finally kept)
+        %
+        %   Input:
+        %       IDPairs: nx2 array of duplicate discard pairs
+        %       rows such that [ID, ID discarded as duplicate]
         function IDPairs = shortenDuplicatesPath(IDPairs)
             % 1st column - ID for which it is deleted
             % 2nd column - ID deleted
