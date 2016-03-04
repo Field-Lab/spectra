@@ -35,6 +35,9 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         datasetFolder = backEndHandle.analysisPath;
     end
     
+    % Attach edit handler
+    editHandler = EditHandler(datasetFolder);
+    
     % Front-end main figure
     frontEndHandle = figure( 'Name',sprintf('Cluster Editor %s',version), ...
         'MenuBar', 'none', ...
@@ -94,7 +97,15 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     axis(plot3D,'tight');
     % End 3D plot initialization
     
-    graph3DBox.Sizes = -1; %[50 -1]; Finish graph3DBox
+    % Rightmost column of edition buttons
+    editCol = uiextras.VBox(...
+        'Parent',graph3DBox,...
+        'Spacing',2);
+    editColFiller = uiextras.Empty('Parent',editCol,'background','g');
+    editCol.Sizes = [-1];
+    % TODO add editHandler instantiation at top of file
+    
+    graph3DBox.Sizes = [-1 50]; % Finish graph3DBox
     
     % HBox wrapper for [[Sp rate; ACF], PC45]
     bottomGraphs = uiextras.HBoxFlex(...
@@ -901,17 +912,6 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     %   callback of the "Custom" button of the EI distance matrix display
     %   Opens a prompt window for the user to provide a custom list of IDs to display in that order
     function customPermutationCallback(varargin)
-        % Get screen dimensions, compute center
-        p = get(groot,'Screensize'); p(1:2) = p(3:4) / 2; p(3:4) = 0;
-        % Pop-up window with title row and type-in text row showing current permutation
-        global popup;
-        popup = figure( 'Name',sprintf('Type in an ordered ID list... (as a matlab row)'), ...
-        'MenuBar', 'none', ...
-        'Toolbar', 'none', ...
-        'NumberTitle', 'off',...
-        'Visible', 'on',...
-        'OuterPosition', p +  [-250,-30,500,70],...
-        'deleteFcn',@del);
         s = '[ ';
         for i = 1:numel(currentPermutation)
             s = [s,num2str(backEndHandle.displayIDs(currentPermutation(i))),', '];
@@ -920,37 +920,14 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         if numel(s) == 2
             s = '[ ]';
         end
-        % Type-in row. s contains the currently displayed ID ordering
-        fillBox = uicontrol(...
-            'Parent',popup,...
-            'Style','edit',...,
-            'Fontsize',11,...
-            'Units','norm',...
-            'Position',[0 0 1 1],...
-            'Visible','on',...
-            'String',s,...
-            'callback',@del2);
-        
-        % Wait for the user to close the window. Hitting enter in the textbox
-        % calls its callback del2 that also closes the window
-        % The deleting callback (del if closing window, del2 if hitting enter)
-        % passes the content string through globalized saveString.
-        waitfor(popup);
+        request = inputdlg('Enter cluster ordering:','Input',[1 100],{s});
         try % try to evaluate user input as valid matlab content, with valid ID number for current electrode
-            eval(['currentPermutation = ',saveString,';']);
+            eval(['currentPermutation = ',request{1},';']);
             currentPermutation = arrayfun(@(x) find(backEndHandle.displayIDs == x), currentPermutation);
             statusBar.String = 'EI display permutation changed';
             refreshLowLeftPanels();
         catch
             statusBar.String = 'Invalid permutation entered';
-        end
-        
-        function del(~,~) % pop-up delete function
-            saveString = fillBox.String;
-        end
-        function del2(source,~) % fillbox "hit enter" callback
-            saveString = fillBox.String;
-            delete(source.Parent);
         end
     end
     

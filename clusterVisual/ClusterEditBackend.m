@@ -252,7 +252,7 @@ classdef ClusterEditBackend < handle
                 obj.classification(pos) = classesRaw{2}(pos2);
                 fclose(fid);
             else
-                fprintf('ClusterEditBackend:ClusterEditBackend - Can''t find classification .txt file\n.');
+                fprintf('ClusterEditBackend:ClusterEditBackend - Can''t find classification.txt file.\n');
             end
             
             % electrode map
@@ -348,6 +348,8 @@ classdef ClusterEditBackend < handle
             if numel(obj.eiFile) > 0
                 obj.loadEI();
                 obj.loadEIDistances();
+            else
+                obj.EIdistMatrix = nan(obj.nClusters);
             end
             % Load STAs
             if numel(obj.staFile) > 0
@@ -466,6 +468,30 @@ classdef ClusterEditBackend < handle
                 return;
             end
             [el,~] = obj.getElClust(ID);
+        end
+        
+        % function softApplyAction
+        %   applies an edit action to the data stored in the cache of this object,
+        %   locally, on the selected electrode.
+        %   This is previewing feature for edition actions.
+        %
+        %   Inputs:
+        %       action: EditAction object
+        %       parameters: cell array describing action parameters
+        function softApplyAction(obj,action,parameters)
+            validateattributes(action,{'EditAction'},{});
+            validateattributes(parameters,{'cell'},{});
+        end
+        
+        % function hardApplyAction
+        %   Overwrites the current state of displayed clusters to the neurons.mat file
+        %
+        %   Inputs:
+        %       action: EditAction object
+        %       parameters: cell array describing action parameters
+        function hardApplyPreviewedActions(obj,action,parameters)
+            validateattributes(action,{'EditAction'},{});
+            validateattributes(parameters,{'cell'},{});
         end
     end % End of dynamic methods
     
