@@ -76,7 +76,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     % of the 3D plot
     graph3DBox = uiextras.HBox(...
         'Parent',graphLayout,...
-        'Spacing',spacerWidth);
+        'Spacing',5);
     
     % Panel for 3D box axes (always put a panel to encapsulate axes)
     supportPanel3D = uipanel('Parent',graph3DBox);
@@ -101,11 +101,20 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     editCol = uiextras.VBox(...
         'Parent',graph3DBox,...
         'Spacing',2);
+    editEnum = enumeration('EditAction');
+    for action = editEnum'
+        uicontrol(...
+        'Parent',editCol,...
+        'Style', 'pushbutton',...
+        'String',action.char,...
+        'fontsize',9,...
+        'callback',{@editCallback,action});
+    end
     editColFiller = uiextras.Empty('Parent',editCol,'background','g');
-    editCol.Sizes = [-1];
+    editCol.Sizes = [repmat(24,1,numel(editEnum)),-1];
     % TODO add editHandler instantiation at top of file
     
-    graph3DBox.Sizes = [-1 50]; % Finish graph3DBox
+    graph3DBox.Sizes = [-1 65]; % Finish graph3DBox
     
     % HBox wrapper for [[Sp rate; ACF], PC45]
     bottomGraphs = uiextras.HBoxFlex(...
@@ -912,15 +921,11 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     %   callback of the "Custom" button of the EI distance matrix display
     %   Opens a prompt window for the user to provide a custom list of IDs to display in that order
     function customPermutationCallback(varargin)
-        s = '[ ';
-        for i = 1:numel(currentPermutation)
-            s = [s,num2str(backEndHandle.displayIDs(currentPermutation(i))),', '];
-        end
-        s((end-1):end) = ' ]';
-        if numel(s) == 2
-            s = '[ ]';
-        end
+        s = prettyPrint(backEndHandle.displayIDs(currentPermutation));
         request = inputdlg('Enter cluster ordering:','Input',[1 100],{s});
+        if numel(request) == 0
+            return % User clicked cancel
+        end
         try % try to evaluate user input as valid matlab content, with valid ID number for current electrode
             eval(['currentPermutation = ',request{1},';']);
             currentPermutation = arrayfun(@(x) find(backEndHandle.displayIDs == x), currentPermutation);
@@ -929,6 +934,41 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         catch
             statusBar.String = 'Invalid permutation entered';
         end
+    end
+    
+    function editCallback(~,~, action)
+        switch action
+            % Identify Action
+            % Check validity of required data
+            % Prompt user for action data (show default = current selection)
+            % Update EditHandler
+            % request backend for edit
+            % TODO
+            case EditAction.DEBUG
+                params = inputdlg('Numerical nonempty array:','Input',[1 100],{'[0 1]'});
+                try
+                    params{1} = str2num(params{1});
+                end
+                statusBar.String = 'DEBUG callback';
+            case EditAction.DEBUG_2
+                params = inputdlg({'Numerical nonempty array:','A string:'},'Input',[1 100],{'[0 1]','junk'});
+                statusBar.String = 'DEBUG_2 callback';
+                try
+                    params{1} = str2num(params{1});
+                end
+        end
+        if numel(params) == 0
+            return % User clicked cancel
+        end
+        [v,m] = action.checkParameterStructure(params);
+        if v == 0
+            throw(MException('',['ClusterEditGUI:editCallback - Invalid action parameters: \n',m]));
+        end
+        
+        % First check backend for validity of execution
+        % Then add to edithandler and open it
+        editHandler.addAction(action,params);
+        editHandler.openWindow();
     end
     
     %% FINISH GENERATING THE GUI %%
@@ -985,4 +1025,11 @@ function [remainingTools,toolbarHandle] = customizeTools(figureHandle)
         
         remainingTools = findobj(allTools,'-regexp','Tag','Exploration*','-and','Visible','on');
         toolbarHandle = findobj(allTools,'Tag','FigureToolBar');
+end
+
+function s = prettyPrint(vect)
+    if size(vect,2) == 1
+        vect =vect';
+    end
+    s = ['[ ',num2str(vect,'%u '),']'];
 end

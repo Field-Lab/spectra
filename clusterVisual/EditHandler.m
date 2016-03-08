@@ -58,7 +58,7 @@ classdef EditHandler < handle
                 'Toolbar', 'none', ...
                 'NumberTitle', 'off',...
                 'Visible', 'on',...
-                'OuterPosition', [0.7*w,0.25*h,0.25*w,0.7*h],...
+                'OuterPosition', [0.6*w,0.25*h,0.25*w,0.7*h],...
                 'deleteFcn',@obj.windowClose);
             supportPanel = uipanel('Parent',obj.windowHandle,...
                 'Position',[0 0 1 1]);
@@ -172,8 +172,10 @@ classdef EditHandler < handle
         %       action: EditAction object
         %       parameters: cell array describing action parameters
         function addAction(obj,action,parameters)
-            validateattributes(action,{'EditAction'},{});
-            validateattributes(parameters,{'cell'},{});
+            [v,m] = action.checkParameterStructure(parameters);
+            if v == 0
+                throw(MException('',['EditHandler:addAction - Invalid action parameters: \n',m]));
+            end
             obj.editList = [obj.editList ; {action, parameters}];
             obj.displayList = [obj.displayList ; obj.genString(action,parameters)];
             obj.updateGUITable();
@@ -184,6 +186,7 @@ classdef EditHandler < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
+        % TODO
         function str = genString(obj,action,parameters)
             validateattributes(action,{'EditAction'},{});
             validateattributes(parameters,{'cell'},{});

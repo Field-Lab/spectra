@@ -480,7 +480,10 @@ classdef ClusterEditBackend < handle
         %       parameters: cell array describing action parameters
         function softApplyAction(obj,action,parameters)
             validateattributes(action,{'EditAction'},{});
-            validateattributes(parameters,{'cell'},{});
+            [v,m] = action.checkParameterStructure(params);
+            if v == 0
+                throw(MException('',['ClusterEditBackend:softApplyAction - Invalid action parameters: \n',m]));
+            end
         end
         
         % function hardApplyAction
@@ -491,7 +494,10 @@ classdef ClusterEditBackend < handle
         %       parameters: cell array describing action parameters
         function hardApplyPreviewedActions(obj,action,parameters)
             validateattributes(action,{'EditAction'},{});
-            validateattributes(parameters,{'cell'},{});
+            [v,m] = action.checkParameterStructure(params);
+            if v == 0
+                throw(MException('',['ClusterEditBackend:hardApplyPreviewedActions - Invalid action parameters: \n',m]));
+            end
         end
     end % End of dynamic methods
     
