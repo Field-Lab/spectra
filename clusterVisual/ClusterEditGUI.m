@@ -46,7 +46,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Visible', 'off',...
         'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90]);
     % Remove buttons - we only keep figure movement handling
-    [remainingTools,toolbarHandle] = customizeTools(frontEndHandle);
+    [~,~] = customizeTools(frontEndHandle);
        
     %% Configuration %%
     spacerWidth = 10; % generic spacer size (pixel; but hardcoded values are often used)
@@ -76,7 +76,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     % of the 3D plot
     graph3DBox = uiextras.HBox(...
         'Parent',graphLayout,...
-        'Spacing',5);
+        'Spacing',3);
     
     % Panel for 3D box axes (always put a panel to encapsulate axes)
     supportPanel3D = uipanel('Parent',graph3DBox);
@@ -101,20 +101,35 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     editCol = uiextras.VBox(...
         'Parent',graph3DBox,...
         'Spacing',2);
+    uiextras.Empty('Parent',graph3DBox); % empty colon at right of toolstrip, to recover spacing at edge of screen
     editEnum = enumeration('EditAction');
+    openEditHandler = uicontrol('Parent',editCol,'Style','pushbutton',...
+        'String','-SHOW LIST-',...
+        'TooltipString','Show the edit viewer edit list',...
+        'Interruptible','off','BusyAction','cancel',...
+        'fontsize',9,'callback',@openEditHandlerCallback);
+    clearEditActions = uicontrol('Parent',editCol,'Style','pushbutton',...
+        'String','-CLEAR-',...
+        'TooltipString','Clear all edit actions being previewed on this electrode.',...
+        'Interruptible','off','BusyAction','cancel',...
+        'fontsize',9,'callback',@clearEditsCallback);
+    uiextras.Empty('Parent',editCol,'background','g');
     for action = editEnum'
+        str = action.char;
+        str = [str(1),lower(str(2:end))];
         uicontrol(...
         'Parent',editCol,...
         'Style', 'pushbutton',...
-        'String',action.char,...
+        'String',str,...
+        'TooltipString',action.getTooltipString,...
+        'Interruptible','off','BusyAction','cancel',...
         'fontsize',9,...
         'callback',{@editCallback,action});
     end
-    editColFiller = uiextras.Empty('Parent',editCol,'background','g');
-    editCol.Sizes = [repmat(24,1,numel(editEnum)),-1];
-    % TODO add editHandler instantiation at top of file
+    uiextras.Empty('Parent',editCol,'background','g');
+    editCol.Sizes = [24 24 20 repmat(24,1,numel(editEnum)),-1];
     
-    graph3DBox.Sizes = [-1 65]; % Finish graph3DBox
+    graph3DBox.Sizes = [-1 75 0]; % Finish graph3DBox
     
     % HBox wrapper for [[Sp rate; ACF], PC45]
     bottomGraphs = uiextras.HBoxFlex(...
@@ -214,6 +229,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','El#',...
+        'TooltipString','Type in an electrode number and hit return to load.',...
         'fontsize',10,...
         'callback',@loadButtonCallback);
     % increment/decrement buttons box
@@ -226,6 +242,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',ppmmButtonBox,...
         'Style', 'pushbutton',...
         'String',char(hex2dec('25B2')),...
+        'TooltipString','Increment electrode # and load.',...
         'fontsize',6,...
         'callback',@loadButtonCallback);
     % Electrode decrement button
@@ -233,6 +250,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',ppmmButtonBox,...
         'Style', 'pushbutton',...
         'String',char(hex2dec('25BC')),...
+        'TooltipString','Decrement electrode # and load.',...
         'fontsize',6,...
         'callback',@loadButtonCallback);
     ppmmButtonBox.Sizes = [-1 -1]; % Finish increment/decrement button box
@@ -241,6 +259,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',loadRow,...
         'Style', 'pushbutton',...
         'String','Load',...
+        'TooltipString','Click to load the electrode # typed in the box.',...
         'fontsize',10,...
         'callback',@loadButtonCallback);
     % Text box, cluster ID to seek and load
@@ -249,6 +268,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Style', 'edit',...
         'Max',1,'Min',1,...
         'String','ID#',...
+        'TooltipString','Type in a neuron ID and hit return to load its electrode.',...
         'fontsize',10,...
         'callback',@loadClustButtonCallback);
     % Button actively loading ID typed in text box
@@ -256,6 +276,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',loadRow,...
         'Style', 'pushbutton',...
         'String','Load',...
+        'TooltipString','Click to load neuron ID typed in the box',...
         'fontsize',10,...
         'callback',@loadClustButtonCallback);
     % Filler
@@ -273,6 +294,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',selectorRow,...
         'Style', 'pushbutton',...
         'String','Select All',...
+        'TooltipString','Display of all the neurons in the table below.',...
         'fontsize',10,...
         'callback',@selectorCallback);
     % Unselect all clusters button
@@ -280,6 +302,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',selectorRow,...
         'Style', 'pushbutton',...
         'String','Unselect All',...
+        'TooltipString','Hide all the neurons',...
         'fontsize',10,...
         'callback',@selectorCallback);
     % filler
@@ -290,6 +313,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',selectorRow,...
         'Style', 'pushbutton',...
         'String','Re-scatter',...
+        'TooltipString','Redo random sampling of PC points displayed.',...
         'fontsize',10,...
         'callback',@refreshGraphics);
     % Automatic PC plot axis rescaling
@@ -297,6 +321,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Parent',selectorRow,...
         'Style', 'pushbutton',...
         'String','Rescale Axes',...
+        'TooltipString','Autoscale axes of 3D and PC 4-5 plots.',...
         'fontsize',10,...
         'callback',@autoScalePCPlots);
     selectorRow.Sizes = [75 90 -1 75 95]; % finish selectorRow
@@ -936,42 +961,86 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     
+    % function clearEditsCallback
+    % Removes all edits being applied/previewed on the currently displayed electrode
+    % and reloads electrode data from scratch.
+    % Callback of the clear edits button
+    function clearEditsCallback(~,~)
+        editHandler.clearActions();
+        backEndHandle.reloadSameData();
+        refreshView();
+    end
+    
+    % function openEditHandlerCallback
+    %   opens the editHandler window
+    %   callback to corresponding button
+    function openEditHandlerCallback(~,~)
+        editHandler.openWindow();
+    end
+    
+    % function editCallback
+    %   callback of all edition buttons
+    %   Checks the action nature and applies appropriate behavior
+    %   updates the editHandles and calls the backend for applying changes
     function editCallback(~,~, action)
-        switch action
-            % Identify Action
-            % Check validity of required data
-            % Prompt user for action data (show default = current selection)
-            % Update EditHandler
-            % request backend for edit
-            % TODO
-            case EditAction.DEBUG
-                params = inputdlg('Numerical nonempty array:','Input',[1 100],{'[0 1]'});
-                try
+        [k,c] = nClustSelected();
+        c = backEndHandle.displayIDs(c);
+        s = prettyPrint(c);
+        try
+            exc = [];
+            switch action
+                case EditAction.DEBUG
+                    params = inputdlg('Numerical nonempty array:','Input',[1 70],{s});
                     params{1} = str2num(params{1});
-                end
-                statusBar.String = 'DEBUG callback';
-            case EditAction.DEBUG_2
-                params = inputdlg({'Numerical nonempty array:','A string:'},'Input',[1 100],{'[0 1]','junk'});
-                statusBar.String = 'DEBUG_2 callback';
-                try
+                case EditAction.DEBUG_2
+                    params = inputdlg({'Numerical nonempty array:','A string:'},'Input',[1 70],{s,'junk'});
                     params{1} = str2num(params{1});
-                end
+                case EditAction.NO_REMOVE
+                    params = inputdlg({'List of IDs to elevate:'},'Input',[1 70],{s});
+                    params{1} = str2num(params{1});
+                otherwise
+                    % report unhandled case out of try/catch block
+                    exc = MException('','ClusterEditGUI:editCallback - Unhandled EditAction in switch statement.');
+            end
+        catch
+            params = {};
+        end
+        if numel(exc) > 0
+            throw(exc)
         end
         if numel(params) == 0
             return % User clicked cancel
         end
-        [v,m] = action.checkParameterStructure(params);
+        [v,m] = action.checkParameters(params);
         if v == 0
-            throw(MException('',['ClusterEditGUI:editCallback - Invalid action parameters: \n',m]));
+            statusBar.String = 'Invalid action parameters. See console for details';
+            fprintf([m,'\n']);
+            return;
         end
         
+        statusBar.String = [action.char,' request acknowledged, computing...']; drawnow;
         % First check backend for validity of execution
         % Then add to edithandler and open it
+        [s,msg] = backEndHandle.softApplyAction(action,params);
+        if s ~= 0 % Invalid parameters regarding the backend data, aborting.
+            statusBar.String = msg;
+            return;
+        end
+        
         editHandler.addAction(action,params);
         editHandler.openWindow();
+        
+        statusBar.String = 'Computation done. Refreshing view...'; drawnow;
+        refreshView();
+        statusBar.String = [action.char,' edition done.']; drawnow;
+        
     end
     
     %% FINISH GENERATING THE GUI %%
+    if backEndHandle.isDataReady;
+        refreshView();
+        elNumberBox.String = num2str(backEndHandle.elLoaded);
+    end
     frontEndHandle.Visible = 'on';
     varargout{1} = frontEndHandle;
     varargout{2} = backEndHandle;
@@ -1025,11 +1094,4 @@ function [remainingTools,toolbarHandle] = customizeTools(figureHandle)
         
         remainingTools = findobj(allTools,'-regexp','Tag','Exploration*','-and','Visible','on');
         toolbarHandle = findobj(allTools,'Tag','FigureToolBar');
-end
-
-function s = prettyPrint(vect)
-    if size(vect,2) == 1
-        vect =vect';
-    end
-    s = ['[ ',num2str(vect,'%u '),']'];
 end

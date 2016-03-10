@@ -9,12 +9,6 @@ classdef EditHandler < handle
     %   The save button allows to write the edit commands to a file
     %   A prompt will ask user for saving or discarding at the end of edition
     %
-    %   To apply edition changes, the user should make a call to the
-    %   matlab TODO function, which will apply the provided changes,
-    %   then repeat all the non-interfering duplicate removal steps listed in
-    %   the .clean.mat file
-    %   See the documentation of TODO function for how changes will be applied
-    %   to the dataset
     %
     %   Author - Vincent Deo - Stanford University - March 1st 2016
     
@@ -172,7 +166,7 @@ classdef EditHandler < handle
         %       action: EditAction object
         %       parameters: cell array describing action parameters
         function addAction(obj,action,parameters)
-            [v,m] = action.checkParameterStructure(parameters);
+            [v,m] = action.checkParameters(parameters);
             if v == 0
                 throw(MException('',['EditHandler:addAction - Invalid action parameters: \n',m]));
             end
@@ -195,6 +189,10 @@ classdef EditHandler < handle
                     str = sprintf('DEBUG Action with %u parameters',numel(parameters));
                 case EditAction.DEBUG_2
                     str = sprintf('DEBUG_2 Action with %u parameters',numel(parameters));
+                case EditAction.NO_REMOVE
+                    str = ['Unremovable status for IDs ', prettyPrint(parameters{1})];
+                otherwise
+                    throw(MException('','EditHandler:genString - Unhandled EditAction in switch statement.'));
             end
         end
         

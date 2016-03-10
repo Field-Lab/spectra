@@ -270,21 +270,26 @@ classdef ClusterEditBackend < handle
         %   loads the requested electrode and prepares all front-end friendly data
         %   Input:
         %       el: MATLAB numbered electrode number
-        %
+        %       optional varargin{1}: put to 1 to override behavior that prevent reloading data
+        %           already loaded.
         %   Output:
         %       returnStatus: 1 if load failed (same as already loaded, invalid)
         %                     0 if load succeded
-        function returnStatus = loadEl(obj,el)
-            if el == obj.elLoaded % Already loaded - save the work
-                obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el-1);
-                returnStatus = 1;
-                return;
+        function returnStatus = loadEl(obj,el,varargin)
+            
+            if numel(varargin) == 0 || ~varargin{1} % Already loaded skip override
+                if el == obj.elLoaded % Already loaded - save the work
+                    obj.statusBarHandle.String = sprintf('Electrode %u already loaded.',el-1);
+                    returnStatus = 1;
+                    return;
+                end
             end
             if (el <= 1) || (el > obj.nElectrodes) % Invalid number
                 obj.statusBarHandle.String = sprintf('Electrode number %u invalid, nothing done.',el-1);
                 returnStatus = 1;
                 return;
             end
+            
             
             % Load the electrode
             obj.elLoaded = el;
@@ -363,6 +368,14 @@ classdef ClusterEditBackend < handle
             returnStatus = 0;
         end
         
+        % function reload same data
+        %   reloads the electrode already selected from files and global dataset variables into
+        %   local loaded electrode variables.
+        function reloadSameData(obj)
+            obj.loadEl(obj.elLoaded,true);
+        end
+            
+            
         % function loadEI
         %   loads the EIs from the EI file for the IDs in obj.displayIDs
         function loadEI(obj)
@@ -478,12 +491,37 @@ classdef ClusterEditBackend < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        function softApplyAction(obj,action,parameters)
+        function [returnStat,msg] = softApplyAction(obj,action,params)
+            % Information that needs to be edited/thought about when implementing applies on loaded
+            % electrode:
+            % nClusters  - displayIDs - contaminationValues
+            % spikeCounts - statusRaw - comment
+            % spikeTrains - spikeTrainCorr - prjTrains
+            % eisLoaded - EIdistMatrix - stasLoaded
             validateattributes(action,{'EditAction'},{});
-            [v,m] = action.checkParameterStructure(params);
+            [v,m] = action.checkParameters(params);
             if v == 0
                 throw(MException('',['ClusterEditBackend:softApplyAction - Invalid action parameters: \n',m]));
             end
+            switch action
+                case EditAction.DEBUG
+                    fprintf('Applying a DEBUG action.\n');
+                case EditAction.DEBUG_2
+                    fprintf('Applying a DEBUG_2 action.\n');
+                case EditAction.NO_REMOVE
+                    [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
+                    if numel(selRowsIdx) < numel(params{1})
+                        msg = 'Some requested IDs are invalid. Aborting edition.';
+                        returnStat = 1;
+                        return;
+                    end
+                    obj.statusRaw(selRowsIdx,:) = 0;
+                    obj.comment(selRowsIdx) = cellfun(@(s) [s,' - Elevated'],obj.comment(selRowsIdx),'uni',false);
+                otherwise
+                    throw(MException('','ClusterEditBackend:softApplyAction - Unhandled EditAction in switch statement.'));
+            end
+            msg = [];
+            returnStat = 0;
         end
         
         % function hardApplyAction
@@ -492,9 +530,9 @@ classdef ClusterEditBackend < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        function hardApplyPreviewedActions(obj,action,parameters)
+        function hardApplyPreviewedActions(obj,action,params)
             validateattributes(action,{'EditAction'},{});
-            [v,m] = action.checkParameterStructure(params);
+            [v,m] = action.checkParameters(params);
             if v == 0
                 throw(MException('',['ClusterEditBackend:hardApplyPreviewedActions - Invalid action parameters: \n',m]));
             end
