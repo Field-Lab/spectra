@@ -12,7 +12,6 @@ classdef EditAction
         
         NO_REMOVE
         MERGE
-        NO_MERGE
         SHRINK
         RECLUSTER
     end
@@ -50,6 +49,15 @@ classdef EditAction
                     case EditAction.NO_REMOVE
                         validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
                         validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to elevate',1);
+                    case EditAction.MERGE
+                        validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
+                        validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to merge',1);
+                        validateattributes(numel(params{1}),{'numeric'},{'scalar','>=',2},'','List of IDs to merge (numel)',1);
+                    case EditAction.RECLUSTER
+                        validateattributes(params,{'cell'},{'size',[3 1]},'','parameter cell array');
+                        validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to recluster',1);
+                        validateattributes(params{2},{'numeric'},{'scalar','>=',0},'','Number of clusters to apply',2);
+                        validateattributes(params{3},{'char'},{},'','Configuration tag',3);
                     otherwise
                         unhandled = true; % report throw out of try block
                 end
@@ -70,11 +78,9 @@ classdef EditAction
                 case EditAction.DEBUG_2
                     s = 'Debug action, does nothing.';
                 case EditAction.NO_REMOVE
-                    s = 'Elevate the neurons statuses. They won''t be affected by duplicate removal until another calculation is ran.';
+                    s = 'Elevate the neurons statuses. They won''t be affected by duplicate removal or merges until another calculation is ran.';
                 case EditAction.MERGE
                     s = 'Merge together the cluster selection.';
-                case EditAction.NO_MERGE
-                    s = 'Forbid selected clusters to be merged with any other cluster.';
                 case EditAction.SHRINK
                     s = ['Shrink a cluster to reach a given percentage of initial size,',...
                         'following a topologically homogeneous process that conserves shape.'];

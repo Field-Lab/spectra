@@ -17,14 +17,16 @@ classdef EditHandler < handle
     end
     
     properties(SetAccess = private, GetAccess = private)
-        editList = cell(0,2) % n x 2 cell array, encoded list of edits requested
+        editList = cell(0,3) % n x 2 cell array, encoded list of edits requested
         % each 1st col cell is a EditAction enum object
         % each 2nd col cell should be a 1 x k array defining the edit and parameters
+        % each 3rd col cell is a 1 x k array giving returned data by backend execution
         displayList = cell(0,1) % n x 1 cell array for display, string info of 
         
         isWindowOn = false
         actionTable = []
         windowHandle = []
+        statusBar = []
         
         lastDel % deletion recovery
     end
@@ -54,14 +56,14 @@ classdef EditHandler < handle
                 'Visible', 'on',...
                 'OuterPosition', [0.6*w,0.25*h,0.25*w,0.7*h],...
                 'deleteFcn',@obj.windowClose);
-            supportPanel = uipanel('Parent',obj.windowHandle,...
+            supportPanel = uiextras.VBox('Parent',obj.windowHandle,...
                 'Position',[0 0 1 1]);
             
             % Cluster data table %
             columnName = {'Action List','Del'};
             columnFormat = {'char','logical'};
             columnEdit = [false, true];
-            colWidth =  {0.25*w-47,26};
+            colWidth =  {295,26};
             obj.actionTable = uitable(...
                 'Parent',supportPanel,...
                 'ColumnName', columnName,...
@@ -71,17 +73,21 @@ classdef EditHandler < handle
                 'Position',[0 0 1 1],...
                 'RowName',[],...
                 'CellEditCallback',@obj.delRow);
-            % Java tweaking to get sortable columns
-%             jscrollpane = findjobj(obj.actionTable);
-%             jtable = jscrollpane.getViewport.getView;
-%             jtable.setSortable(true);
-%             jtable.setAutoResort(true);
-%             jtable.setMultiColumnSortable(true);
-%             jtable.setPreserveSelectionsAfterSorting(true);
-            obj.actionTable.ColumnWidth = colWidth;
-            % End cluster data table %
+            % Java tweaking to get autoresizing rows for multiline contents
+            jscroll = findjobj(obj.actionTable);
+            jtable = jscroll.getViewport.getView;
+            jtable.setRowAutoResizes(true);
             obj.isWindowOn = true;
-            obj.updateGUITable();
+            obj.updateGUITable(); drawnow;
+            obj.actionTable.ColumnWidth = colWidth;
+            
+            obj.statusBar = uicontrol(...
+                'Parent',supportPanel,...
+                'Style','text',...
+                'fontsize',10,...
+                'String','',...
+                'HorizontalAlignment','left');
+            supportPanel.Sizes = [-1 24];
         end
         
         % function delRow
@@ -89,6 +95,12 @@ classdef EditHandler < handle
         %   Is the callback of the uitable (second column); when the checkbox is clicked,
         %   the row's action is deleted
         function delRow(obj,source,callbackdata)
+            % Table callback, so window has to be open
+            if callbackdata.Indices(1) ~= size(obj.editList,1);
+                obj.statusBar.String = 'Can only delete the last row';
+                obj.actionTable.Data{callbackdata.Indices(1),2} = 0;
+                return;
+            end
             obj.lastDel.pos = callbackdata.Indices(1);
             obj.lastDel.display = obj.displayList(callbackdata.Indices(1),:);
             obj.lastDel.edit = obj.editList(callbackdata.Indices(1),:);
@@ -96,13 +108,14 @@ classdef EditHandler < handle
             obj.editList(callbackdata.Indices(1),:) = [];
             
             obj.updateGUITable;
+            obj.statusBar.String = 'Latest edit canceled. Click ''Recover'' to restore.';
         end
         
         % function restoreLastDel
         %   restores the latest deleted action back into the action listings
         %   Does nothing if there is no action to restore
         %   Cannot be called twice in a row
-        function restoreLastDel(obj)
+        function restoreLastDel(obj, source, callbackdata)
             if numel(obj.lastDel) > 0
                 obj.editList = [obj.editList(1:(obj.lastDel.pos-1),:);...
                     obj.lastDel.edit;...
@@ -165,13 +178,13 @@ classdef EditHandler < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        function addAction(obj,action,parameters)
+        function addAction(obj,action,parameters,data)
             [v,m] = action.checkParameters(parameters);
             if v == 0
                 throw(MException('',['EditHandler:addAction - Invalid action parameters: \n',m]));
             end
-            obj.editList = [obj.editList ; {action, parameters}];
-            obj.displayList = [obj.displayList ; obj.genString(action,parameters)];
+            obj.editList = [obj.editList ; {action, parameters, data}];
+            obj.displayList = [obj.displayList ; obj.genString(action,parameters,data)];
             obj.updateGUITable();
         end
         
@@ -180,8 +193,8 @@ classdef EditHandler < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        % TODO
-        function str = genString(obj,action,parameters)
+        %       data: data cell array resulting from the action execution by the backend
+        function str = genString(obj,action,parameters,data)
             validateattributes(action,{'EditAction'},{});
             validateattributes(parameters,{'cell'},{});
             switch action
@@ -191,6 +204,15 @@ classdef EditHandler < handle
                     str = sprintf('DEBUG_2 Action with %u parameters',numel(parameters));
                 case EditAction.NO_REMOVE
                     str = ['Unremovable status for IDs ', prettyPrint(parameters{1})];
+                case EditAction.MERGE
+                    str = ['<html><left />',...
+                        'Merge of IDs ',prettyPrint(parameters{1}),'<br />',...
+                        'Merge properties:<br />',...
+                        '#Spikes: ',num2str(data{1}),' --- Rate: ',num2str(data{2}),...
+                        ' Hz --- Contam: ',num2str(data{3}),...
+                        '</html>'];
+                case EditAction.RECLUSTER
+                    str = 'WIP - Put meaningful info in this string.';
                 otherwise
                     throw(MException('','EditHandler:genString - Unhandled EditAction in switch statement.'));
             end

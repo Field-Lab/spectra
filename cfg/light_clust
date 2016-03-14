@@ -1,0 +1,8 @@
+% Lightweight parameters for spectral clustering
+%
+% Originally written for a fast reclustering operation
+% when calling from Cluster Editor GUI
+
+spikesForLaplacian = 500
+spikesForKMeans = 5000
+maxEigenVectAndClusters = 6

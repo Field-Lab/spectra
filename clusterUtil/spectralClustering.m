@@ -1,9 +1,9 @@
-function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
+function [clusterIndexes, model, numClusters] = spectralClustering( spikes, varargin )
     %SPECTRALCLUSTERING Clusters input data using full-automated spectral clustering
     %
     %   Input:
     %       spikes: nSpikes x nDims array
-    %
+    %       OPTIONAL varargin{1}: forced number of clusters. 0 defaults to automatic mode
     %   Clustering with spectral clustering, with k-th neighbor distance setting a local
     %   sigma for each datapoint. Affinity matrix uses gaussian metrix over
     %   normalized euclidian distance.
@@ -18,6 +18,7 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     %       numClusters: number of clusters for the data
     %
     % Author -- Vincent Deo -- Stanford University -- August 21, 2015
+    % March 14th 2016: Adding cluster number override  
     
     %% Load mVision configuration - prep data
     % Cannot pass global config as a parameter in case of parfor loop
@@ -81,18 +82,23 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes )
     %% Number of clusters determination
     % Done by iteratively finding optimal rotation of eigenvectors in
     % smallest eigenvalues spaces
-    
-    currVectors = evectors(:,1:2); % Starting at 2 clusters
-    quality = zeros(specConfig.maxEV-1,1); % Array of quality metric
-    alignedVectors = cell(specConfig.maxEV-1,1); % Rotated vectors at each iteration
-    for C = 2:specConfig.maxEV
-        [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
-        currVectors = [alignedVectors{C-1},evectors(:,C+1)];
-    end % C
-    
-    % Qualities are a 0-1 metrix, often max around 1
-    % Best number of clusters is highest number within 0.02 of maximum
-    numClusters = find((max(quality)-quality) < specConfig.qualityTol,1,'last') + 1;
+    if nargin == 1 || varargin{1} == 0
+        currVectors = evectors(:,1:2); % Starting at 2 clusters
+        quality = zeros(specConfig.maxEV-1,1); % Array of quality metric
+        alignedVectors = cell(specConfig.maxEV-1,1); % Rotated vectors at each iteration
+        for C = 2:specConfig.maxEV
+            [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
+            currVectors = [alignedVectors{C-1},evectors(:,C+1)];
+        end % C
+        
+        % Qualities are a 0-1 metrix, often max around 1
+        % Best number of clusters is highest number within 0.02 of maximum
+        numClusters = find((max(quality)-quality) < specConfig.qualityTol,1,'last') + 1;
+    else
+        numClusters = varargin{1};
+        alignedVectors = cell(numClusters-1,1);
+        alignedVectors{numClusters-1} = evectors(:,1:numClusters);
+    end
     
     %% Dimensionality reduction - Laplacian PC space of dimension nClusters
     

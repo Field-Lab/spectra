@@ -6,4 +6,5 @@
 %%
 DEFAULT::./cfg/rewriteDefault::Demo to show users how to write a custom config file
 VINCENT1::./cfg/vincent_custom::Just setting appropriate parallel threading
+LIGHT_CLUST::./cfg/light_clust::Lightweight spectral clustering parameters for not waiting forever
 

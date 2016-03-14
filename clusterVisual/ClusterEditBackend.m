@@ -491,7 +491,11 @@ classdef ClusterEditBackend < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        function [returnStat,msg] = softApplyAction(obj,action,params)
+        %   Returns:
+        %       returnStat: flag at 0 if OK, 1 if error
+        %       data: data about the operation result, for pass to editHandler through the GUI
+        %             error message to report in case of failure
+        function [returnStat,data] = softApplyAction(obj,action,params)
             % Information that needs to be edited/thought about when implementing applies on loaded
             % electrode:
             % nClusters  - displayIDs - contaminationValues
@@ -506,21 +510,123 @@ classdef ClusterEditBackend < handle
             switch action
                 case EditAction.DEBUG
                     fprintf('Applying a DEBUG action.\n');
+                    data = [];
                 case EditAction.DEBUG_2
                     fprintf('Applying a DEBUG_2 action.\n');
+                    data = [];
                 case EditAction.NO_REMOVE
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
-                        msg = 'Some requested IDs are invalid. Aborting edition.';
+                        data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
                         return;
                     end
                     obj.statusRaw(selRowsIdx,:) = 0;
                     obj.comment(selRowsIdx) = cellfun(@(s) [s,' - Elevated'],obj.comment(selRowsIdx),'uni',false);
+                    data = [];
+                case EditAction.MERGE
+                    [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
+                    if numel(selRowsIdx) < numel(params{1})
+                        data = 'Some requested IDs are invalid. Aborting edition.';
+                        returnStat = 1;
+                        return;
+                    end
+                    obj.statusRaw(selRowsIdx,1) = 2;
+                    bestNeuronIdx = find(obj.spikeCounts == max(obj.spikeCounts(selRowsIdx)),1);
+                    obj.statusRaw(selRowsIdx,2) = obj.displayIDs(bestNeuronIdx);
+                    obj.statusRaw(bestNeuronIdx,:) = [0 0];
+                    obj.comment(selRowsIdx) = cellfun(@(s,k) [s,' - Merged'],obj.comment(selRowsIdx),'uni',false);
+                    mergedTrain = sort(horzcat(obj.spikeTrains{selRowsIdx}));
+                    contam = edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(mergedTrain,int32(obj.nSamples));
+                    data = {sum(obj.spikeCounts(selRowsIdx)),... % #Spikes
+                        sum(obj.spikeCounts(selRowsIdx)) * 20000./obj.nSamples,... % Spike rate
+                        contam}; % contamination value
+                case EditAction.RECLUSTER
+                    % First check that the config tag is valid
+                    global GLOBAL_CONFIG
+                    try
+                        GLOBAL_CONFIG = mVisionConfig(params{3});
+                    catch error
+                        data = 'The configuration tag requested is invalid';
+                        returnStat = 1;
+                        return;
+                    end
+                    % Second check ID validity
+                    [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
+                    if numel(selRowsIdx) < numel(params{1})
+                        data = 'Some requested IDs are invalid. Aborting edition.';
+                        returnStat = 1;
+                        return;
+                    end
+                    % Merged pool of spikes to recluster
+                    allPrjs = vertcat(obj.prjTrains{selRowsIdx});
+                    allTimes = horzcat(obj.spikeTrains{selRowsIdx});
+                    [allTimes,sortTime] = sort(allTimes,'ascend');
+                    allPrjs = allPrjs(sortTime,:);
+                    try
+                        [clusterIndexes, model, numClusters] = spectralClustering(allPrjs,params{2}); % Pass the number of clusters
+                    catch
+                        data = 'Spectral Clustering failed. Aborting. Maybe try again?';
+                        returnStat = 1; return;
+                    end
+                    % Check we do not go beyond 15 clusters
+                    if obj.nClusters + numClusters - numel(selRowsIdx) > 15
+                        data = 'Recluster is taking us beyond 15 clusters. Aborting.';
+                        returnStat = 1; return;
+                    end
+                    % Assign new IDs
+                    if numClusters > numel(selRowsIdx) % More clusters than before
+                        newIDs = [obj.displayIDs(selRowsIdx);...
+                            ((max(obj.displayIDs)+1):(max(obj.displayIDs) + numClusters - numel(selRowsIdx)))'];
+                    else % Less clusters than before
+                        newIDs = obj.displayIDs(selRowsIdx(1:numClusters));
+                    end
+                    
+                    % Process local variables
+                    obj.nClusters = obj.nClusters + numClusters - numel(selRowsIdx);
+                    
+                    obj.displayIDs(selRowsIdx) = [];
+                    obj.displayIDs = [obj.displayIDs ; newIDs];
+                    obj.spikeTrains(selRowsIdx) = [];
+                    newSpikeTrains = cellfun(@(x) allTimes(clusterIndexes == x),num2cell(1:numClusters)','uni',false);
+                    obj.spikeTrains = [obj.spikeTrains; newSpikeTrains]; 
+                    obj.prjTrains(selRowsIdx) = [];
+                    newPrjTrains = cellfun(@(x) allPrjs(clusterIndexes == x,:),num2cell(1:numClusters)','uni',false);
+                    obj.prjTrains = [obj.prjTrains; newPrjTrains];
+                    
+                    obj.spikeCounts(selRowsIdx) = [];
+                    obj.spikeCounts = [obj.spikeCounts ;...
+                        cellfun(@(x) numel(x),newSpikeTrains,'uni',true)];
+                    
+                    obj.contaminationValues(selRowsIdx) = [];
+                    obj.contaminationValues = [obj.contaminationValues;...
+                        cellfun(@(x) edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(x,int32(obj.nSamples)),...
+                        newSpikeTrains,'uni',true)];
+                    
+                    obj.statusRaw(selRowsIdx,:) = [];
+                    obj.statusRaw = [obj.statusRaw;...
+                        repmat([0 0],numClusters,1)];
+                    
+                    obj.comment(selRowsIdx) = [];
+                    obj.comment = [obj.comment ; repmat({'Reclustered'},numClusters,1) ];
+                    
+                    obj.eisLoaded(selRowsIdx) = [];
+                    obj.eisLoaded = [obj.eisLoaded ; cell(numClusters,1)];
+                    
+                    obj.stasLoaded(selRowsIdx) = [];
+                    obj.stasLoaded = [obj.stasLoaded ; cell(numClusters,1)];
+                    
+                    obj.EIdistMatrix(selRowsIdx,:) = [];
+                    obj.EIdistMatrix(:,selRowsIdx) = [];
+                    obj.EIdistMatrix = [obj.EIdistMatrix, nan(size(obj.EIdistMatrix,1),numClusters) ;...
+                        nan(numClusters,obj.nClusters)];
+
+                    % spikeTrainCorr
+                    
+                    data = {}; % Add in meaningful data reporting here
                 otherwise
                     throw(MException('','ClusterEditBackend:softApplyAction - Unhandled EditAction in switch statement.'));
             end
-            msg = [];
             returnStat = 0;
         end
         

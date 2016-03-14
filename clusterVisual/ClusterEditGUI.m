@@ -114,10 +114,12 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Interruptible','off','BusyAction','cancel',...
         'fontsize',9,'callback',@clearEditsCallback);
     uiextras.Empty('Parent',editCol,'background','g');
-    for action = editEnum'
+    actionButtons = cell(numel(editEnum),1);
+    for actionNum = 1:numel(editEnum)
+        action = editEnum(actionNum);
         str = action.char;
         str = [str(1),lower(str(2:end))];
-        uicontrol(...
+        actionButtons{actionNum} = uicontrol(...
         'Parent',editCol,...
         'Style', 'pushbutton',...
         'String',str,...
@@ -511,6 +513,9 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         if source == loadButton || source == elNumberBox || source == ppButton || source == mmButton
             clustNumberBox.String = 'ID#';
         end
+        % Activate action buttons
+        activateActionButtons(true);
+        
         myGlobalLoadInterrupt = 0; % Release lock
     end
     
@@ -550,10 +555,12 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     function makeColors()
         % make HSV colors - depending on merge statuses (smaller steps)
         tmp = backEndHandle.statusRaw;
-        tmp(tmp(:,1) ~= 2,2) = backEndHandle.displayIDs(tmp(:,1) ~= 2);
+        idx = 1:backEndHandle.nClusters;
+        tmp(tmp(:,1) ~= 2,2) = idx(tmp(:,1) ~= 2);
+        tmp(tmp(:,1) == 2,2) = arrayfun(@(x) find(backEndHandle.displayIDs == x), tmp(tmp(:,1) == 2,2));
         tmp = tmp(:,2) - min(tmp(:,2)) + 1;
         [tmp,i] = sort(tmp); [~,j] = sort(i);
-        tmp = tmp + 0.75 * (0:(backEndHandle.nClusters-1))';
+        tmp = tmp + 0.6 * (0:(backEndHandle.nClusters-1))';
         % Number    ----  is the merge color spacing coefficient. Increase or decrease
         % to have merge clusters be more or less close in color.
         tmp = tmp(j);
@@ -996,8 +1003,16 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
                     params = inputdlg({'Numerical nonempty array:','A string:'},'Input',[1 70],{s,'junk'});
                     params{1} = str2num(params{1});
                 case EditAction.NO_REMOVE
-                    params = inputdlg({'List of IDs to elevate:'},'Input',[1 70],{s});
+                    params = inputdlg({'List of IDs to elevate/remove from merges:'},'Input',[1 70],{s});
                     params{1} = str2num(params{1});
+                case EditAction.MERGE
+                    params = inputdlg({'List of IDs to merge together:'},'Input',[1 70],{s});
+                    params{1} = str2num(params{1});
+                case EditAction.RECLUSTER
+                    params = inputdlg({'List of IDs to recluster:','Number of clusters (0 for automatic):','Configuration tag (empty for default):'},...
+                        'Input',[1 70],{s,num2str(k),'LIGHT_CLUST'});
+                    params{1} = str2num(params{1});
+                    params{2} = str2double(params{2});
                 otherwise
                     % report unhandled case out of try/catch block
                     exc = MException('','ClusterEditGUI:editCallback - Unhandled EditAction in switch statement.');
@@ -1021,13 +1036,13 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         statusBar.String = [action.char,' request acknowledged, computing...']; drawnow;
         % First check backend for validity of execution
         % Then add to edithandler and open it
-        [s,msg] = backEndHandle.softApplyAction(action,params);
+        [s,data] = backEndHandle.softApplyAction(action,params);
         if s ~= 0 % Invalid parameters regarding the backend data, aborting.
-            statusBar.String = msg;
+            statusBar.String = data;
             return;
         end
         
-        editHandler.addAction(action,params);
+        editHandler.addAction(action,params,data);
         editHandler.openWindow();
         
         statusBar.String = 'Computation done. Refreshing view...'; drawnow;
@@ -1036,10 +1051,22 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         
     end
     
+    % function activateActionButtons
+    %   activate or deactivate the edit action buttons
+    %   Input:
+    %       onOrOff: boolean, true to activate, false to deactivate
+    function activateActionButtons(onOrOff)
+        set(openEditHandler,'Enable',bool2onoff(onOrOff));
+        set(clearEditActions,'Enable',bool2onoff(onOrOff));
+        cellfun(@(x) set(x,'Enable',bool2onoff(onOrOff)), actionButtons);
+    end
+    
     %% FINISH GENERATING THE GUI %%
     if backEndHandle.isDataReady;
         refreshView();
         elNumberBox.String = num2str(backEndHandle.elLoaded);
+    else
+        activateActionButtons(false);
     end
     frontEndHandle.Visible = 'on';
     varargout{1} = frontEndHandle;
