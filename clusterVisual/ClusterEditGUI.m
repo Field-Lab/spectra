@@ -996,12 +996,6 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         try
             exc = [];
             switch action
-                case EditAction.DEBUG
-                    params = inputdlg('Numerical nonempty array:','Input',[1 70],{s});
-                    params{1} = str2num(params{1});
-                case EditAction.DEBUG_2
-                    params = inputdlg({'Numerical nonempty array:','A string:'},'Input',[1 70],{s,'junk'});
-                    params{1} = str2num(params{1});
                 case EditAction.NO_REMOVE
                     params = inputdlg({'List of IDs to elevate/remove from merges:'},'Input',[1 70],{s});
                     params{1} = str2num(params{1});
@@ -1013,6 +1007,12 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
                         'Input',[1 70],{s,num2str(k),'LIGHT_CLUST'});
                     params{1} = str2num(params{1});
                     params{2} = str2double(params{2});
+                case EditAction.SHRINK
+                    params = inputdlg({'List of IDs to shrink:','Target fraction of remaining spikes (1 to skip):',...
+                        'Target contamination (inf to skip):'},'Input',[1 70],{s,'1','inf'});
+                    params{1} = str2num(params{1});
+                    params{2} = str2double(params{2});
+                    params{3} = str2double(params{3});
                 otherwise
                     % report unhandled case out of try/catch block
                     exc = MException('','ClusterEditGUI:editCallback - Unhandled EditAction in switch statement.');

@@ -85,10 +85,10 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes, vara
     if nargin == 1 || varargin{1} == 0
         currVectors = evectors(:,1:2); % Starting at 2 clusters
         quality = zeros(specConfig.maxEV-1,1); % Array of quality metric
-        alignedVectors = cell(specConfig.maxEV-1,1); % Rotated vectors at each iteration
+        alignedVectors = cell(specConfig.maxEV,1); % Rotated vectors at each iteration
         for C = 2:specConfig.maxEV
-            [~,quality(C-1),alignedVectors{C-1}] = evrot(currVectors,1);
-            currVectors = [alignedVectors{C-1},evectors(:,C+1)];
+            [~,quality(C-1),alignedVectors{C}] = evrot(currVectors,1);
+            currVectors = [alignedVectors{C},evectors(:,C+1)];
         end % C
         
         % Qualities are a 0-1 metrix, often max around 1
@@ -96,14 +96,14 @@ function [clusterIndexes, model, numClusters] = spectralClustering( spikes, vara
         numClusters = find((max(quality)-quality) < specConfig.qualityTol,1,'last') + 1;
     else
         numClusters = varargin{1};
-        alignedVectors = cell(numClusters-1,1);
-        alignedVectors{numClusters-1} = evectors(:,1:numClusters);
+        alignedVectors = cell(numClusters,1);
+        alignedVectors{numClusters} = evectors(:,1:numClusters);
     end
     
     %% Dimensionality reduction - Laplacian PC space of dimension nClusters
     
     % evectors = evectors(:,1:numClusters); % Projection vectors
-    evectors = alignedVectors{numClusters-1};
+    evectors = alignedVectors{numClusters};
     
     % Projecting ALL spikes in the Laplacian eigenspace
     % Output array is nSpikes * nClusters

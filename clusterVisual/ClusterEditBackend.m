@@ -47,7 +47,6 @@ classdef ClusterEditBackend < handle
         comment % string parsed from classification file
         
         spikeTrains % spike trains of clusters
-        spikeTrainCorr % Matrix of cross correlations between spike trains (actually irrelevant on a single electrode)
         prjTrains % Projections of the spike train
         eisLoaded % (available) EIs
         EIdistMatrix % computed EI distance matrix
@@ -360,8 +359,6 @@ classdef ClusterEditBackend < handle
             if numel(obj.staFile) > 0
                 obj.loadSTA();
             end
-            % Load neuron time correlations
-            obj.loadCorrelations();
             
             % Finish
             obj.isDataReady = true;
@@ -435,25 +432,6 @@ classdef ClusterEditBackend < handle
             obj.EIdistMatrix(hasEI,hasEI) = dists;
         end
         
-        % function loadCorrelations
-        %   Computes the time correlation between spike trains loaded in obj.spikeTrains
-        %   Using parameters corresponding to Vision's duplicate removal defaults
-        %   This information is not displayed anywhere at this point, because irrelevant
-        %   for neurons on the same electrode
-        function loadCorrelations(obj)
-            visionCoincidenceTime = 10;
-            obj.spikeTrainCorr = ones(obj.nClusters);
-            for i = 1:obj.nClusters
-                for j = (i+1):obj.nClusters
-                    obj.spikeTrainCorr(i,j) = ...
-                        edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getCorrVal(...
-                        obj.spikeTrains{i},obj.spikeTrains{j},...
-                        visionCoincidenceTime);
-                    obj.spikeTrainCorr(j,i) = obj.spikeTrainCorr(i,j);
-                end
-            end
-        end
-        
         % Function loadSTA
         %   load the STAs in the STA file for the IDs in obj.displayIDs
         function loadSTA(obj)
@@ -500,7 +478,7 @@ classdef ClusterEditBackend < handle
             % electrode:
             % nClusters  - displayIDs - contaminationValues
             % spikeCounts - statusRaw - comment
-            % spikeTrains - spikeTrainCorr - prjTrains
+            % spikeTrains - prjTrains
             % eisLoaded - EIdistMatrix - stasLoaded
             validateattributes(action,{'EditAction'},{});
             [v,m] = action.checkParameters(params);
@@ -508,12 +486,6 @@ classdef ClusterEditBackend < handle
                 throw(MException('',['ClusterEditBackend:softApplyAction - Invalid action parameters: \n',m]));
             end
             switch action
-                case EditAction.DEBUG
-                    fprintf('Applying a DEBUG action.\n');
-                    data = [];
-                case EditAction.DEBUG_2
-                    fprintf('Applying a DEBUG_2 action.\n');
-                    data = [];
                 case EditAction.NO_REMOVE
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
@@ -565,8 +537,9 @@ classdef ClusterEditBackend < handle
                     allPrjs = allPrjs(sortTime,:);
                     try
                         [clusterIndexes, model, numClusters] = spectralClustering(allPrjs,params{2}); % Pass the number of clusters
-                    catch
-                        data = 'Spectral Clustering failed. Aborting. Maybe try again?';
+                    catch error
+                        data = 'Spectral Clustering failed. Aborting. See Console and maybe try again?';
+                        fprintf('%s\n',error.message);
                         returnStat = 1; return;
                     end
                     % Check we do not go beyond 15 clusters
@@ -620,10 +593,72 @@ classdef ClusterEditBackend < handle
                     obj.EIdistMatrix(:,selRowsIdx) = [];
                     obj.EIdistMatrix = [obj.EIdistMatrix, nan(size(obj.EIdistMatrix,1),numClusters) ;...
                         nan(numClusters,obj.nClusters)];
-
-                    % spikeTrainCorr
                     
                     data = {}; % Add in meaningful data reporting here
+                case EditAction.SHRINK
+                    % Check ID validity
+                    [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
+                    if numel(selRowsIdx) < numel(params{1})
+                        data = 'Some requested IDs are invalid. Aborting edition.';
+                        returnStat = 1;
+                        return;
+                    end
+                    
+                    % Check we do not go beyond 15 clusters
+                    if obj.nClusters == 15
+                        data = 'Shrinking (inc. outlier cluster) is taking us beyond 15 clusters. Aborting.';
+                        returnStat = 1; return;
+                    end
+                    % Process shrink
+                    
+                    outlierSpikeTrain = zeros(1,0);
+                    outlierPrjTrain = zeros(0,5);
+                    for c = selRowsIdx'
+                        keep = morphShrinkToTarget(obj.spikeTrains{c},obj.prjTrains{c},params{2},params{3},obj.nSamples);
+                        outlierSpikeTrain = [outlierSpikeTrain,obj.spikeTrains{c}(~keep)];
+                        outlierPrjTrain = [outlierPrjTrain;obj.prjTrains{c}(~keep,:)];
+                        obj.spikeTrains{c} = obj.spikeTrains{c}(keep);
+                        obj.prjTrains{c} = obj.prjTrains{c}(keep,:);
+                    end
+                    [outlierSpikeTrain,order] = sort(outlierSpikeTrain);
+                    outlierPrjTrain = outlierPrjTrain(order,:);
+                        
+                    % Process local variables
+                    obj.nClusters = obj.nClusters + 1;
+                    
+                    obj.displayIDs = [obj.displayIDs ; max(obj.displayIDs)+1];
+                    obj.spikeTrains = [obj.spikeTrains; {outlierSpikeTrain}];
+                    obj.prjTrains = [obj.prjTrains; {outlierPrjTrain}];
+                    
+                    storeSpikeCounts = obj.spikeCounts(selRowsIdx);
+                    obj.spikeCounts(selRowsIdx) = cellfun(@numel, obj.spikeTrains(selRowsIdx));
+                    obj.spikeCounts = [obj.spikeCounts ; numel(outlierSpikeTrain)];
+                    
+                    obj.contaminationValues(selRowsIdx) = cellfun(@(x) edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(x,int32(obj.nSamples)),...
+                        obj.spikeTrains(selRowsIdx),'uni',true);
+                    obj.contaminationValues = [obj.contaminationValues;...
+                        edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(obj.spikeTrains{end},int32(obj.nSamples))];
+                    
+                    obj.statusRaw(selRowsIdx,:) = 0;
+                    obj.statusRaw = [obj.statusRaw;...
+                        [-2 , 0]];
+                    
+                    obj.comment(selRowsIdx) = repmat({'Shrunk down'},numel(selRowsIdx),1);
+                    obj.comment = [obj.comment ; {'Shrink operation outliers'} ];
+                    
+                    obj.eisLoaded(selRowsIdx) = {[]};
+                    obj.eisLoaded = [obj.eisLoaded ; {[]}];
+                    
+                    obj.stasLoaded(selRowsIdx) = {[]};
+                    obj.stasLoaded = [obj.stasLoaded ; {[]}];
+                    
+                    obj.EIdistMatrix(selRowsIdx,:) = nan;
+                    obj.EIdistMatrix(:,selRowsIdx) = nan;
+                    obj.EIdistMatrix = [obj.EIdistMatrix, nan(size(obj.EIdistMatrix,1),1) ;...
+                        nan(1,obj.nClusters)];
+
+                    data = {obj.spikeCounts(selRowsIdx)./storeSpikeCounts, obj.contaminationValues(selRowsIdx)}; % Add in meaningful data reporting here
+                    
                 otherwise
                     throw(MException('','ClusterEditBackend:softApplyAction - Unhandled EditAction in switch statement.'));
             end
