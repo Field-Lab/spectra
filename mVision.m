@@ -269,6 +269,7 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
         end
         
+        neuronSpikeTimes = shrinkAll(neuronEls, neuronSpikeTimes, [saveFolder,filesep,datasetName,'.prj.mat']);
         [neuronEls, neuronClusters, neuronSpikeTimes] = ...
             duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
