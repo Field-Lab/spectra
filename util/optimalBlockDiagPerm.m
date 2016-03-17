@@ -5,6 +5,11 @@ function trackPerm = optimalBlockDiagPerm( matrix )
     % Proceeds by greedily finding transpositions reducing a weighted cost
     % strongly penalizing values far from the diagonal
     
+    if numel(matrix) == 0
+        trackPerm = [];
+        return;
+    end
+    
     n = size(matrix,1);
     m = matrix ./ max(abs(max(max(matrix))),abs(min(min(matrix))));
     

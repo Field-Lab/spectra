@@ -5,15 +5,25 @@ classdef EditAction
     %
     %   See ClusterEditBackend for how actions are applied
     %   and ClusterEditGUI for how they are called
+    properties
+        isManual % Tag filtering between manual actions and automatic action.
+        % Manual actions only should generate a button and be user accessible in the GUI
+    end
     
     enumeration
-        NO_REMOVE
-        MERGE
-        SHRINK
-        RECLUSTER
+        AUTO_MERGE   (0)
+        AUTO_DISCARD (0)
+        
+        NO_REMOVE    (1)
+        MERGE        (1)
+        SHRINK       (1)
+        RECLUSTER    (1)
     end
      
     methods
+        function c = EditAction(x)
+            c.isManual = x;
+        end
         % function checkParameters
         %   Checks if the parameter cell array params has a valid structure for action obj
         %   This function is the definition of what are the required parameters for an action and

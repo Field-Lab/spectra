@@ -117,19 +117,21 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     actionButtons = cell(numel(editEnum),1);
     for actionNum = 1:numel(editEnum)
         action = editEnum(actionNum);
-        str = action.char;
-        str = [str(1),lower(str(2:end))];
-        actionButtons{actionNum} = uicontrol(...
-        'Parent',editCol,...
-        'Style', 'pushbutton',...
-        'String',str,...
-        'TooltipString',action.getTooltipString,...
-        'Interruptible','off','BusyAction','cancel',...
-        'fontsize',9,...
-        'callback',{@editCallback,action});
+        if action.isManual
+            str = action.char;
+            str = [str(1),lower(str(2:end))];
+            actionButtons{actionNum} = uicontrol(...
+                'Parent',editCol,...
+                'Style', 'pushbutton',...
+                'String',str,...
+                'TooltipString',action.getTooltipString,...
+                'Interruptible','off','BusyAction','cancel',...
+                'fontsize',9,...
+                'callback',{@editCallback,action});
+        end
     end
     uiextras.Empty('Parent',editCol,'background','g');
-    editCol.Sizes = [24 24 20 repmat(24,1,numel(editEnum)),-1];
+    editCol.Sizes = [24 24 20 repmat(24,1,nnz(arrayfun(@(x) x.isManual,editEnum))),-1];
     
     graph3DBox.Sizes = [-1 75 0]; % Finish graph3DBox
     
@@ -1056,9 +1058,11 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     %   Input:
     %       onOrOff: boolean, true to activate, false to deactivate
     function activateActionButtons(onOrOff)
-        set(openEditHandler,'Enable',bool2onoff(onOrOff));
-        set(clearEditActions,'Enable',bool2onoff(onOrOff));
-        cellfun(@(x) set(x,'Enable',bool2onoff(onOrOff)), actionButtons);
+        if backEndHandle.typeIsSpectra % Edition not allowed in vision mode.
+            set(openEditHandler,'Enable',bool2onoff(onOrOff));
+            set(clearEditActions,'Enable',bool2onoff(onOrOff));
+            cellfun(@(x) set(x,'Enable',bool2onoff(onOrOff)), actionButtons);
+        end
     end
     
     %% FINISH GENERATING THE GUI %%
