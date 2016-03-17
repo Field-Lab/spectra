@@ -11,8 +11,9 @@ classdef EditAction
     end
     
     enumeration
+        AUTO_RM      (0)
         AUTO_MERGE   (0)
-        AUTO_DISCARD (0)
+        AUTO_RM_DUP  (0)
         
         NO_REMOVE    (1)
         MERGE        (1)

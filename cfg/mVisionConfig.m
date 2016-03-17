@@ -62,6 +62,11 @@ classdef mVisionConfig < handle
         reprojBufferSize        = 1000  %
         maxOutlierFraction      = 0.01  %
         
+        %% Raw computations properties
+        computeRawEIs           = true
+        computeRawSTAs          = true
+        keepNeuronsRaw          = true
+        
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
         maxContamination        = 0.1   %
@@ -76,6 +81,12 @@ classdef mVisionConfig < handle
         EIMergeThresholdGlobal  = 0.1  % Normalized metric
         
         EIGlobalMinWindow       = [18 44]% Sample window in which perform global min EI realignment
+        
+        STADepth                = 30   % Frames
+        STAOffset               = -1   % Frames
+        STAnSpikes              = 1000000000 % Spikes
+        STACalcAtOnce           = 1000 % Spikes
+        STAnThreads             = 10   % Threads
         
     end % properties
     
@@ -234,6 +245,43 @@ classdef mVisionConfig < handle
             end
         end
         
+        function computeRawConfig = getComputeConfig(obj)
+            computeRawConfig.ei = obj.computeRawEIs;
+            computeRawConfig.sta = obj.computeRawSTAs;
+            computeRawConfig.nRaw = obj.keepNeuronsRaw;
+        end
+        
+        % Generate the system call strings for -raw.ei computation
+        % Requires EI calculation
+        function commands = stringifyEICommand(rawDataPath,saveFolder,datasetName)
+            start = ['java -cp "./vision/',pathsep,...
+                './vision/Vision.jar" edu.ucsc.neurobiology.vision.calculations.CalculationManager'];
+            commands = {...
+                sprintf('%s "Electrophysiological Imaging Fast" %s %s %5.3f %u %u %u %u',...
+                start, saveFolder, rawDataPath, 0.1, obj.EILeftPoints, obj.EIRightPoints,...
+                obj.EISpikesToAverage, obj.EInThreads) };        
+        end
+        
+        % Generate the system call strings for -raw.sta computation
+        % STA computation requires
+        % Generate globals file
+        % Copy raw data header to globals
+        % Make white noise movie -----------> TBD directly in the matlab-JVM workspace
+        % Calculate auxiliary parameters --|
+        % STA Calculation
+        function commands = stringifySTACommand(rawDataPath, saveFolder, datasetName, movieXML)
+            start = ['java -cp "./vision/',pathsep,...
+                './vision/Vision.jar" edu.ucsc.neurobiology.vision.calculations.CalculationManager'];
+            commands = {...
+                sprintf('%s "Generate Globals Files" %s false',...
+                start, saveFolder),...
+                sprintf('%s "Copy Raw Data Header to Globals" %s %s/%s.globals',...
+                start, rawDataPath, saveFolder, datasetName),...
+                sprintf('%s "STA Calculation Parallel" %s %s %u %u %u %u %u 1 0 false false',...
+                start, saveFolder, movieXML, obj.STADepth, obj.STAOffset, obj.STAnSpikes,...
+                obj.STACalcAtOnce, obj.STAnThreads),...
+                };
+        end
     end % methods
 end
 

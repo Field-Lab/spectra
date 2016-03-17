@@ -1,4 +1,4 @@
-function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
+function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, varargin)
     %MVISION Main function for single dataset white noise analysis
     %
     % This script manages the successive steps of serial neuron finding
@@ -18,6 +18,8 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     %       such as data000(1000-)-data002(-100).
     %       Use concatenatedAnalysis.m (WIP) for that purpose
     %   
+    %   movieXML: path to movie XML file
+    %       
     %   tryToDo: a 1x6 binary array for what subcalculations to do (see list below)
     %       0 - do not try the calculation
     %       1 - try the calculation
@@ -42,7 +44,9 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     %       3/ Covariance Calculation
     %       4/ Projections Calculations
     %       5/ Clustering
-    %       6/ Neuron Cleaning and saving
+    %       6/ Computation of raw EIs and STAs
+    %       7/ Automated duplicate removal with stack saving
+    %       8/ Export of a .neurons after applying automatic + user cleaning/edit stack
     %       
     % All intermediate files are stored in convenient .mat files.
     % The final .neurons.mat file is converted to a vision compatible .neurons
@@ -100,7 +104,8 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     end
     
     % USER input - tryToDo -- won't do any task unless stated here
-    nSteps = 6;
+    nSteps = 8;
+    
     % Steps in order:
     % --------- noise - spike - cov - prj - clust - save ----------------------
     if isa(tryToDo,'char')
@@ -136,9 +141,19 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     
     totalTime = tic;
     
+    %% %%%%%%%% Processing steps %%%%%%%%%%
+    %
+    % Step Header (in case of pipeline modification) - which should also include documentation modif
+    % as tryToDo and force arguments change size - should be of the form:
+    % thisStep = __STEP_NUMBER__;
+    % if tryToDo(thisStep) &&...
+    %         (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'__REQUIRED_OUTPUT_EXTENSION_'],'file') == 2))
+    % Also don't forget to increment nSteps somewhere above here.
+    
     %% Process noise and make a .noise file
-    if tryToDo(1) &&...
-            (force(1) || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2))
+    thisStep = 1;
+    if tryToDo(thisStep) &&...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.noise'],'file') == 2))
         %%
         fprintf('Starting noise finding...\n');
         tic
@@ -151,8 +166,9 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     
     
     %% Find spikes and make a .spikes file
-    if tryToDo(2) &&...
-            (force(2) || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2))
+    thisStep = 2;
+    if tryToDo(thisStep) &&...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.spikes.mat'],'file') == 2))
         %%
         fprintf('Starting spike finding...\n');
         tic
@@ -170,8 +186,9 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     
     
     %% Covariance calculation
-    if tryToDo(3) &&...
-            (force(3) || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 2))
+    thisStep = 3;
+    if tryToDo(thisStep) &&...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.cov.mat'],'file') == 2))
         %%
         fprintf('Starting covariance calculation...\n');
         tic
@@ -197,8 +214,9 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     end
     
     %% Eigenspikes Projections calculation
-    if tryToDo(4) &&...
-            (force(4) || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2))
+    thisStep = 4;
+    if tryToDo(thisStep) &&...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.prj.mat'],'file') == 2))
         %%
         fprintf('Starting projections calculation...\n');
         tic
@@ -229,8 +247,9 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
     
     
     %% Clustering
-    if tryToDo(5) &&...
-            (force(5) || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
+    thisStep = 5;
+    if tryToDo(thisStep) &&...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.model.mat'],'file') == 2 &&...
             exist([saveFolder,filesep,datasetName,'.neurons.mat'],'file') == 2))
         %%
         fprintf('Starting clustering...\n')
@@ -258,10 +277,62 @@ function mVision(dataPath, saveFolder, timeCommand, tryToDo, force, varargin)
         fprintf('Clust not requested or .neurons|model.mat files found - skipping clustering.\n');
     end
     
+    %% Save a neurons raw, compute a *-raw.ei and a *-raw.sta
+    thisStep = 6;
+    if tryToDo(thisStep)
+        computeCfg = GLOBAL_CONFIG.getComputeConfig();
+        hasEI = exist([saveFolder,filesep,datasetName,'-raw.ei'],'file') == 2;
+        hasSTA = exist([saveFolder,filesep,datasetName,'-raw.sta'],'file') == 2;
+        if (computeCfg.ei && ~hasEI) || (computeCfg.sta && ~hasSTA) || force(thisStep)
+            %%
+            fprintf('Computing raw EIs and STAs...\n');
+            tf = {'false','true'};
+            fprintf('Configuration is set to: | EIs - %s | STAs - %s',tf{computeCfg.ei + 1},tf{computeCfg.sta + 1});
+            fprintf('Will overwrite existing *-raw.ei and *-raw.sta if any.');
+            tic
+            % Reload the neurons.mat information if not there
+            if ~exist('neuronSpikeTimes','var')
+                load([saveFolder,filesep,datasetName,'.neurons.mat']);
+            end
+            % Build a neurons file
+            neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
+            neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
+            neuronSaver.close();
+            
+            % Computations. We use system calls for faster computing
+            % EIs
+            if computeCfg.ei
+                commands = GLOBAL_CONFIG.stringifyEICommand(rawDataPath,saveFolder,datasetName);
+                for s = commands
+                    system(s);
+                end
+            end
+            % STAs
+            if computeCfg.sta
+                commands = GLOBAL_CONFIG.stringifySTACommand(rawDataPath, saveFolder, datasetName, movieXML);
+                % Compute "Make White Noise Movie" and "Calculate Auxiliary Parameters"
+                % In matlab-JVM mode.
+                xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
+                edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
+                edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);
+                for s = commands
+                   system(s);
+                end
+            end
+            % Remove the neurons file
+            delete([saveFolder,filesep,datasetName,'.neurons'])
+            
+            fprintf('Raw EIs and STAs computation done.\n');
+            fprintf('Time for computation %.2f seconds\n', toc);
+        else
+            fprintf('Raw EIs|STAs not requested or configuration required files found - skipping raw EIs|STAs.\n');
+        end
+    end
     
     %% Cleaning and saving neurons in Vision compatible neuron file
-    if tryToDo(6) &&...
-            (force(6) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2))
+    thisStep = 7;
+    if tryToDo(thisStep) && ...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2))
         %%
         fprintf('Removing duplicates and saving a vision-compatible .neurons file...\n')
         tic
