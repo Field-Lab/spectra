@@ -11,6 +11,9 @@ classdef EditAction
     end
     
     enumeration
+        CONSOLIDATE  (0) % CONSOLIDATE action is a marker for incrementally edited neurons files.
+        % It should only be added automatically when neurons files are rebuilt.
+        
         AUTO_RM      (0)
         AUTO_MERGE   (0)
         AUTO_RM_DUP  (0)

@@ -340,9 +340,9 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     %% Cleaning and saving neurons in Vision compatible neuron file
     thisStep = 7;
     if tryToDo(thisStep) && ...
-            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2))
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.clean.mat'],'file') == 2))
         %%
-        fprintf('Removing duplicates and saving a vision-compatible .neurons file...\n')
+        fprintf('Computing automatic duplicate removal merges/discards...\n')
         tic
         if ~exist('neuronSpikeTimes','var')
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
@@ -357,9 +357,73 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         
         fprintf('Neuron cleaning done.\n');
         
-        fprintf('Time for cleaning and saving %.2f seconds\n', toc);
+        fprintf('Time for automatic duplicate removal calculation %.2f seconds\n', toc);
     else
-        fprintf('Clean|Save not requested or .neurons file found - skipping cleaning|saving.\n');
+        fprintf('Cleaning pattern not requested or .clean.mat file found - skipping cleaning|saving.\n');
+    end
+    
+    %% Consolidate to latest .neurons.mat/.neurons file, compute eis and stas.
+    thisStep = 8;
+    if tryToDo(thisStep) && ...
+            (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.neurons'],'file') == 2)) 
+        %%
+        fprintf('Exporting automatic and manual edits into a final .neurons file...\nComputing final EIs and STAs...\n')
+        tic
+        if exist([saveFolder,filesep,datasetName,'.edit.mat'],'file') == 2
+            fprintf('A manual edition file .edit.mat was found\n');
+            load([saveFolder,filesep,datasetName,'.edit.mat']); % Brings in 'manualActions'
+            % find the last 'CONSOLIDATE' if any and cut off what's before
+        else
+            fprintf('No manual edition file .edit.mat was found\n');
+            manualActions = cell(0,3);
+        end
+        
+        if size(manualActions,1) > 0
+            if exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
+                fprintf('An incremental raw neurons file was found. Applying new actions.\n.');
+                load([saveFolder,filesep,datasetName,'-edited.neurons.mat']);
+            else
+                fprintf('No incremental raw neurons file. Building one with new actions.\n.');
+                if ~exist('neuronSpikeTimes','var')
+                    load([saveFolder,filesep,datasetName,'.neurons.mat']);
+                end
+            end
+            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+                applyManualCleaningPattern(neuronEls, neuronClusters, neuronSpikeTimes, manualActions);
+            save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
+                'neuronEls','neuronClusters','neuronSpikeTimes','elevatedStatus','-v7.3')
+        else
+            fprintf('No (new) actions to apply, skipping to applying automatic pattern');
+        end
+        
+        if exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
+            fprintf('Automatic cleaning from incremental neurons file.\n.');
+            if ~exist('neuronSpikeTimes','var')
+                load([saveFolder,filesep,datasetName,'-edited.neurons.mat']);
+            end
+        else
+            fprintf('Automatic cleaning from neurons-raw file.\n.');
+            elevatedStatus = false(size(neuronEls,1),1);
+            if ~exist('neuronSpikeTimes','var')
+                load([saveFolder,filesep,datasetName,'.neurons.mat']);
+            end
+        end
+        
+        if ~exit('autoActions','var')
+            load([saveFolder,filesep,datasetName,'.clean.mat']);
+        end
+        [neuronEls, neuronClusters, neuronSpikeTimes] = ...
+            applyAutoCleaningPattern(neuronEls, neuronClusters, neuronSpikeTimes, autoActions, elevatedStatus);
+        
+        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
+        neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
+        neuronSaver.close();
+        
+        fprintf('Incremental edition, neurons, eis, stas done.\n');
+        
+        fprintf('Time for exporting %.2f seconds\n', toc);
+    else
+        fprintf('Export not requested or .neurons file found - skipping export.\n');
     end
     
     %%
