@@ -20,14 +20,14 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     %   
     %   movieXML: path to movie XML file
     %       
-    %   tryToDo: a 1x6 binary array for what subcalculations to do (see list below)
+    %   tryToDo: a 1xnSteps binary array for what subcalculations to do (see list below)
     %       0 - do not try the calculation
     %       1 - try the calculation
     %       String argument 'all' is allowed as shorthand for [1 1 1 1 1 1]
     %       If a calculation is required but the previous was not and the input
     %       files are missing, mVision will crash.
     %
-    %   force: a 1x6 binary array for overwrite authorization of the calculations
+    %   force: a 1xnSteps binary array for overwrite authorization of the calculations
     %       0 - do not overwrite, skip the calculation if its output files are found
     %       1 - overwrite, do the calculation in all cases
     %       String arguments 'all' and 'none' are allowed as shorthand for
@@ -63,7 +63,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     addpath(genpath(['.',filesep]));
     
     % Create global configuration handle
-    narginchk(5,6);
+    narginchk(6,7);
     global GLOBAL_CONFIG
     if numel(varargin) == 1
         GLOBAL_CONFIG = mVisionConfig(varargin{1});
@@ -287,8 +287,8 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             %%
             fprintf('Computing raw EIs and STAs...\n');
             tf = {'false','true'};
-            fprintf('Configuration is set to: | EIs - %s | STAs - %s',tf{computeCfg.ei + 1},tf{computeCfg.sta + 1});
-            fprintf('Will overwrite existing *-raw.ei and *-raw.sta if any.');
+            fprintf('Configuration is set to: | EIs - %s | STAs - %s\n',tf{computeCfg.ei + 1},tf{computeCfg.sta + 1});
+            fprintf('Will overwrite existing *-raw.ei and *-raw.sta if any.\n');
             tic
             % Reload the neurons.mat information if not there
             if ~exist('neuronSpikeTimes','var')
@@ -302,26 +302,35 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             % Computations. We use system calls for faster computing
             % EIs
             if computeCfg.ei
-                commands = GLOBAL_CONFIG.stringifyEICommand(rawDataPath,saveFolder,datasetName);
+                commands = GLOBAL_CONFIG.stringifyEICommand(dataPath,saveFolder,datasetName);
                 for s = commands
-                    system(s);
+                    system(s{1});
                 end
+                movefile([saveFolder,filesep,datasetName,'.ei'],...
+                    [saveFolder,filesep,datasetName,'-raw.ei'])
             end
             % STAs
             if computeCfg.sta
-                commands = GLOBAL_CONFIG.stringifySTACommand(rawDataPath, saveFolder, datasetName, movieXML);
+                commands = GLOBAL_CONFIG.stringifySTACommand(dataPath, saveFolder, datasetName);
                 % Compute "Make White Noise Movie" and "Calculate Auxiliary Parameters"
                 % In matlab-JVM mode.
                 xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
                 edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
                 edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);
                 for s = commands
-                   system(s);
+                   system(s{1});
                 end
+                movefile([saveFolder,filesep,datasetName,'.sta'],...
+                    [saveFolder,filesep,datasetName,'-raw.sta'])
             end
             % Remove the neurons file
-            delete([saveFolder,filesep,datasetName,'.neurons'])
-            
+            pause(5);
+            if computeCfg.nRaw
+                movefile([saveFolder,filesep,datasetName,'.neurons'],...
+                    [saveFolder,filesep,datasetName,'.neurons-raw']);
+            else
+                delete([saveFolder,filesep,datasetName,'.neurons']);
+            end
             fprintf('Raw EIs and STAs computation done.\n');
             fprintf('Time for computation %.2f seconds\n', toc);
         else

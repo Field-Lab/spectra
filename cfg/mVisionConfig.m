@@ -65,14 +65,14 @@ classdef mVisionConfig < handle
         %% Raw computations properties
         computeRawEIs           = true
         computeRawSTAs          = true
-        keepNeuronsRaw          = true
+        keepNeuronsRaw          = false
         
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
         maxContamination        = 0.1   %
         
         EILeftPoints            = 20    % samples
-        EIRightpoints           = 60    % samples
+        EIRightPoints           = 60    % samples
         EISpikesToAverage       = 3000  % spikes
         EInThreads              = 4     % threads
         
@@ -226,7 +226,7 @@ classdef mVisionConfig < handle
             
             cleanConfig.EITC = obj.meanTimeConstant;
             cleanConfig.EILP = obj.EILeftPoints;
-            cleanConfig.EIRP = obj.EIRightpoints;
+            cleanConfig.EIRP = obj.EIRightPoints;
             cleanConfig.EISp = obj.EISpikesToAverage;
             cleanConfig.EInThreads = obj.EInThreads;
             
@@ -253,7 +253,7 @@ classdef mVisionConfig < handle
         
         % Generate the system call strings for -raw.ei computation
         % Requires EI calculation
-        function commands = stringifyEICommand(rawDataPath,saveFolder,datasetName)
+        function commands = stringifyEICommand(obj, rawDataPath,saveFolder,datasetName)
             start = ['java -cp "./vision/',pathsep,...
                 './vision/Vision.jar" edu.ucsc.neurobiology.vision.calculations.CalculationManager'];
             commands = {...
@@ -269,16 +269,17 @@ classdef mVisionConfig < handle
         % Make white noise movie -----------> TBD directly in the matlab-JVM workspace
         % Calculate auxiliary parameters --|
         % STA Calculation
-        function commands = stringifySTACommand(rawDataPath, saveFolder, datasetName, movieXML)
+        function commands = stringifySTACommand(obj, rawDataPath, saveFolder, datasetName)
             start = ['java -cp "./vision/',pathsep,...
                 './vision/Vision.jar" edu.ucsc.neurobiology.vision.calculations.CalculationManager'];
+            moviePath = [saveFolder,filesep,datasetName,'.movie'];
             commands = {...
                 sprintf('%s "Generate Globals Files" %s false',...
                 start, saveFolder),...
                 sprintf('%s "Copy Raw Data Header to Globals" %s %s/%s.globals',...
                 start, rawDataPath, saveFolder, datasetName),...
-                sprintf('%s "STA Calculation Parallel" %s %s %u %u %u %u %u 1 0 false false',...
-                start, saveFolder, movieXML, obj.STADepth, obj.STAOffset, obj.STAnSpikes,...
+                sprintf('%s "STA Calculation Parallel" %s %s %u %d %u %u %u 1 0 1.0 false false',...
+                start, saveFolder, moviePath, obj.STADepth, obj.STAOffset, obj.STAnSpikes,...
                 obj.STACalcAtOnce, obj.STAnThreads),...
                 };
         end
