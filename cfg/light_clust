@@ -7,4 +7,3 @@ nWorkers = 4
 
 spikesForLaplacian = 1000
 spikesForKMeans = 10000
-maxEigenVectAndClusters = 10

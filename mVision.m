@@ -303,9 +303,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             % EIs
             if computeCfg.ei
                 commands = GLOBAL_CONFIG.stringifyEICommand(dataPath,saveFolder,datasetName);
-                for s = commands
-                    system(s{1});
-                end
+                system(commands{1});
                 movefile([saveFolder,filesep,datasetName,'.ei'],...
                     [saveFolder,filesep,datasetName,'-raw.ei'])
             end
@@ -314,12 +312,13 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
                 commands = GLOBAL_CONFIG.stringifySTACommand(dataPath, saveFolder, datasetName);
                 % Compute "Make White Noise Movie" and "Calculate Auxiliary Parameters"
                 % In matlab-JVM mode.
+                system(commands{1}); % Generate globals file
+                system(commands{2}); % Copy raw data header to globals
                 xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
                 edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
                 edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);
-                for s = commands
-                   system(s{1});
-                end
+                system(commands{3}); % STA Calculation Parallel
+                pause(5);
                 movefile([saveFolder,filesep,datasetName,'.sta'],...
                     [saveFolder,filesep,datasetName,'-raw.sta'])
             end
@@ -349,8 +348,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             load([saveFolder,filesep,datasetName,'.neurons.mat']);
         end
         
-        [neuronEls, neuronClusters, neuronSpikeTimes] = ...
-            duplicateRemoval(dataPath, saveFolder, datasetName, timeCommand, ...
+        duplicateRemoval(dataPath, saveFolder, datasetName, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
         
         neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);

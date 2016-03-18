@@ -1,5 +1,4 @@
-function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
-        duplicateRemoval( dataPath, saveFolder, datasetName, timeTag, neuronEls, neuronClusters, neuronSpikeTimes)
+function duplicateRemoval( dataPath, saveFolder, datasetName, neuronEls, neuronClusters, neuronSpikeTimes)
     % DUPLICATE REMOVAL - Remove duplicates neurons based on EI comparisons
     %
     % Removal of low count and above threshold contamination neurons
@@ -39,13 +38,14 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     %%%
     
     % get data length
-    datasource = DataFileUpsampler([dataPath,timeTag]);
     load([saveFolder,filesep,datasetName,'.neurons.mat'],'nSamples');
-    datasource = [];
     
     % Load Configuration
     global GLOBAL_CONFIG
     cleanConfig = GLOBAL_CONFIG.getCleanConfig();
+    
+    %% Prepare output
+    autoActions = cell(0,3); % Columns : Actions, Parameters, Data
     
     %% Remove low count and contaminated neurons
     toRemove = cellfun(@(x) numel(x) < cleanConfig.minSpikes, neuronSpikeTimes);
@@ -57,10 +57,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
         end
     end
     
-    % Save IDs to clear
-    IDsRemovedAtContam = NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove));
-    configUsed = cleanConfig;
-    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsRemovedAtContam','configUsed','-v7.3');
+    % Make EditAction
+    autoActions = [autoActions; ...
+        {EditAction.AUTO_RM,...
+        {NeuronSaverM.getIDs(neuronEls(toRemove),neuronClusters(toRemove))'},...
+        {}}];
     
     % Clear bad neurons
     neuronEls = neuronEls(~toRemove);
@@ -75,30 +76,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     fprintf('After low count and high contamination: %u\n',nNeurons);
     %%%
     
-    
-    %% Build a neurons file and compute EIs
-    neuronSaver = NeuronSaverM(dataPath, saveFolder, datasetName,'',0);
-    neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
-    neuronSaver.close();
-    
-    % EI computation
-    if isunix
-        sepchar = ':';
-    else
-        sepchar = ';';
-    end
-    cmgr = 'edu.ucsc.neurobiology.vision.calculations.CalculationManager';
-    vcfg = sprintf('.%svision%sconfig.xml',filesep,filesep);
-    calc = '"Electrophysiological Imaging Fast"';
-    % Grind-style call for EIs computation at system level
-    system(sprintf('java -Xmx4g -Xss100m -cp ".%1$svision%1$s%2$s.%1$svision%1$sVision.jar" %3$s -c %4$s %5$s %6$s %7$s %8$f %9$u %10$u %11$u %12$u',...
-        filesep,sepchar,cmgr,vcfg,calc,saveFolder,dataPath,...
-        cleanConfig.EITC, cleanConfig.EILP, cleanConfig.EIRP,...
-        cleanConfig.EISp, cleanConfig.EInThreads));
-    delete([saveFolder, filesep, datasetName,'.neurons']);
-    
-    %% EI access setup
-    eiPath = [saveFolder, filesep, datasetName,'.ei'];
+    %% EI access setup - Requires precomputation of raw EIs
+    eiPath = [saveFolder, filesep, datasetName,'-raw.ei'];
     eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
     
     % Misc for dup removal algorithm
@@ -125,8 +104,6 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     
     %% Single Electrode removal and merges
     % Saving merge pattern - col 1 neuron kept - col 2 neuron merged and discarded
-    IDsMerged = zeros(0,2);
-    
     for el = 2:nElectrodes
         elNeurInd = find(neuronEls == el);
         if numel(elNeurInd) <= 1
@@ -163,23 +140,17 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                 spikeCounts = cellfun(@(spikeTrain) numel(spikeTrain), neuronSpikeTimes(elNeurInd(parts{cc})));
                 [~,b] = max(spikeCounts);
                 bestNeuronIndex = elNeurInd(parts{cc}(b));
-                
+                parts{cc}(b) = [];
                 toRemove(elNeurInd(parts{cc})) = true;
-                toRemove(bestNeuronIndex) = false;
                 
-                % Merging Pattern
-                mergePairs = NeuronSaverM.getIDs(repmat([el el],numel(parts{cc}),1),...
-                    neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
-                mergePairs(b,:) = [];
-                IDsMerged = [IDsMerged;mergePairs];
-                
-                neuronSpikeTimes{bestNeuronIndex} = sort(horzcat(neuronSpikeTimes{elNeurInd(parts{cc})}));
+                % Storage of merging actions
+                autoActions = [autoActions; ...
+                    {EditAction.AUTO_MERGE,...
+                    {allIDs(bestNeuronIndex), allIDs(elNeurInd(parts{cc}))},...
+                    {}}];
             end
         end % cc
     end % el
-    
-    % Save IDs to clear
-    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsMerged','-append');
     
     % Updating contents
     neuronEls = neuronEls(~toRemove);
@@ -243,31 +214,38 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     [~,b] = max(spikeCounts);
                     bestNeuronIndex = elNeurInd(parts{cc}(b));
                     
-                    wasRemoved = toRemove(bestNeuronIndex);
+                    parts{cc}(b) = [];
                     toRemove(elNeurInd(parts{cc})) = true;
-                    toRemove(bestNeuronIndex) = wasRemoved;
                     
-                    % Discarding Pattern
-                    discardPairs = NeuronSaverM.getIDs(...
-                        neuronEls([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]),...
-                        neuronClusters([repmat(bestNeuronIndex,numel(parts{cc}),1),elNeurInd(parts{cc})]));
-                    discardPairs(b,:) = [];
-                    IDsDuplicatesRemoved = [IDsDuplicatesRemoved;discardPairs];
+                    
+                    % Storage of discard actions
+                    % Add to existing action with same master neuron
+                    hasRow = cellfun(@(a, p) a == EditAction.AUTO_RM_DUP && p{1} == allIDs(bestNeuronIndex),autoActions(:,1),autoActions(:,2),'uni',true);
+                    if any(hasRow)
+                        i = find(hasRow,1);
+                        autoActions{i,2}{2} = union(autoActions{i,2}{2},allIDs(elNeurInd(parts{cc})));
+                    else
+                        autoActions = [autoActions; ...
+                            {EditAction.AUTO_RM_DUP,...
+                            {allIDs(bestNeuronIndex), allIDs(elNeurInd(parts{cc}))},...
+                            {}}];
+                    end
                 end
             end % cc
         end % el2
     end % el
     
+    % Unite discards with the same best neuron
+    
     
     %% Save IDs to clear
-    IDsDuplicatesRemoved = unique(IDsDuplicatesRemoved,'rows');
-    save([saveFolder,filesep,datasetName,'.clean.mat'],'IDsDuplicatesRemoved','-append');
+    save([saveFolder,filesep,datasetName,'.clean.mat'],'autoActions','-v7.3');
     
-    neuronEls = neuronEls(~toRemove);
-    neuronClusters = neuronClusters(~toRemove);
-    neuronSpikeTimes = neuronSpikeTimes(~toRemove);
-    nNeurons = size(neuronEls,1);
-    
+%     neuronEls = neuronEls(~toRemove);
+%     neuronClusters = neuronClusters(~toRemove);
+%     neuronSpikeTimes = neuronSpikeTimes(~toRemove);
+%     nNeurons = size(neuronEls,1);
+
     %%%
     fprintf('After neighbor electrode pair discard: %u\n',nNeurons);
     %%%
