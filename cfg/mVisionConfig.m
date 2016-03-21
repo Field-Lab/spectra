@@ -67,6 +67,10 @@ classdef mVisionConfig < handle
         computeRawSTAs          = true
         keepNeuronsRaw          = false
         
+        computeFinalEIs         = true
+        computeFinalSTAs        = true
+        computeFinalParams      = true
+        
         %% Neuron cleaning properties
         minSpikes               = 100   % spikes
         maxContamination        = 0.1   %
@@ -87,6 +91,8 @@ classdef mVisionConfig < handle
         STAnSpikes              = 1000000000 % Spikes
         STACalcAtOnce           = 1000 % Spikes
         STAnThreads             = 10   % Threads
+        
+        paramsnThreads          = 10   % Threads
         
     end % properties
     
@@ -245,10 +251,14 @@ classdef mVisionConfig < handle
             end
         end
         
-        function computeRawConfig = getComputeConfig(obj)
-            computeRawConfig.ei = obj.computeRawEIs;
-            computeRawConfig.sta = obj.computeRawSTAs;
-            computeRawConfig.nRaw = obj.keepNeuronsRaw;
+        function computeConfig = getComputeConfig(obj)
+            computeConfig.eiRaw = obj.computeRawEIs;
+            computeConfig.staRaw = obj.computeRawSTAs;
+            computeConfig.nRaw = obj.keepNeuronsRaw;
+            
+            computeConfig.ei = obj.computeFinalEIs;
+            computeConfig.sta = obj.computeFinalSTAs;
+            computeConfig.params = obj.computeFinalParams;
         end
         
         % Generate the system call strings for -raw.ei computation
@@ -280,8 +290,23 @@ classdef mVisionConfig < handle
                 start, rawDataPath, saveFolder, datasetName),...
                 sprintf('%s "STA Calculation Parallel" %s %s %u %d %u %u %u 1 0 1.0 false false',...
                 start, saveFolder, moviePath, obj.STADepth, obj.STAOffset, obj.STAnSpikes,...
-                obj.STACalcAtOnce, obj.STAnThreads),...
-                };
+                obj.STACalcAtOnce, obj.STAnThreads) };
+        end
+        
+        % Generate the system call strings for .params computation
+        % Recompute a final globals and a copy raw data header to globals
+        % As for unknown reasons the EI display is very erroneous and it seems
+        % to fix it
+        function commands = stringifyParamsCommand(obj, rawDataPath, saveFolder, datasetName)
+            start = ['java -cp "./vision/',pathsep,...
+                './vision/Vision.jar" edu.ucsc.neurobiology.vision.calculations.CalculationManager'];
+            commands = {...
+                sprintf('%s "Make Parameters File" %s %u true true 1.0 5.0 1 false true 3.0 0 0.02551 -40.0 true 100.0 0.5 false x 30 false x x false x false x true',...
+                start, saveFolder, obj.paramsnThreads),...
+                sprintf('%s "Generate Globals Files" %s false',...
+                start, saveFolder),...
+                sprintf('%s "Copy Raw Data Header to Globals" %s %s/%s.globals',...
+                start, rawDataPath, saveFolder, datasetName)};
         end
     end % methods
 end

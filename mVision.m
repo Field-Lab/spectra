@@ -301,14 +301,14 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             
             % Computations. We use system calls for faster computing
             % EIs
-            if computeCfg.ei
+            if computeCfg.eiRaw
                 commands = GLOBAL_CONFIG.stringifyEICommand(dataPath,saveFolder,datasetName);
                 system(commands{1});
                 movefile([saveFolder,filesep,datasetName,'.ei'],...
                     [saveFolder,filesep,datasetName,'-raw.ei'])
             end
             % STAs
-            if computeCfg.sta
+            if computeCfg.staRaw
                 commands = GLOBAL_CONFIG.stringifySTACommand(dataPath, saveFolder, datasetName);
                 % Compute "Make White Noise Movie" and "Calculate Auxiliary Parameters"
                 % In matlab-JVM mode.
@@ -393,7 +393,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
                 'neuronEls','neuronClusters','neuronSpikeTimes','elevatedStatus','-v7.3')
         else
-            fprintf('No (new) actions to apply, skipping to applying automatic pattern');
+            fprintf('No (new) actions to apply, skipping to applying automatic pattern\n');
         end
         
         if exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
@@ -403,13 +403,13 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             end
         else
             fprintf('Automatic cleaning from neurons-raw file.\n.');
-            elevatedStatus = false(size(neuronEls,1),1);
             if ~exist('neuronSpikeTimes','var')
                 load([saveFolder,filesep,datasetName,'.neurons.mat']);
             end
+            elevatedStatus = false(size(neuronEls,1),1);
         end
         
-        if ~exit('autoActions','var')
+        if ~exist('autoActions','var')
             load([saveFolder,filesep,datasetName,'.clean.mat']);
         end
         [neuronEls, neuronClusters, neuronSpikeTimes] = ...
@@ -419,7 +419,37 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
         neuronSaver.close();
         
-        fprintf('Incremental edition, neurons, eis, stas done.\n');
+        % Computations. We use system calls for faster computing
+        computeCfg = GLOBAL_CONFIG.getComputeConfig();
+        % EIs
+        if computeCfg.ei
+            commands = GLOBAL_CONFIG.stringifyEICommand(dataPath,saveFolder,datasetName);
+            system(commands{1});
+        end
+        % STAs
+        if computeCfg.sta
+            commands = GLOBAL_CONFIG.stringifySTACommand(dataPath, saveFolder, datasetName);
+            % Compute "Make White Noise Movie" and "Calculate Auxiliary Parameters"
+            % In matlab-JVM mode.
+            if ~exist([saveFolder,filesep,datasetName,'.globals'],'file') == 2
+                system(commands{1}); % Generate globals file
+                system(commands{2}); % Copy raw data header to globals
+                xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
+                edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
+                edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);
+            end
+            system(commands{3}); % STA Calculation Parallel
+        end
+        
+        if computeCfg.params
+            commands = GLOBAL_CONFIG.stringifyParamsCommand(dataPath, saveFolder, datasetName);
+            system(commands{1});
+            delete([saveFolder,filesep,datasetName,'.globals']);
+            system(commands{2});
+            system(commands{3});
+        end
+            
+        fprintf('Incremental edition, neurons, EIs, STAs done.\n');
         
         fprintf('Time for exporting %.2f seconds\n', toc);
     else
