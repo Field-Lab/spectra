@@ -998,7 +998,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         try
             exc = [];
             switch action
-                case EditAction.NO_REMOVE
+                case EditAction.ELEVATE
                     params = inputdlg({'List of IDs to elevate/remove from merges:'},'Input',[1 70],{s});
                     params{1} = str2num(params{1});
                 case EditAction.MERGE

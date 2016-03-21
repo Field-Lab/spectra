@@ -201,7 +201,7 @@ classdef EditHandler < handle
             validateattributes(action,{'EditAction'},{});
             validateattributes(parameters,{'cell'},{});
             switch action
-                case EditAction.NO_REMOVE
+                case EditAction.ELEVATE
                     str = ['Unremovable status for IDs ', prettyPrint(parameters{1})];
                 case EditAction.MERGE
                     str = ['<html><left />',...

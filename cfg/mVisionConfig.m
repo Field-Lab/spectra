@@ -119,10 +119,10 @@ classdef mVisionConfig < handle
             textscan(fid,'%s',6,'delimiter','\n'); % Skip header lines
             configData = textscan(fid,'%[^:]::%[^:]::%[^:\r\t\n]%*[\r\t\n]','collectoutput',true);
             configData = configData{1};
-						fclose(fid);
-           
+            fclose(fid);
+            
             for i = 1:size(configData,1)
-								if strcmp(varargin{1},configData{i,1});
+                if strcmp(varargin{1},configData{i,1});
                     fprintf('Initializing configuration with model %s\n',configData{i,1});
                     fprintf('"%s"\n',configData{i,3});
                     fid2 = fopen(configData{i,2});
@@ -171,7 +171,7 @@ classdef mVisionConfig < handle
             spikeConfig.minSpikeSeparation = obj.minSpikeSeparation;
             spikeConfig.maxSpikeWidth = obj.maxSpikeWidth;
         end % getSpikeConfig
-    
+        
         function covConfig = getCovConfig(obj)
             covConfig.debug = obj.debug;
             
@@ -209,7 +209,7 @@ classdef mVisionConfig < handle
             
             specConfig.nthNeighbor = obj.nthNeighbor;
             specConfig.spikesForLaplacian = obj.spikesForLaplacian;
-            specConfig.spikesForKMeans = obj.spikesForKMeans; 
+            specConfig.spikesForKMeans = obj.spikesForKMeans;
             specConfig.maxEV = obj.maxEigenVectAndClusters;
             specConfig.qualityTol = obj.qualityTol;
             specConfig.maxOutlierFraction = obj.maxOutlierFraction;
@@ -247,7 +247,7 @@ classdef mVisionConfig < handle
             cuts = round((0:obj.nWorkers) .* nElectrodes ./ obj.nWorkers) + 1;
             pools = cell(obj.nWorkers,1);
             for p = 1:obj.nWorkers
-               pools{p} = cuts(p):(cuts(p+1)-1); 
+                pools{p} = cuts(p):(cuts(p+1)-1);
             end
         end
         
@@ -269,7 +269,7 @@ classdef mVisionConfig < handle
             commands = {...
                 sprintf('%s "Electrophysiological Imaging Fast" %s %s %5.3f %u %u %u %u',...
                 start, saveFolder, rawDataPath, 0.1, obj.EILeftPoints, obj.EIRightPoints,...
-                obj.EISpikesToAverage, obj.EInThreads) };        
+                obj.EISpikesToAverage, obj.EInThreads) };
         end
         
         % Generate the system call strings for -raw.sta computation

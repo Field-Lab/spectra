@@ -486,7 +486,7 @@ classdef ClusterEditBackend < handle
                 throw(MException('',['ClusterEditBackend:softApplyAction - Invalid action parameters: \n',m]));
             end
             switch action
-                case EditAction.NO_REMOVE
+                case EditAction.ELEVATE
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';

@@ -18,7 +18,7 @@ classdef EditAction
         AUTO_MERGE   (0)
         AUTO_RM_DUP  (0)
         
-        NO_REMOVE    (1)
+        ELEVATE      (1)
         MERGE        (1)
         SHRINK       (1)
         RECLUSTER    (1)
@@ -40,7 +40,7 @@ classdef EditAction
         %       msg: error message in case params is invalid.
         %
         % --- Detailed expected parameters ---
-        %   NO_REMOVE:      {nonempty row vector: neuron IDs}
+        %   ELEVATE:      {nonempty row vector: neuron IDs}
         %   MERGE:          {nonempty, nonsingleton row vector: neuron IDs}
         %   RECLUSTER:      {nonempty row vector: neuron IDs,
         %                       positive integer scalar: number of clusters to make. 0 for auto,
@@ -54,7 +54,7 @@ classdef EditAction
             unhandled = false;
             try
                 switch obj
-                    case EditAction.NO_REMOVE
+                    case EditAction.ELEVATE
                         validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
                         validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to elevate',1);
                     case EditAction.MERGE
@@ -89,7 +89,7 @@ classdef EditAction
         
         function s = getTooltipString(obj)
             switch obj
-                case EditAction.NO_REMOVE
+                case EditAction.ELEVATE
                     s = 'Elevate the neurons statuses. They won''t be affected by duplicate removal or merges until another calculation is ran.';
                 case EditAction.MERGE
                     s = 'Merge together the cluster selection.';
