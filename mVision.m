@@ -277,18 +277,18 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         fprintf('Clust not requested or .neurons|model.mat files found - skipping clustering.\n');
     end
     
-    %% Save a neurons raw, compute a *-raw.ei and a *-raw.sta
+    %% Save a neurons raw, compute a *.ei-raw and a *.sta-raw
     thisStep = 6;
     if tryToDo(thisStep)
         computeCfg = GLOBAL_CONFIG.getComputeConfig();
-        hasEI = exist([saveFolder,filesep,datasetName,'-raw.ei'],'file') == 2;
-        hasSTA = exist([saveFolder,filesep,datasetName,'-raw.sta'],'file') == 2;
+        hasEI = exist([saveFolder,filesep,datasetName,'.ei-raw'],'file') == 2;
+        hasSTA = exist([saveFolder,filesep,datasetName,'.sta-raw'],'file') == 2;
         if (computeCfg.ei && ~hasEI) || (computeCfg.sta && ~hasSTA) || force(thisStep)
             %%
             fprintf('Computing raw EIs and STAs...\n');
             tf = {'false','true'};
             fprintf('Configuration is set to: | EIs - %s | STAs - %s\n',tf{computeCfg.ei + 1},tf{computeCfg.sta + 1});
-            fprintf('Will overwrite existing *-raw.ei and *-raw.sta if any.\n');
+            fprintf('Will overwrite existing *.ei-raw and *.sta-raw if any.\n');
             tic
             % Reload the neurons.mat information if not there
             if ~exist('neuronSpikeTimes','var')
@@ -305,7 +305,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
                 commands = GLOBAL_CONFIG.stringifyEICommand(dataPath,saveFolder,datasetName);
                 system(commands{1});
                 movefile([saveFolder,filesep,datasetName,'.ei'],...
-                    [saveFolder,filesep,datasetName,'-raw.ei'])
+                    [saveFolder,filesep,datasetName,'.ei-raw'])
             end
             % STAs
             if computeCfg.staRaw
@@ -320,7 +320,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
                 system(commands{3}); % STA Calculation Parallel
                 pause(5);
                 movefile([saveFolder,filesep,datasetName,'.sta'],...
-                    [saveFolder,filesep,datasetName,'-raw.sta'])
+                    [saveFolder,filesep,datasetName,'.sta-raw'])
             end
             % Remove the neurons file
             pause(5);
@@ -369,8 +369,21 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         %%
         fprintf('Exporting automatic and manual edits into a final .neurons file...\nComputing final EIs and STAs...\n')
         tic
+        % Load latest neurons
+        if exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
+            fprintf('    Starting from consolidated neurons file.\n');
+            load([saveFolder,filesep,datasetName,'-edited.neurons.mat']);
+        else
+            fprintf('    Starting from raw neurons file.\n');
+            if ~exist('neuronSpikeTimes','var')
+                load([saveFolder,filesep,datasetName,'.neurons.mat']);
+            end
+            elevatedStatus = false(size(neuronEls,1),1);
+        end
+        
+        % Check for existing actions or new actions
         if exist([saveFolder,filesep,datasetName,'.edit.mat'],'file') == 2
-            fprintf('A manual edition file .edit.mat was found\n');
+            fprintf('    A manual edition file .edit.mat was found\n');
             load([saveFolder,filesep,datasetName,'.edit.mat']); % Brings in 'manualActions'
             lastConsolidate = find(cellfun(@(x) x  == EditAction.CONSOLIDATE,manualActions(:,1),'uni',true),1,'last');
             if numel(lastConsolidate) == 0
@@ -378,54 +391,45 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             end
             manualActionsNew = manualActions((lastConsolidate+1):end,:);
         else
-            fprintf('No manual edition file .edit.mat was found\n');
+            fprintf('    No manual edition file .edit.mat was found\n');
             manualActions = cell(0,3);
             manualActionsNew = cell(0,3);
         end
         
-        if size(manualActions,1) > 0
-            if size(manualActionsNew,1) > 0 && exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
-                fprintf('An incremental raw neurons file was found. Applying new actions.\n');
-                load([saveFolder,filesep,datasetName,'-edited.neurons.mat']);
-            end
-            if ~(exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2)
-                fprintf('No incremental raw neurons file. Building one with all actions.\n');
-                manualActionsNew = manualActions;
-                if ~exist('neuronSpikeTimes','var')
-                    load([saveFolder,filesep,datasetName,'.neurons.mat']);
-                end
-                elevatedStatus = false(size(neuronEls,1),1);
-            end
+        % Case: consolidate all actions
+        if size(manualActions,1) > 0 && ...
+                ~(exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2)
             
-            if size(manualActionsNew,1) > 0
-                [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
-                    applyManualCleaningPattern(neuronEls, neuronClusters,...
-                    neuronSpikeTimes, manualActionsNew, elevatedStatus);
-                save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
-                    'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','elevatedStatus','-v7.3');
+            fprintf('    No incremental raw neurons file. Building one with all actions.\n');
+            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+                applyManualCleaningPattern(neuronEls, neuronClusters,...
+                neuronSpikeTimes, manualActions, elevatedStatus);
+            save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
+                'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','elevatedStatus','-v7.3');
             
-                manualActions = [manualActions ;...
-                    {EditAction.CONSOLIDATE, {}, {} }];
-                save([saveFolder,filesep,datasetName,'.edit.mat'],'manualActions','-v7.3');
-            end
+            manualActions = [manualActions ;...
+                {EditAction.CONSOLIDATE, {}, {} }];
+            save([saveFolder,filesep,datasetName,'.edit.mat'],'manualActions','-v7.3');
+        
+        % Case: consolidation of only new actions 
+        elseif size(manualActionsNew,1) > 0 && ...
+                exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2
+            fprintf('    An incremental raw neurons file was found. Applying new actions.\n');
+            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+                applyManualCleaningPattern(neuronEls, neuronClusters,...
+                neuronSpikeTimes, manualActionsNew, elevatedStatus);
+            save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
+                'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','elevatedStatus','-v7.3');
             
-        else
-            fprintf('No (new) actions to apply, skipping to applying automatic pattern\n');
+            manualActions = [manualActions ;...
+                {EditAction.CONSOLIDATE, {}, {} }];
+            save([saveFolder,filesep,datasetName,'.edit.mat'],'manualActions','-v7.3');
+            
+        else % Case: skip to automatic cleaning
+            fprintf('    No (new) actions to apply, skipping to applying automatic pattern.\n');
         end
         
-        if exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2 % Not the first set of manual actions
-            fprintf('Automatic cleaning from incremental neurons file.\n');
-            if ~exist('neuronSpikeTimes','var')
-                load([saveFolder,filesep,datasetName,'-edited.neurons.mat']);
-            end
-        else
-            fprintf('Automatic cleaning from neurons-raw file.\n');
-            if ~exist('neuronSpikeTimes','var')
-                load([saveFolder,filesep,datasetName,'.neurons.mat']);
-            end
-            elevatedStatus = false(size(neuronEls,1),1);
-        end
-        
+        % Automatic actions
         if ~exist('autoActions','var')
             load([saveFolder,filesep,datasetName,'.clean.mat']);
         end
@@ -452,6 +456,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
                 system(commands{1}); % Generate globals file
                 system(commands{2}); % Copy raw data header to globals
             end
+            % Evalc for catching text outputs.
             xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
             edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
             edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);

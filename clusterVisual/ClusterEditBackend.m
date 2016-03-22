@@ -657,7 +657,8 @@ classdef ClusterEditBackend < handle
                     obj.EIdistMatrix = [obj.EIdistMatrix, nan(size(obj.EIdistMatrix,1),1) ;...
                         nan(1,obj.nClusters)];
 
-                    data = {obj.spikeCounts(selRowsIdx)./storeSpikeCounts, obj.contaminationValues(selRowsIdx), obj.spikeTrains(selRowsIdx)}; % Add in meaningful data reporting here
+                    data = {obj.spikeCounts(selRowsIdx)./storeSpikeCounts, obj.contaminationValues(selRowsIdx),...
+                        obj.spikeTrains(selRowsIdx)};
                     
                 otherwise
                     throw(MException('','ClusterEditBackend:softApplyAction - Unhandled EditAction in switch statement.'));

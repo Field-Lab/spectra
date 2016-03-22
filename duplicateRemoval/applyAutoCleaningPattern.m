@@ -45,7 +45,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                     neuronSpikeTimes{rMaster} = sort(horzcat(neuronSpikeTimes{[rMaster;r]}),'ascend');
                 else % master is elevated, need to find another master neuron
                     if numel(r) > 0
-                        nSpikes = cellfun(@(x) numel(x),neuronSpikeTimes{r},'uni',true);
+                        nSpikes = cellfun(@(x) numel(x),neuronSpikeTimes(r),'uni',true);
                         [~,b] = max(nSpikes);
                         rMaster = r(b);
                         r(b) = [];
