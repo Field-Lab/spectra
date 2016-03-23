@@ -105,7 +105,13 @@ classdef ClusterEditBackend < handle
                 end
                 
                 % Neurons file
-                files = dir([analysisPath,filesep,'*.neurons.mat']);
+                files = dir([analysisPath,filesep,'*-edited.neurons.mat']);
+                if numel(files) == 0
+                    files = dir([analysisPath,filesep,'*.neurons.mat']);
+                    fprintf('Starting from raw neurons file.\n')
+                else
+                    fprintf('Starting from consolidated neurons file.\n');
+                end
                 if numel(files) == 1
                     obj.neurons.exist = true;
                     obj.neurons.path = [analysisPath,filesep,files(1).name];
@@ -131,7 +137,7 @@ classdef ClusterEditBackend < handle
                 obj.nNeurons = size(obj.neuronEls,1);
                 
                 % Clean pattern
-                files = dir([analysisPath,filesep,'*.clean.mat']);
+                files = dir([analysisPath,filesep,'*.cXXXlean.mat']);
                 obj.neuronStatuses = zeros(obj.nNeurons,2);
                 if numel(files) == 1
                     cleanPatternPath = [analysisPath,filesep,files(1).name];
@@ -461,7 +467,7 @@ classdef ClusterEditBackend < handle
             [el,~] = obj.getElClust(ID);
         end
         
-        % function softApplyAction
+        % function localApplyAction
         %   applies an edit action to the data stored in the cache of this object,
         %   locally, on the selected electrode.
         %   This is previewing feature for edition actions.
@@ -469,11 +475,13 @@ classdef ClusterEditBackend < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
+        %       optional: data for fast reapply of shrink/recluster
+        %
         %   Returns:
         %       returnStat: flag at 0 if OK, 1 if error
         %       data: data about the operation result, for pass to editHandler through the GUI
         %             error message to report in case of failure
-        function [returnStat,data] = softApplyAction(obj,action,params)
+        function [returnStat,data] = localApplyAction(obj,action,params,varargin)
             % Information that needs to be edited/thought about when implementing applies on loaded
             % electrode:
             % nClusters  - displayIDs - contaminationValues
@@ -483,7 +491,7 @@ classdef ClusterEditBackend < handle
             validateattributes(action,{'EditAction'},{});
             [v,m] = action.checkParameters(params);
             if v == 0
-                throw(MException('',['ClusterEditBackend:softApplyAction - Invalid action parameters: \n',m]));
+                throw(MException('',['ClusterEditBackend:localApplyAction - Invalid action parameters: \n',m]));
             end
             switch action
                 case EditAction.ELEVATE
@@ -495,7 +503,7 @@ classdef ClusterEditBackend < handle
                     end
                     obj.statusRaw(selRowsIdx,:) = 0;
                     obj.comment(selRowsIdx) = cellfun(@(s) [s,' - Elevated'],obj.comment(selRowsIdx),'uni',false);
-                    data = [];
+                    data = {};
                 case EditAction.MERGE
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
@@ -514,14 +522,17 @@ classdef ClusterEditBackend < handle
                         sum(obj.spikeCounts(selRowsIdx)) * 20000./obj.nSamples,... % Spike rate
                         contam}; % contamination value
                 case EditAction.RECLUSTER
-                    % First check that the config tag is valid
-                    global GLOBAL_CONFIG
-                    try
-                        GLOBAL_CONFIG = mVisionConfig(params{3});
-                    catch error
-                        data = 'The configuration tag requested is invalid';
-                        returnStat = 1;
-                        return;
+                    % Switch cases whether applying stored action or actually computing
+                    if numel(varargin) == 0
+                        % First check that the config tag is valid
+                        global GLOBAL_CONFIG
+                        try
+                            GLOBAL_CONFIG = mVisionConfig(params{3});
+                        catch error
+                            data = 'The configuration tag requested is invalid';
+                            returnStat = 1;
+                            return;
+                        end
                     end
                     % Second check ID validity
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
@@ -530,30 +541,45 @@ classdef ClusterEditBackend < handle
                         returnStat = 1;
                         return;
                     end
+                    
                     % Merged pool of spikes to recluster
                     allPrjs = vertcat(obj.prjTrains{selRowsIdx});
                     allTimes = horzcat(obj.spikeTrains{selRowsIdx});
                     [allTimes,sortTime] = sort(allTimes,'ascend');
                     allPrjs = allPrjs(sortTime,:);
-                    try
-                        [clusterIndexes, model, numClusters] = spectralClustering(allPrjs,params{2}); % Pass the number of clusters
-                    catch error
-                        data = 'Spectral Clustering failed. Aborting. See Console and maybe try again?';
-                        fprintf('%s\n',error.message);
-                        returnStat = 1; return;
-                    end
-                    % Check we do not go beyond 15 clusters
-                    if obj.nClusters + numClusters - numel(selRowsIdx) > 15
-                        data = 'Recluster is taking us beyond 15 clusters. Aborting.';
-                        returnStat = 1; return;
-                    end
-                    % Assign new IDs
-                    if numClusters > numel(selRowsIdx) % More clusters than before
-                        newIDs = [obj.displayIDs(selRowsIdx);...
-                            ((max(obj.displayIDs)+1):(max(obj.displayIDs) + numClusters - numel(selRowsIdx)))'];
-                    else % Less clusters than before
-                        newIDs = obj.displayIDs(selRowsIdx(1:numClusters));
-                    end
+                    
+                    if numel(varargin) == 0 % Computing a newly requested action
+                        try
+                            [clusterIndexes, ~, numClusters] = spectralClustering(allPrjs,params{2}); % Pass the number of clusters
+                        catch error
+                            data = 'Spectral Clustering failed. Aborting. See Console and maybe try again?';
+                            fprintf('%s\n',error.message);
+                            returnStat = 1; return;
+                        end
+                        % Check we do not go beyond 15 clusters
+                        if obj.nClusters + numClusters - numel(selRowsIdx) > 15
+                            data = 'Recluster is taking us beyond 15 clusters. Aborting.';
+                            returnStat = 1; return;
+                        end
+                        % Assign new IDs
+                        if numClusters > numel(selRowsIdx) % More clusters than before
+                            newIDs = [obj.displayIDs(selRowsIdx);...
+                                ((max(obj.displayIDs)+1):(max(obj.displayIDs) + numClusters - numel(selRowsIdx)))'];
+                        else % Less clusters than before
+                            newIDs = obj.displayIDs(selRowsIdx(1:numClusters));
+                        end
+                    else % numel(varargin) == 1, reapplying an old action
+                        % Reproduce newIDs, clusterIndexes, numClusters
+                        % Then let the magic happen
+                        data = varargin{1};
+                        newIDs = data{1}(:); % Make sure is a column
+                        numClusters = numel(newIDs);
+                        clusterIndexes = zeros(numel(allTimes),1);
+                        for cl = 1:numClusters
+                            [~,r,~] = intersect(allTimes,data{2}{cl});
+                            clusterIndexes(r) = cl;
+                        end
+                    end % varargin switch
                     
                     % Process local variables
                     obj.nClusters = obj.nClusters + numClusters - numel(selRowsIdx);
@@ -595,7 +621,7 @@ classdef ClusterEditBackend < handle
                         nan(numClusters,obj.nClusters)];
                     
                     data = {newIDs, newSpikeTrains}; % Add in meaningful data reporting here
-                case EditAction.SHRINK
+                case EditAction.SHRINK % Shrink is cheap, we do not check if we are computing or reapplying
                     % Check ID validity
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
@@ -644,7 +670,7 @@ classdef ClusterEditBackend < handle
                         [-2 , 0]];
                     
                     obj.comment(selRowsIdx) = repmat({'Shrunk down'},numel(selRowsIdx),1);
-                    obj.comment = [obj.comment ; {'Shrink operation outliers'} ];
+                    obj.comment = [obj.comment ; {'Shrink outliers - Will be deleted at next consolidate'} ];
                     
                     obj.eisLoaded(selRowsIdx) = {[]};
                     obj.eisLoaded = [obj.eisLoaded ; {[]}];
@@ -661,24 +687,11 @@ classdef ClusterEditBackend < handle
                         obj.spikeTrains(selRowsIdx)};
                     
                 otherwise
-                    throw(MException('','ClusterEditBackend:softApplyAction - Unhandled EditAction in switch statement.'));
+                    throw(MException('','ClusterEditBackend:localApplyAction - Unhandled EditAction in switch statement.'));
             end
             returnStat = 0;
         end
         
-        % function hardApplyAction
-        %   Overwrites the current state of displayed clusters to the neurons.mat file
-        %
-        %   Inputs:
-        %       action: EditAction object
-        %       parameters: cell array describing action parameters
-        function hardApplyPreviewedActions(obj,action,params)
-            validateattributes(action,{'EditAction'},{});
-            [v,m] = action.checkParameters(params);
-            if v == 0
-                throw(MException('',['ClusterEditBackend:hardApplyPreviewedActions - Invalid action parameters: \n',m]));
-            end
-        end
     end % End of dynamic methods
     
 

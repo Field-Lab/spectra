@@ -44,7 +44,8 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'Toolbar', 'figure', ...
         'NumberTitle', 'off',...
         'Visible', 'off',...
-        'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90]);
+        'OuterPosition',get(groot,'Screensize') + [60 60 -120 -90],...
+        'DeleteFcn',@closeWinCallback);
     % Remove buttons - we only keep figure movement handling
     [~,~] = customizeTools(frontEndHandle);
        
@@ -108,9 +109,19 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'TooltipString','Show the edit viewer edit list',...
         'Interruptible','off','BusyAction','cancel',...
         'fontsize',9,'callback',@openEditHandlerCallback);
+    saveEditActions = uicontrol('Parent',editCol,'Style','pushbutton',...
+        'String','-SAVE EDITS-',...
+        'TooltipString','Save the edit actions to the .edit.mat file',...
+        'Interruptible','off','BusyAction','cancel',...
+        'fontsize',9,'callback',@saveEditsCallback);
     clearEditActions = uicontrol('Parent',editCol,'Style','pushbutton',...
         'String','-CLEAR-',...
-        'TooltipString','Clear all edit actions being previewed on this electrode.',...
+        'TooltipString','Clear all edit actions from this session on this electrode.',...
+        'Interruptible','off','BusyAction','cancel',...
+        'fontsize',9,'callback',@clearEditsCallback);
+    deleteEditActions = uicontrol('Parent',editCol,'Style','pushbutton',...
+        'String','-DEL ALL-',...
+        'TooltipString','Clear all edit actions on this electrode - including those stored in .edit.mat.',...
         'Interruptible','off','BusyAction','cancel',...
         'fontsize',9,'callback',@clearEditsCallback);
     uiextras.Empty('Parent',editCol,'background','g');
@@ -131,7 +142,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     uiextras.Empty('Parent',editCol,'background','g');
-    editCol.Sizes = [24 24 20 repmat(24,1,nnz(arrayfun(@(x) x.isManual,editEnum))),-1];
+    editCol.Sizes = [24 * (ones(1,5)), repmat(24,1,nnz(arrayfun(@(x) x.isManual,editEnum))),-1];
     
     graph3DBox.Sizes = [-1 75 0]; % Finish graph3DBox
     
@@ -494,9 +505,25 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         end
         source.Interruptible = 'off'; % Disable interruption
         
+        % TODO: EDIT HANDLER - check for required saving
+        status = editHandler.saveEdits();
+        if status ~= 0 % Failed save (basically user clicked Cancel)
+            return;
+        end
+        editHandler.clearLoad();
+        
         status = backEndHandle.loadEl(e); % Load in backend
         if status ~= 0 % Failed load (not a valid electrode number or already loaded)
             return;
+        end
+        
+        actions = editHandler.findActionsForElectrode(e);
+        for i = 1:size(actions,1)
+            [stat,data] = backEndHandle.localApplyAction(actions{i,1},actions{i,2},actions{i,3});
+            editHandler.addAction(actions{i,1},actions{i,2},data,false);
+        end
+        if numel(actions) > 0
+            editHandler.openWindow();
         end
         
         % Allow for interruption again - before refreshing data/graphics
@@ -515,6 +542,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         if source == loadButton || source == elNumberBox || source == ppButton || source == mmButton
             clustNumberBox.String = 'ID#';
         end
+        
         % Activate action buttons
         activateActionButtons(true);
         
@@ -974,10 +1002,37 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     % Removes all edits being applied/previewed on the currently displayed electrode
     % and reloads electrode data from scratch.
     % Callback of the clear edits button
-    function clearEditsCallback(~,~)
-        editHandler.clearActions();
+    function clearEditsCallback(source,~)
+        if source == clearEditActions
+            editHandler.clearSession();
+        elseif source == deleteEditActions
+            editHandler.clearLoad();
+            editHandler.requestClearHard();
+        end
         backEndHandle.reloadSameData();
+        for i = 1:size(editHandler.editList,1)
+            backEndHandle.localApplyAction(editHandler.editList{i,1},editHandler.editList{i,2},editHandler.editList{i,3});
+        end
+        if numel(editHandler.editList) > 0
+            editHandler.openWindow();
+        end
         refreshView();
+    end
+    
+    % function saveEditsCallback
+    % prompts user for validation
+    % save edits to .edit.mat file
+    function saveEditsCallback(varargin)
+        editHandler.saveEdits();
+    end
+    
+    % function closeWinCallback
+    %   is the DeleteFcn of the principal window
+    %   will prompt for saving pending edits then close the editHandler
+    %   window in case it's open
+    function closeWinCallback(varargin)
+        saveEditsCallback();
+        editHandler.closeWindow();
     end
     
     % function openEditHandlerCallback
@@ -1038,13 +1093,13 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         statusBar.String = [action.char,' request acknowledged, computing...']; drawnow;
         % First check backend for validity of execution
         % Then add to edithandler and open it
-        [s,data] = backEndHandle.softApplyAction(action,params);
+        [s,data] = backEndHandle.localApplyAction(action,params);
         if s ~= 0 % Invalid parameters regarding the backend data, aborting.
             statusBar.String = data;
             return;
         end
         
-        editHandler.addAction(action,params,data);
+        editHandler.addAction(action,params,data,true);
         editHandler.openWindow();
         
         statusBar.String = 'Computation done. Refreshing view...'; drawnow;
@@ -1061,6 +1116,8 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         if backEndHandle.typeIsSpectra % Edition not allowed in vision mode.
             set(openEditHandler,'Enable',bool2onoff(onOrOff));
             set(clearEditActions,'Enable',bool2onoff(onOrOff));
+            set(deleteEditActions,'Enable',bool2onoff(onOrOff));
+            set(saveEditActions,'Enable',bool2onoff(onOrOff));
             cellfun(@(x) set(x,'Enable',bool2onoff(onOrOff)), actionButtons);
         end
     end

@@ -14,21 +14,29 @@ classdef EditHandler < handle
     
     properties(SetAccess = immutable, GetAccess = private)
         dataFolder
+        editFilePath
     end
     
-    properties(SetAccess = private, GetAccess = private)
+    properties(SetAccess = private, GetAccess = public)
+        
+        allActions
+        newActions
+        
+        filter
+        expectedHardClear
+        
         editList = cell(0,3) % n x 2 cell array, encoded list of edits requested
         % each 1st col cell is a EditAction enum object
         % each 2nd col cell should be a 1 x k array defining the edit and parameters
         % each 3rd col cell is a 1 x k array giving returned data by backend execution
-        displayList = cell(0,1) % n x 1 cell array for display, string info of 
+        displayList = cell(0,1) % n x 1 cell array for display, string info of edit action
+        unsavedActions = false
+        isUnsaved = false(0,1);
         
         isWindowOn = false
         actionTable = []
         windowHandle = []
         statusBar = []
-        
-        lastDel % deletion recovery
     end
     
     methods
@@ -38,6 +46,22 @@ classdef EditHandler < handle
         %       datapath: path to the analysis folder, kept here for saving
         function obj = EditHandler(dataFolder)
             obj.dataFolder = dataFolder;
+            [~,datasetName,~] = fileparts(dataFolder);
+            % Find the manual edit file
+            obj.editFilePath = [dataFolder,filesep,datasetName,'.edit.mat'];
+            if exist(obj.editFilePath,'file') == 2
+                load(obj.editFilePath);
+                obj.allActions = manualActions;
+                % Find actions not yet consolidated
+                lastConsolidate = find(cellfun(@(x) x  == EditAction.CONSOLIDATE,manualActions(:,1),'uni',true),1,'last');
+                if numel(lastConsolidate) == 0
+                    lastConsolidate = 0;
+                end
+                obj.newActions = manualActions((lastConsolidate+1):end,:);
+            else
+                obj.allActions = cell(0,3);
+                obj.newActions = cell(0,3);
+            end
         end
         
         % function openWindow
@@ -60,10 +84,10 @@ classdef EditHandler < handle
                 'Position',[0 0 1 1]);
             
             % Cluster data table %
-            columnName = {'Action List','Del'};
-            columnFormat = {'char','logical'};
-            columnEdit = [false, true];
-            colWidth =  {295,26};
+            columnName = {'Action List'};
+            columnFormat = {'char'};
+            columnEdit = false;
+            colWidth =  {321};
             obj.actionTable = uitable(...
                 'Parent',supportPanel,...
                 'ColumnName', columnName,...
@@ -72,8 +96,7 @@ classdef EditHandler < handle
                 'Interruptible','off',...
                 'Units','norm',...
                 'Position',[0 0 1 1],...
-                'RowName',[],...
-                'CellEditCallback',@obj.delRow);
+                'RowName',[]);
             % Java tweaking to get autoresizing rows for multiline contents
             jscroll = findjobj(obj.actionTable);
             jtable = jscroll.getViewport.getView;
@@ -91,53 +114,14 @@ classdef EditHandler < handle
             supportPanel.Sizes = [-1 24];
         end
         
-        % function delRow
-        %   removes an action from the object's action listing.
-        %   Is the callback of the uitable (second column); when the checkbox is clicked,
-        %   the row's action is deleted
-        function delRow(obj,source,callbackdata)
-            % Table callback, so window has to be open
-            if callbackdata.Indices(1) ~= size(obj.editList,1);
-                obj.statusBar.String = 'Can only delete the last row';
-                obj.actionTable.Data{callbackdata.Indices(1),2} = 0;
-                return;
-            end
-            obj.lastDel.pos = callbackdata.Indices(1);
-            obj.lastDel.display = obj.displayList(callbackdata.Indices(1),:);
-            obj.lastDel.edit = obj.editList(callbackdata.Indices(1),:);
-            obj.displayList(callbackdata.Indices(1),:) = [];
-            obj.editList(callbackdata.Indices(1),:) = [];
-            
-            obj.updateGUITable;
-            obj.statusBar.String = 'Latest edit canceled. Click ''Recover'' to restore.';
-        end
-        
-        % function restoreLastDel
-        %   restores the latest deleted action back into the action listings
-        %   Does nothing if there is no action to restore
-        %   Cannot be called twice in a row
-        function restoreLastDel(obj, source, callbackdata)
-            if numel(obj.lastDel) > 0
-                obj.editList = [obj.editList(1:(obj.lastDel.pos-1),:);...
-                    obj.lastDel.edit;...
-                    obj.editList((obj.lastDel.pos):end,:)];
-                obj.displayList = [obj.displayList(1:(obj.lastDel.pos-1),:);...
-                    obj.lastDel.display;...
-                    obj.displayList((obj.lastDel.pos):end,:)];
-                
-                obj.lastDel = [];
-                obj.updateGUITable;
-            end
-        end
-        
         % function updateGUITable
         %   updates the uitable contents from the object's listings
         %   if the listing window is open
         function updateGUITable(obj)
             if obj.isWindowOn
-                obj.actionTable.Data = [obj.displayList,num2cell(false(numel(obj.displayList),1))]; drawnow;
-                obj.actionTable.ColumnWidth = cellfun(@plus,obj.actionTable.ColumnWidth,{1,0},'uni',false); drawnow;
-                obj.actionTable.ColumnWidth = cellfun(@plus,obj.actionTable.ColumnWidth,{-1,0},'uni',false);
+                obj.actionTable.Data = obj.displayList; drawnow;
+                obj.actionTable.ColumnWidth = cellfun(@plus,obj.actionTable.ColumnWidth,{1},'uni',false); drawnow;
+                obj.actionTable.ColumnWidth = cellfun(@plus,obj.actionTable.ColumnWidth,{-1},'uni',false);
             end
         end
         
@@ -153,26 +137,36 @@ classdef EditHandler < handle
         % function saveEdits
         %   Writes the edit curently stored in the edit table to a .edit TODO
         %   file in the analysis folder.
-        function saveEdits(obj)
-            if ~obj.isWindowOn
-                obj.openWindow
+        function status = saveEdits(obj)
+            if obj.unsavedActions
+                if ~obj.isWindowOn
+                    obj.openWindow
+                else
+                    figure(obj.windowHandle);
+                end
+                choice = questdlg('Do you want to save the pending edits on this electrode?','Save','Save','Clear session','Cancel','Cancel');
+                switch choice
+                    case 'Save'
+                        if obj.expectedHardClear
+                            obj.clearHard();
+                            obj.expectedHardClear = false;
+                        end
+                        obj.allActions = [obj.allActions ; obj.editList];
+                        obj.newActions = [obj.newActions ; obj.editList];
+                        manualActions = obj.allActions;
+                        save(obj.editFilePath,'manualActions','-v7.3');
+                        obj.unsavedActions = false;
+                        obj.isUnsaved(:) = false;
+                        status = 0;
+                    case 'Clear session'
+                        status = 0;
+                        obj.clearSession();
+                        obj.expectedHardClear = false;
+                    case 'Cancel'
+                        status = 1;
+                end
             else
-                figure(obj.windowHandle);
-            end
-            path = [obj.dataFolder,filesep,'edits.mat'];
-            if exist(path)
-                choice = questdlg('An edit file was found...','Save edit commands','Overwrite','Append','Cancel','Cancel');
-            else
-                choice = questdlg('Save edits ?','Save edit commands','Save','Cancel','Save');
-            end
-            editList = obj.editList;
-            switch choice
-                case 'Save'
-                    save(path,'editList','-v7.3');
-                case 'Overwrite'
-                    save(path,'editList','-v7.3');
-                case 'Append'
-                    save(path,'editList','-append');
+                status = 0;
             end
         end
         
@@ -181,7 +175,9 @@ classdef EditHandler < handle
         %   Inputs:
         %       action: EditAction object
         %       parameters: cell array describing action parameters
-        function addAction(obj,action,parameters,data)
+        %       data: backend returned data
+        %       mode: unsaved action flag - true unsaved - false saved
+        function addAction(obj,action,parameters,data,mode)
             [v,m] = action.checkParameters(parameters);
             if v == 0
                 throw(MException('',['EditHandler:addAction - Invalid action parameters: \n',m]));
@@ -189,6 +185,12 @@ classdef EditHandler < handle
             obj.editList = [obj.editList ; {action, parameters, data}];
             obj.displayList = [obj.displayList ; obj.genString(action,parameters,data)];
             obj.updateGUITable();
+            if mode
+                obj.unsavedActions = true;
+                obj.isUnsaved = [obj.isUnsaved ; true];
+            else
+                obj.isUnsaved = [obj.isUnsaved ; false];
+            end
         end
         
         % function genString
@@ -215,7 +217,7 @@ classdef EditHandler < handle
                         'Reclustering of IDs ',prettyPrint(parameters{1}),'<br />',...
                         'In ',num2str(parameters{2}),' clusters.<br />',...
                         'With configuration: ''',num2str(parameters{3}),'''<br />',...
-                        'Resulting IDs: ',prettyPrint(data{3})];
+                        'Resulting IDs: ',prettyPrint(data{1})];
                 case EditAction.SHRINK
                     str = ['<html><left />',...
                         'Shrinking of IDs ',prettyPrint(parameters{1}),'<br />',...
@@ -228,14 +230,79 @@ classdef EditHandler < handle
             end
         end
         
-        % function clearActions
+        % function findActionsForElectrode
+        %   returns all the new (unconsolidated) actions that apply to the input electrode
+        %
+        %   Input: el - matlab numbered electrode
+        %   Return: actionList - relevant actions
+        function actionList = findActionsForElectrode(obj, el)
+            IDRange = (15*(el-2)+1):(15*(el-2)+15);
+            obj.filter = false(size(obj.newActions,1),1);
+            for n = 1:size(obj.newActions,1)
+                % All actions have the ID list in params{1}
+                if numel(intersect(IDRange,obj.newActions{n,2}{1})) > 0
+                    obj.filter(n) = true;
+                end
+            end
+            actionList = obj.newActions(obj.filter,:);
+        end
+        
+        % function clearLoad
         %   clears all actions stored by the EditHandler
-        function clearActions(obj)
-            obj.editList = cell(0,2);
+        %   more of a backend function to flush the window
+        function clearLoad(obj)
+            obj.editList = cell(0,3);
             obj.displayList = cell(0,1);
+            obj.unsavedActions = false;
+            obj.isUnsaved = false(0,1);
             obj.updateGUITable();
         end
+        
+        % function clearSession
+        %   clears all edits upon the last saved version
+        function clearSession(obj)
+            obj.unsavedActions = false;
+            obj.expectedHardClear = false;
+            obj.editList = obj.newActions(obj.filter,:);
+            obj.displayList = cellfun(@(t,u,v) obj.genString(t,u,v),obj.editList(:,1),obj.editList(:,2),obj.editList(:,3),'uni',false);
+            obj.isUnsaved = false(size(obj.editList,1),1);
+            obj.updateGUITable();
+        end
+        
+        % function requestClearHard()
+        %   request a hard clearing that will be applied only at the next save prompt.
+        function requestClearHard(obj)
+            obj.expectedHardClear = true;
+            obj.unsavedActions = true;
+        end
+        
+        % function closeWindow
+        %   close the editHandlerWindow
+        function closeWindow(obj)
+            if obj.isWindowOn
+                delete(obj.windowHandle);
+                obj.isWindowOn = false;
+            end
+        end
     end
+    
+    methods(Access = private)
+        % function clearHard
+        %   clear actions for the electrode and removes them from the
+        %   allActions/actionNew storage
+        %   and for that reason they will be deleted from the .edit.mat file
+        %   at next save, even if they were there before
+        %
+        %   Is private and should only be called when actually saving.
+        %   because if the user choses to discard session at the sve prompt,
+        %   then the hard delete should not be performed at all
+        function clearHard(obj)
+            obj.newActions(obj.filter,:) = [];
+            obj.allActions([false(size(obj.allActions,1)-numel(obj.filter),1),obj.filter],:) = [];
+            obj.filter(obj.filter) = [];
+        end
+            
+    end % PRIVATE methods
     
 end
 
