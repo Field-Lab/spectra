@@ -1,12 +1,13 @@
 function [ neuronSpikeTimes ] = shrinkAll( neuronEls, neuronSpikeTimes, prjPath )
     %SHRINKALL Summary of this function goes here
     load(prjPath,'spikeTimes');
-    for el = 1:size(spikeTimes,1)
+    for el = 2:size(spikeTimes,1)
         cPos = find(neuronEls == el);
         if numel(cPos) == 0
             continue;
         end
-        eval(sprintf('load(%s,''projSpikes%u'');',prjPath,el));
+        %fprintf('load(''%s'',''projSpikes%u'');',prjPath,el);
+        eval(sprintf('load(''%s'',''projSpikes%u'');',prjPath,el));
         for pos = cPos(:)'
             [~,spIdx,~] = intersect(spikeTimes{el},neuronSpikeTimes{pos});
             eval(sprintf('prj = projSpikes%u(spIdx,:);',el));

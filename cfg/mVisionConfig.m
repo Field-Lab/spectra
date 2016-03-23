@@ -102,10 +102,10 @@ classdef mVisionConfig < handle
             textscan(fid,'%s',6,'delimiter','\n'); % Skip header lines
             configData = textscan(fid,'%[^:]::%[^:]::%[^:\r\t\n]%*[\r\t\n]','collectoutput',true);
             configData = configData{1};
-						fclose(fid);
+                        fclose(fid);
            
             for i = 1:size(configData,1)
-								if strcmp(varargin{1},configData{i,1});
+                                if strcmp(varargin{1},configData{i,1});
                     fprintf('Initializing configuration with model %s\n',configData{i,1});
                     fprintf('"%s"\n',configData{i,3});
                     fid2 = fopen(configData{i,2});
