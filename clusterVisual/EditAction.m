@@ -102,7 +102,54 @@ classdef EditAction
                     throw(MException('','EditAction:getTooltipString - Unhandled EditAction in switch statement.'));
             end
         end
+        
     end
+    
+    methods(Static)
+        % function niceDisplay
+        %   prettyprints an N * 3 array of editAction,parameters,data to the console
+        %   Common idea with editHandler's genString.
+        %   Input:
+        %       actionList : N * 3 cell array
+        %           [{ EditAction , { parameter }, {data} } ; ... ]
+        function s = toStringList(actionList)
+            nActions = size(actionList,1);
+            s = cell(nActions,1);
+            for n = 1:nActions
+                action = actionList{n,1};
+                params = actionList{n,2};
+                data = actionList{n,3};
+                
+                
+                a = sprintf('%s',action.char);
+                if numel(params) > 0
+                    pString = cellfun(@prettyPrint,params,'un',false);
+                else
+                    pString = {''};
+                end
+                p = sprintf('%s    ',pString{:});
+                d = evalc('data');
+                s{n} = sprintf('%s\n%s\n%s',a,p,d(15:(end-2)));
+                % Just putting this here to encourage a future action specific display
+                %{
+                switch action
+                    case EditAction.CONSOLIDATE
+                    case EditAction.AUTO_RM
+                    case EditAction.AUTO_MERGE
+                    case EditAction.AUTO_RM_DUP
+                    case EditAction.ELEVATE
+                    case EditAction.MERGE
+                    case EditAction.SHRINK
+                    case EditAction.RECLUSTER
+                    otherwise
+                        throw(MException('','EditAction:toStringList - Unhandled EditAction in switch statement.'));
+                end
+                %}
+            end
+            
+            s = sprintf('%s\n--------------------\n',s{:});
+        end
+    end % Static Methods
     
 end
 

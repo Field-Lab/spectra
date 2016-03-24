@@ -14,7 +14,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     %   timeCommand: vision style time command for selection within a dataset
     %       Use empty string '' for full dataset
     %       ex: '', '(10-)', '(500-1000)','(-100)'
-    %       Warning: mVision.m DOES NOT support cocatenated dataset syntaxes
+    %       Warning: mVision.m DOES NOT support concatenated dataset syntaxes
     %       such as data000(1000-)-data002(-100).
     %       Use concatenatedAnalysis.m (WIP) for that purpose
     %   
@@ -337,7 +337,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         end
     end
     
-    %% Cleaning and saving neurons in Vision compatible neuron file
+    %% Cleaning and saving neurons
     thisStep = 7;
     if tryToDo(thisStep) && ...
             (force(thisStep) || ~(exist([saveFolder,filesep,datasetName,'.clean.mat'],'file') == 2))
@@ -350,10 +350,6 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         
         duplicateRemoval(dataPath, saveFolder, datasetName, ...
             neuronEls, neuronClusters, neuronSpikeTimes);
-        
-        neuronSaver = NeuronSaverM(dataPath,saveFolder,datasetName,'',0);
-        neuronSaver.pushAllNeurons(neuronEls, neuronClusters, neuronSpikeTimes);
-        neuronSaver.close();
         
         fprintf('Neuron cleaning done.\n');
         

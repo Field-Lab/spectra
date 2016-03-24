@@ -9,4 +9,4 @@ spikesForLaplacian      = 1000
 spikesForKMeans         = 10000
 
 computeRawEIs           = false
-computeFinalEIs         = false
+computeFinalEIs         = true

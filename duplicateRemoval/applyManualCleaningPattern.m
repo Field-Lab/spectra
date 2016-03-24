@@ -58,10 +58,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 newN = numel(data{1});
                 [el, clust] = NeuronSaverM.getElClust(data{1});
                 % Append
-                allIDs = [allIDs ; data{1}'];
-                neuronEls = [neuronEls; el'];
-                neuronClusters = [neuronClusters; clust'];
-                neuronSpikeTimes = [neuronSpikeTimes ; data{2}'];
+                allIDs = [allIDs ; data{1}(:)];
+                neuronEls = [neuronEls; el(:)];
+                neuronClusters = [neuronClusters; clust(:)];
+                neuronSpikeTimes = [neuronSpikeTimes ; data{2}(:)];
                 toRemove = [toRemove ; false(newN, 1)];
                 elevatedStatus = [elevatedStatus ; true(newN, 1)];
         otherwise
