@@ -1054,7 +1054,10 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
             exc = [];
             switch action
                 case EditAction.ELEVATE
-                    params = inputdlg({'List of IDs to elevate/remove from merges:'},'Input',[1 70],{s});
+                    params = inputdlg({'List of IDs to elevate:'},'Input',[1 70],{s});
+                    params{1} = str2num(params{1});
+                case EditAction.DELETE
+                    params = inputdlg({'List of IDs to delete:'},'Input',[1 70],{s});
                     params{1} = str2num(params{1});
                 case EditAction.MERGE
                     params = inputdlg({'List of IDs to merge together:'},'Input',[1 70],{s});
@@ -1075,7 +1078,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
                     exc = MException('','ClusterEditGUI:editCallback - Unhandled EditAction in switch statement.');
             end
         catch
-            params = {};
+            params = {[]};
         end
         if numel(exc) > 0
             throw(exc)

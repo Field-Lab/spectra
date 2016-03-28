@@ -12,7 +12,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
     validateattributes(elevatedStatus,{'logical'},{'size',[nNeurons, 1]},'','elevatedStatus');
     
     allIDs = NeuronSaverM.getIDs(neuronEls, neuronClusters);
-    fastRows = zeros(max(allIDs),1);
+    fastRows = zeros(max(allIDs) + 15,1);
+    % " + 15 ": new IDs may be added on the last electrode. Conservative.
     [~,~,positions] = intersect(1:max(allIDs),allIDs);
     fastRows(allIDs) = positions;
     
@@ -34,6 +35,10 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 % find the rows
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
+            case EditAction.DELETE
+                r = fastRows(params{1});
+                elevatedStatus(r) = true;
+                toRemove(r) = true;
             case EditAction.MERGE
                 % Hard merge
                 % find the rows

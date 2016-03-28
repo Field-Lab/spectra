@@ -584,6 +584,16 @@ classdef ClusterEditBackend < handle
                     obj.statusRaw(selRowsIdx,:) = 0;
                     obj.comment(selRowsIdx) = cellfun(@(s) [s,' - Elevated'],obj.comment(selRowsIdx),'uni',false);
                     data = {};
+                case EditAction.DELETE
+                    [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
+                    if numel(selRowsIdx) < numel(params{1})
+                        data = 'Some requested IDs are invalid. Aborting edition.';
+                        returnStat = 1;
+                        return;
+                    end
+                    obj.statusRaw(selRowsIdx,:) = -2;
+                    obj.comment(selRowsIdx) = cellfun(@(s) [s,' - Deleted'],obj.comment(selRowsIdx),'uni',false);
+                    data = {};
                 case EditAction.MERGE
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})

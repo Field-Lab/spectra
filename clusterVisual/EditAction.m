@@ -5,7 +5,7 @@ classdef EditAction
     %
     %   See ClusterEditBackend for how actions are applied
     %   and ClusterEditGUI for how they are called
-    properties
+    properties (SetAccess = immutable, GetAccess = public) 
         isManual % Tag filtering between manual actions and automatic action.
         % Manual actions only should generate a button and be user accessible in the GUI
     end
@@ -19,6 +19,7 @@ classdef EditAction
         AUTO_RM_DUP  (0)
         
         ELEVATE      (1)
+        DELETE       (1)
         MERGE        (1)
         SHRINK       (1)
         RECLUSTER    (1)
@@ -40,7 +41,8 @@ classdef EditAction
         %       msg: error message in case params is invalid.
         %
         % --- Detailed expected parameters ---
-        %   ELEVATE:      {nonempty row vector: neuron IDs}
+        %   ELEVATE:        {nonempty row vector: neuron IDs}
+        %   DELETE:         {nonempty row vector: neuron IDs}
         %   MERGE:          {nonempty, nonsingleton row vector: neuron IDs}
         %   RECLUSTER:      {nonempty row vector: neuron IDs,
         %                       positive integer scalar: number of clusters to make. 0 for auto,
@@ -55,6 +57,9 @@ classdef EditAction
             try
                 switch obj
                     case EditAction.ELEVATE
+                        validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
+                        validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to elevate',1);
+                    case EditAction.DELETE
                         validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
                         validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to elevate',1);
                     case EditAction.MERGE
@@ -91,6 +96,8 @@ classdef EditAction
             switch obj
                 case EditAction.ELEVATE
                     s = 'Elevate the neurons statuses. They won''t be affected by duplicate removal or merges until another calculation is ran.';
+                case EditAction.DELETE
+                    s = 'Unreservedly remove this neuron.';
                 case EditAction.MERGE
                     s = 'Merge together the cluster selection.';
                 case EditAction.SHRINK
@@ -111,7 +118,8 @@ classdef EditAction
         %   Common idea with editHandler's genString.
         %   Input:
         %       actionList : N * 3 cell array
-        %           [{ EditAction , { parameter }, {data} } ; ... ]
+        %           [{ EditAction , { parameter }, {data} } ; ...
+        %               ... ]
         function s = toStringList(actionList)
             nActions = size(actionList,1);
             s = cell(nActions,1);
@@ -119,7 +127,6 @@ classdef EditAction
                 action = actionList{n,1};
                 params = actionList{n,2};
                 data = actionList{n,3};
-                
                 
                 a = sprintf('%s',action.char);
                 if numel(params) > 0
@@ -152,4 +159,3 @@ classdef EditAction
     end % Static Methods
     
 end
-
