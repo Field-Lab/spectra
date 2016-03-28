@@ -519,7 +519,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         
         actions = editHandler.findActionsForElectrode(e);
         for i = 1:size(actions,1)
-            [stat,data] = backEndHandle.localApplyAction(actions{i,1},actions{i,2},actions{i,3});
+            [~,data] = backEndHandle.localApplyAction(actions{i,1},actions{i,2},actions{i,3});
             editHandler.addAction(actions{i,1},actions{i,2},data,false);
         end
         if numel(actions) > 0

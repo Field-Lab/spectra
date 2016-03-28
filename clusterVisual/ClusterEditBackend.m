@@ -1,7 +1,7 @@
 classdef ClusterEditBackend < handle
     %CLUSTEREDITBACKEND Handles persistently the backend of the cluster visualizer
     
-    properties (GetAccess = public, SetAccess = immutable)
+    properties (GetAccess = public, SetAccess = private)
         typeIsSpectra
         
         analysisPath
@@ -12,7 +12,9 @@ classdef ClusterEditBackend < handle
         config
         
         % Java related stuff for ei and sta display
+        eiFileRaw
         eiFile
+        staFileRaw
         staFile
         globalsFile
         
@@ -38,7 +40,7 @@ classdef ClusterEditBackend < handle
         % Front end friendly data
         isDataReady % Marker if loading is complete. Is not currently used
         
-        % Information about the clusters on loaded electrode 
+        % Information about the clusters on loaded electrode
         nClusters % Number of clusters
         displayIDs % IDs
         contaminationValues % Contamination values
@@ -106,7 +108,7 @@ classdef ClusterEditBackend < handle
                 
                 % Neurons file
                 files = dir([analysisPath,filesep,'*-edited.neurons.mat']);
-                if numel(files) == 0
+                if numel(files) == 0 % No edited - start from raw
                     files = dir([analysisPath,filesep,'*.neurons.mat']);
                     fprintf('Starting from raw neurons file.\n')
                 else
@@ -116,9 +118,9 @@ classdef ClusterEditBackend < handle
                     obj.neurons.exist = true;
                     obj.neurons.path = [analysisPath,filesep,files(1).name];
                 else if numel(files) == 0
-                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons-raw file found'));
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons.mat file found'));
                     else
-                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons.mat files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
                     end
                 end
                 
@@ -136,29 +138,64 @@ classdef ClusterEditBackend < handle
                 obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
                 obj.nNeurons = size(obj.neuronEls,1);
                 
-                % Clean pattern
-                files = dir([analysisPath,filesep,'*.cXXXlean.mat']);
+                % Clean pattern % TODO COMPLETE REFACTORING %%%%%%%%%%%%%%%
+                files = dir([analysisPath,filesep,'*.clean.mat']);
                 obj.neuronStatuses = zeros(obj.nNeurons,2);
+                % check against elevated statuses
                 if numel(files) == 1
-                    cleanPatternPath = [analysisPath,filesep,files(1).name];
-                    load(cleanPatternPath);
-                    IDsDuplicatesRemoved = ClusterEditBackend.shortenDuplicatesPath(IDsDuplicatesRemoved);
-                    [~,i,~] = intersect(obj.neuronIDs,IDsRemovedAtContam);
-                    obj.neuronStatuses(i,1) = 1; % 1 - removed at contam
-                    [~,i,j] = intersect(obj.neuronIDs,IDsMerged(:,2));
-                    obj.neuronStatuses(i,1) = 2; % 2 - merged
-                    obj.neuronStatuses(i,2) = IDsMerged(j,1);
-                    if size(IDsDuplicatesRemoved,2) == 1 % old format, no track
-                        [~,i,~] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,1));
-                        obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                        obj.neuronStatuses(i,2) = -1;
-                    else
-                        [~,i,j] = intersect(obj.neuronIDs,IDsDuplicatesRemoved(:,2));
-                        obj.neuronStatuses(i,1) = 3; % 3 - duplicate
-                        obj.neuronStatuses(i,2) = IDsDuplicatesRemoved(j,1);
+                    % -2 - discard ; -1 - Unknown ; 0 - keep ; 1 - removed ; 2 - merged (2nd col: master); 3 - dup (2nd col: master)
+                    % Parse statuses
+                    % Avoid interference with elevated IDs
+                    if ~exist('elevatedStatus','var')
+                        elevatedStatus = false(obj.nNeurons,1);
                     end
-                else % no cleaning info found
-                    obj.neuronStatuses(:,1) = -1;
+                    listElevatedRows = find(elevatedStatus);
+                    
+                    % Fast positional neuron access. fastRows(ID) = row #.
+                    fastRows = zeros(max(obj.neuronIDs) + 15,1); % + 15 safety in case manual actions add IDs
+                    [~,~,positions] = intersect(1:max(obj.neuronIDs),obj.neuronIDs);
+                    fastRows(obj.neuronIDs) = positions;
+                    
+                    cleanPatternPath = [analysisPath,filesep,files(1).name];
+                    load(cleanPatternPath); % loads autoActions
+                    
+                    % Obtain status from dry-running all auto cleaning actions
+                    % Apply all automatic actions
+                    for i = 1:size(autoActions,1)
+                        action = autoActions{i,1};
+                        params = autoActions{i,2};
+                        switch action
+                            case EditAction.AUTO_RM
+                                r = fastRows(params{1}); r(r == 0) = []; % find the rows
+                                r = setdiff(r,listElevatedRows); % remove the elevated rows
+                                obj.neuronStatuses(r,1) = 1; % Set status to 1
+                            case EditAction.AUTO_MERGE
+                                rMaster = fastRows(params{1}); % find the rows
+                                r = fastRows(params{2}); r(r == 0) = []; % remove elevated rows
+                                r = setdiff(r,listElevatedRows);
+                                % depends on whether master ID is elevated
+                                if ~(rMaster == 0) && ~elevatedStatus(rMaster)
+                                    obj.neuronStatuses(r,1) = 2;
+                                    obj.neuronStatuses(r,2) = params{1}; % Master ID
+                                else % master is elevated, need to find another master neuron
+                                    if numel(r) > 0
+                                        nSpikes = cellfun(@(x) numel(x),obj.neurons.matfile.neuronSpikeTimes(r),'uni',true);
+                                        [~,b] = max(nSpikes);
+                                        rMaster = r(b);
+                                        r(b) = [];
+                                        obj.neuronStatuses(r,1) = 2;
+                                        obj.neuronStatuses(r,2) = obj.neuronIDs(rMaster);
+                                    end
+                                end
+                            case EditAction.AUTO_RM_DUP
+                                r = fastRows(params{2}); % find the rows
+                                r = setdiff(r,listElevatedRows); % remove elevated rows
+                                obj.neuronStatuses(r,1) = 3;
+                                obj.neuronStatuses(r,2) = params{1};
+                            otherwise
+                                throw(MException('','ClusterEditBackend:ClusterEditBackend - Unhandled EditAction in switch statement.'));
+                        end
+                    end
                 end
             else % Type is vision
                 % Projections file
@@ -179,9 +216,9 @@ classdef ClusterEditBackend < handle
                     obj.neurons.exist = true;
                     obj.neurons.path = [analysisPath,filesep,files(1).name];
                 else if numel(files) == 0
-                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No neurons-raw file found'));
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - No .neurons-raw file found'));
                     else
-                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
+                        throw(MException('','ClusterEditBackend:ClusterEditBackend - Multiple .neurons-raw files found\nPlease use extended constructor call\nneuronViewer(analysisPath,projectionsFile,neuronsRawFile,modelFile)'));
                     end
                 end
                 
@@ -214,38 +251,13 @@ classdef ClusterEditBackend < handle
                 else
                     obj.neuronStatuses(:,1) = -1;
                 end
-            end % type switch
+            end % type switch (end vision type)
             
             % Initialize EI
-            files = dir([analysisPath,filesep,'*.ei']);
-            if numel(files) > 0
-                eiPath = [analysisPath,filesep,files(1).name];
-                obj.eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
-            else
-                obj.eiFile = []; % Tag for existence of ei File
-                fprintf('ClusterEditBackend:ClusterEditBackend - No EI file found, skipping\n');
-            end
+            obj.initEI(analysisPath);
             
             % Initialize STA
-            files = dir([analysisPath,filesep,'*.sta']);
-            if numel(files) > 0
-                staPath = [analysisPath,filesep,files(1).name];
-                obj.staFile = edu.ucsc.neurobiology.vision.io.STAFile(staPath);
-            else
-                obj.staFile = []; % Tag for existence of ei File
-                fprintf('ClusterEditBackend:ClusterEditBackend - No STA file found, skipping\n');
-            end
-            
-            % Grab the globals file
-            files = dir([analysisPath,filesep,'*.globals']);
-            if numel(files) > 0
-                globalsPath = [analysisPath,filesep,files(1).name];
-                obj.globalsFile = edu.ucsc.neurobiology.vision.io.chunk.GlobalsFile(globalsPath);
-            else
-                obj.globalsFile = [];
-                obj.staFile = []; % Tag for existence of ei File
-                fprintf('ClusterEditBackend:ClusterEditBackend - No Globals file found, STAs Unavailable\n');
-            end
+            obj.initSTA(analysisPath);
             
             % Try to find a classification file
             obj.classification = cell(obj.nNeurons,1);
@@ -269,6 +281,67 @@ classdef ClusterEditBackend < handle
             % Handling case where no GUI caller exists - user mode
             % Code will pass through calls to the GUI status bar no questions asked.
             obj.statusBarHandle.String = '';
+        end
+        
+        % function initEI
+        %   Relocation of a piece of the constructor
+        %   Setting up ei and ei-raw access
+        function initEI(obj, analysisPath)
+            % Initialize EI - RAWS
+            files = dir([analysisPath,filesep,'*.ei-raw']);
+            if numel(files) > 0
+                eiPath = [analysisPath,filesep,files(1).name];
+                obj.eiFileRaw = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
+            else
+                obj.eiFileRaw = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No EI (RAW) file found, skipping\n');
+            end
+            
+            % Initialize EI - FINAL
+            files = dir([analysisPath,filesep,'*.ei']);
+            if numel(files) > 0
+                eiPath = [analysisPath,filesep,files(1).name];
+                obj.eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
+            else
+                obj.eiFile = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No EI (FINAL) file found, skipping\n');
+            end
+        end
+        
+        
+        % function initSTA
+        %   Relocation of a piece of the constructor
+        %   Setting up sta and sta-raw access
+        function initSTA(obj, analysisPath)
+            files = dir([analysisPath,filesep,'*.sta-raw']);
+            if numel(files) > 0
+                staPath = [analysisPath,filesep,files(1).name];
+                obj.staFileRaw = edu.ucsc.neurobiology.vision.io.STAFile(staPath);
+            else
+                obj.staFileRaw = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No STA (RAW) file found, skipping\n');
+            end
+            
+            files = dir([analysisPath,filesep,'*.sta']);
+            if numel(files) > 0
+                staPath = [analysisPath,filesep,files(1).name];
+                obj.staFile = edu.ucsc.neurobiology.vision.io.STAFile(staPath);
+            else
+                obj.staFile = []; % Tag for existence of ei File
+                fprintf('ClusterEditBackend:ClusterEditBackend - No STA (FINAL) file found, skipping\n');
+            end
+            
+            % Grab the globals file
+            files = dir([analysisPath,filesep,'*.globals']);
+            if numel(files) > 0
+                globalsPath = [analysisPath,filesep,files(1).name];
+                obj.globalsFile = edu.ucsc.neurobiology.vision.io.chunk.GlobalsFile(globalsPath);
+            else
+                obj.globalsFile = [];
+                obj.staFile = [];
+                obj.staFileRaw = [];
+                fprintf('ClusterEditBackend:ClusterEditBackend - No Globals file found, STAs Unavailable\n');
+            end
         end
         
         % function loadEl
@@ -377,8 +450,8 @@ classdef ClusterEditBackend < handle
         function reloadSameData(obj)
             obj.loadEl(obj.elLoaded,true);
         end
-            
-            
+        
+        
         % function loadEI
         %   loads the EIs from the EI file for the IDs in obj.displayIDs
         function loadEI(obj)
@@ -386,6 +459,9 @@ classdef ClusterEditBackend < handle
             for c = 1:obj.nClusters
                 try
                     obj.eisLoaded{c} = obj.eiFile.getImage(obj.displayIDs(c));
+                    if numel(obj.eisLoaded{c}) == 0
+                        obj.eisLoaded{c} = obj.eiFileRaw.getImage(obj.displayIDs(c));
+                    end
                 catch
                     obj.eisLoaded{c} = [];
                 end
@@ -399,7 +475,7 @@ classdef ClusterEditBackend < handle
             cleanConfig = obj.config.getCleanConfig();
             eiSize = obj.eiFile.nlPoints + obj.eiFile.nrPoints + 1;
             
-            % Recenter global minima window if ei left and right are not identical to the configuration 
+            % Recenter global minima window if ei left and right are not identical to the configuration
             cleanConfig.globMinWin = cleanConfig.globMinWin - cleanConfig.EILP + obj.eiFile.nlPoints;
             
             % Utils for realignment
@@ -445,6 +521,10 @@ classdef ClusterEditBackend < handle
             for c = 1:obj.nClusters
                 try
                     obj.stasLoaded{c} = obj.staFile.getSTA(obj.displayIDs(c));
+                    % Try raw load
+                    if numel(obj.stasLoaded{c}) == 0
+                        obj.stasLoaded{c} = obj.staFileRaw.getSTA(obj.displayIDs(c));
+                    end
                 catch
                     obj.stasLoaded{c} = [];
                 end
@@ -588,7 +668,7 @@ classdef ClusterEditBackend < handle
                     obj.displayIDs = [obj.displayIDs ; newIDs];
                     obj.spikeTrains(selRowsIdx) = [];
                     newSpikeTrains = cellfun(@(x) allTimes(clusterIndexes == x),num2cell(1:numClusters)','uni',false);
-                    obj.spikeTrains = [obj.spikeTrains; newSpikeTrains]; 
+                    obj.spikeTrains = [obj.spikeTrains; newSpikeTrains];
                     obj.prjTrains(selRowsIdx) = [];
                     newPrjTrains = cellfun(@(x) allPrjs(clusterIndexes == x,:),num2cell(1:numClusters)','uni',false);
                     obj.prjTrains = [obj.prjTrains; newPrjTrains];
@@ -648,7 +728,7 @@ classdef ClusterEditBackend < handle
                     end
                     [outlierSpikeTrain,order] = sort(outlierSpikeTrain);
                     outlierPrjTrain = outlierPrjTrain(order,:);
-                        
+                    
                     % Process local variables
                     obj.nClusters = obj.nClusters + 1;
                     
@@ -682,7 +762,7 @@ classdef ClusterEditBackend < handle
                     obj.EIdistMatrix(:,selRowsIdx) = nan;
                     obj.EIdistMatrix = [obj.EIdistMatrix, nan(size(obj.EIdistMatrix,1),1) ;...
                         nan(1,obj.nClusters)];
-
+                    
                     data = {obj.spikeCounts(selRowsIdx)./storeSpikeCounts, obj.contaminationValues(selRowsIdx),...
                         obj.spikeTrains(selRowsIdx)};
                     
@@ -694,7 +774,7 @@ classdef ClusterEditBackend < handle
         
     end % End of dynamic methods
     
-
+    
     methods(Static)
         % Statically computes neuron IDs for electrode-clusterID pairs
         % Allows to store absolute neuron information during neuron cleaning
