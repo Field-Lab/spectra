@@ -58,9 +58,15 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     %
     % Author -- Vincent Deo -- Stanford University -- February 19, 2016
     
+    %% VERSION NUMBER %%
+    % Increment at each master merge
+    version = '0.2';
+    fprintf('---------------- Welcome to Spectra v. %s ----------------\n\n',version);
+ 
     %% SETUP
     % Add subfolders to the matlab path
     addpath(genpath(['.',filesep]));
+    
     
     % Create global configuration handle
     narginchk(6,7);
