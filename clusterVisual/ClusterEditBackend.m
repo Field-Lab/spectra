@@ -196,6 +196,10 @@ classdef ClusterEditBackend < handle
                                 throw(MException('','ClusterEditBackend:ClusterEditBackend - Unhandled EditAction in switch statement.'));
                         end
                     end
+                    % shorten duplicate chains
+                    dupRows = obj.neuronStatuses(:,1) == 3;
+                    tmp = ClusterEditBackend.shortenDuplicatesPath([obj.neuronStatuses(dupRows,2),obj.neuronIDs(dupRows)]);
+                    obj.neuronStatuses(dupRows,2) = tmp(:,1);
                 end
             else % Type is vision
                 % Projections file
