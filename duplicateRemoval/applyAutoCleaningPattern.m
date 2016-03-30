@@ -55,7 +55,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
                 end
             case EditAction.AUTO_RM_DUP
                 % find the rows
-                r = fastRows(params{2});
+                r = fastRows(params{2});  r(r == 0) = [];
                 % remove elevated rows
                 r = setdiff(r,listElevatedRows);
                 % depends on whether master ID is elevated

@@ -462,6 +462,7 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             xmlConfig = edu.ucsc.neurobiology.vision.Config(movieXML);
             edu.ucsc.neurobiology.vision.tasks.RunScript.createWhiteNoiseMovie(xmlConfig, saveFolder);
             edu.ucsc.neurobiology.vision.tasks.RunScript.calcAuxParams(xmlConfig, saveFolder);
+            delete([saveFolder,filesep,datasetName,'.sta']); % Required
             system(commands{3}); % STA Calculation Parallel
         end
         

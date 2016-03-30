@@ -19,6 +19,8 @@ classdef EditAction
         AUTO_RM_DUP  (0)
         
         ELEVATE      (1)
+        % Note: It is not a good idea to implement an "Unelevate" action,
+        % as IDs may change during the manual edition process.
         DELETE       (1)
         MERGE        (1)
         SHRINK       (1)

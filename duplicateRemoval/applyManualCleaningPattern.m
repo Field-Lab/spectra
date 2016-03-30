@@ -62,7 +62,8 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 toRemove(r) = true;
                 newN = numel(data{1});
                 [el, clust] = NeuronSaverM.getElClust(data{1});
-                % Append
+                % Append, and update fastrows
+                fastRows(data{1}(:)) = numel(allIDs) + (1:newN);
                 allIDs = [allIDs ; data{1}(:)];
                 neuronEls = [neuronEls; el(:)];
                 neuronClusters = [neuronClusters; clust(:)];
