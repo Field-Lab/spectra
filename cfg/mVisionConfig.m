@@ -261,7 +261,7 @@ classdef mVisionConfig < handle
             computeConfig.params = obj.computeFinalParams;
         end
         
-        % Generate the system call strings for -raw.ei computation
+        % Generate the system call strings for .ei(-raw) computation
         % Requires EI calculation
         function commands = stringifyEICommand(obj, rawDataPath,saveFolder,datasetName)
             start = ['java -cp "./vision/',pathsep,...
@@ -272,7 +272,7 @@ classdef mVisionConfig < handle
                 obj.EISpikesToAverage, obj.EInThreads) };
         end
         
-        % Generate the system call strings for -raw.sta computation
+        % Generate the system call strings for .sta(-raw) computation
         % STA computation requires
         % Generate globals file
         % Copy raw data header to globals

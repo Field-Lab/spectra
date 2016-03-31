@@ -77,7 +77,7 @@ function duplicateRemoval( dataPath, saveFolder, datasetName, neuronEls, neuronC
     %%%
     
     %% EI access setup - Requires precomputation of raw EIs
-    eiPath = [saveFolder, filesep, datasetName,'-raw.ei'];
+    eiPath = [saveFolder, filesep, datasetName,'.ei-raw'];
     eiFile = edu.ucsc.neurobiology.vision.io.PhysiologicalImagingFile(eiPath);
     
     % Misc for dup removal algorithm
