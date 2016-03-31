@@ -11,29 +11,31 @@
 %% Load mVision configuration - start parallel pool if needed
 CONFIG_TAG = ''; % Put your config tag here. It is passed down to mVision
 % But not globalized from this level.
+addpath('./cfg/');
 cfg = mVisionConfig(CONFIG_TAG);
-parConfig = config.getParConfig();
+parConfig = cfg.getParConfig();
 
 parpool(parConfig.nWorkers);
 
 %%
-fileList = textread(['..',filesep,'fileList.input'],'%s');
-movieList = textread(['..',filesep,'movies.input'],'%s');
+fileList = textread(['/Volumes/Lab/Projects/spikesorting/mvision',filesep,'fileList2.input'],'%s');
+movieList = textread(['/Volumes/Lab/Projects/spikesorting/mvision',filesep,'movies2.input'],'%s');
 n = numel(fileList);
 
 prefix = '/Volumes/Archive/'
-outputPrefix = '/Volumes/Lab/Projects/spikesorting/mvision/outputsSpectral/'
-movieprefix = '/Volumes/Analysis/stimuli/white-noise-xml/'
+outputPrefix = '/Volumes/Lab/Projects/spikesorting/mvision/outputsFeb16/'
+moviePrefix = '/Volumes/Analysis/stimuli/white-noise-xml/'
 
 % parfor
-% for k = 1:n
-for k = 1:1
+parfor k = 1:n
+% for k = 1:1
 %    try
         mVision([prefix,fileList{k}],... % Data folder
             [outputPrefix,fileList{k}],... % Output folder
             '',... % Time tag
-            [0 1 0 0 0 0 0],... % Requested computation
-            'all',... % force overwrite
+						[moviePrefix, movieList{k}, '.xml'],... % movieXML
+            [0 0 0 0 0 1 1 1],... % Requested computation
+            'none',... % force overwrite
             CONFIG_TAG); % Config tag
         
 %    catch error
