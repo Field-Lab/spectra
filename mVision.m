@@ -58,6 +58,12 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     %
     % Author -- Vincent Deo -- Stanford University -- February 19, 2016
     
+    %% MATLAB VERSION CHECK
+    mver = ver('MATLAB');
+    if str2double(mver.Version) < 8.5
+        throw(MException('','mVision.m: Spectra requires MATLAB R2015a or later.'));
+    end
+    
     %% VERSION NUMBER %%
     % Increment at each master merge
     version = '0.2';
@@ -485,6 +491,6 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
     fprintf('\n');
     fprintf('Total pipeline time %.2f seconds\n',toc(totalTime));
     fprintf([strrep(dataPath,'\','\\'),timeCommand,' finished\n']);
-    fprintf('----------------------------------------------------------\n');
+    fprintf('\n----------------------------------------------------------\n');
     
 end

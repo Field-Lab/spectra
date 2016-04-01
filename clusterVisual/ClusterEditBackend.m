@@ -804,6 +804,29 @@ classdef ClusterEditBackend < handle
             returnStat = 0;
         end
         
+        % Destructor - close handles to java files
+        function delete(obj)
+            2+2;
+            if ~obj.typeIsSpectra
+                obj.prj.javafile.close();
+                obj.neurons.javafile.close();
+            end
+            if numel(obj.eiFile) > 0
+                obj.eiFile.close();
+            end
+            if numel(obj.eiFileRaw) > 0
+                obj.eiFileRaw.close();
+            end
+            if numel(obj.staFile) > 0
+                obj.staFile.close();
+            end
+            if numel(obj.staFileRaw) > 0
+                obj.staFileRaw.close();
+            end
+            if numel(obj.globalsFile) > 0
+                obj.globalsFile.close();
+            end
+        end
     end % End of dynamic methods
     
     
