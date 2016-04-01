@@ -33,7 +33,7 @@ parfor k = 1:n
         mVision([prefix,fileList{k}],... % Data folder
             [outputPrefix,fileList{k}],... % Output folder
             '',... % Time tag
-						[moviePrefix, movieList{k}, '.xml'],... % movieXML
+            [moviePrefix, movieList{k}, '.xml'],... % movieXML
             [0 0 0 0 0 1 1 1],... % Requested computation
             'none',... % force overwrite
             CONFIG_TAG); % Config tag

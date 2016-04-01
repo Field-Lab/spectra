@@ -247,6 +247,6 @@ function duplicateRemoval( dataPath, saveFolder, datasetName, neuronEls, neuronC
 %     nNeurons = size(neuronEls,1);
 
     %%%
-    fprintf('After neighbor electrode pair discard: %u\n',nNeurons);
+    fprintf('After neighbor electrode pair discard: %u\n',nnz(~toRemove));
     %%%
 end

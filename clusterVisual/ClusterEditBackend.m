@@ -141,7 +141,7 @@ classdef ClusterEditBackend < handle
                 obj.nElectrodes = size(obj.prj.matfile.spikeTimes,1);
                 obj.nNeurons = size(obj.neuronEls,1);
                 
-                % Clean pattern % TODO COMPLETE REFACTORING %%%%%%%%%%%%%%%
+                % Clean pattern %
                 files = dir([analysisPath,filesep,'*.clean.mat']);
                 obj.neuronStatuses = zeros(obj.nNeurons,2);
                 % check against elevated statuses
@@ -150,9 +150,8 @@ classdef ClusterEditBackend < handle
                     % -2 - discard ; -1 - Unknown ; 0 - keep ; 1 - removed ; 2 - merged (2nd col: master); 3 - dup (2nd col: master)
                     % Parse statuses
                     % Avoid interference with elevated IDs
-                    try
-                        load(obj.neurons.path,'elevatedStatus');
-                    catch
+                    load(obj.neurons.path,'elevatedStatus');
+                                        if (~exist('elevatedStatus', 'var')) 
                         elevatedStatus = false(obj.nNeurons,1);
                     end
                     listElevatedRows = find(elevatedStatus);
