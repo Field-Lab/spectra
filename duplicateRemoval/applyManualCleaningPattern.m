@@ -35,6 +35,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 % find the rows
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
+                toRemove(r) = false;
             case EditAction.DELETE
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
@@ -52,9 +53,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 rMaster = r(b);
                 r(b) = [];
                 toRemove(r) = true;
+                toRemove(rMaster) = false;
                 neuronSpikeTimes{rMaster} = sort(horzcat(neuronSpikeTimes{[rMaster;r]}),'ascend');
             case EditAction.SHRINK
                 r = fastRows(params{1});
+                toRemove(r) = false;
                 neuronSpikeTimes(r) = data{3}; % Forwarded spike trains
                 elevatedStatus(r) = true;
             case EditAction.RECLUSTER
