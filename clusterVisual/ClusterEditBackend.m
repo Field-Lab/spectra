@@ -20,6 +20,8 @@ classdef ClusterEditBackend < handle
         
         arrayID
         electrodeMap
+        
+        savedState
     end
     
     properties(GetAccess = public,SetAccess = protected)
@@ -390,6 +392,8 @@ classdef ClusterEditBackend < handle
                 return;
             end
             
+            % Clear the restore point
+            obj.saveLocalState('clear');
             
             % Load the electrode
             obj.elLoaded = el;
@@ -584,23 +588,25 @@ classdef ClusterEditBackend < handle
         %       data: data about the operation result, for pass to editHandler through the GUI
         %             error message to report in case of failure
         function [returnStat,data] = localApplyAction(obj,action,params,varargin)
-            % Information that needs to be edited/thought about when implementing applies on loaded
-            % electrode:
-            % nClusters  - displayIDs - contaminationValues
-            % spikeCounts - statusRaw - comment
-            % spikeTrains - prjTrains
-            % eisLoaded - EIdistMatrix - stasLoaded
             validateattributes(action,{'EditAction'},{});
             [v,m] = action.checkParameters(params);
             if v == 0
                 throw(MException('',['ClusterEditBackend:localApplyAction - Invalid action parameters: \n',m]));
             end
+            % Local copy of the previously stored previous state
+            % Needs to be put back
+            % obj.savedState = localStateCopy;
+            % In case of any nonterminal return of this function
+            localStateCopy = obj.savedState;
+            obj.saveLocalState('save');
+            
             switch action
                 case EditAction.KEEP
                     [~,selRowsIdx,~] = intersect(obj.displayIDs,params{1});
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
+                        obj.savedState = localStateCopy;
                         return;
                     end
                     obj.statusRaw(selRowsIdx,:) = 0;
@@ -611,6 +617,7 @@ classdef ClusterEditBackend < handle
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
+                        obj.savedState = localStateCopy;
                         return;
                     end
                     obj.statusRaw(selRowsIdx,:) = -2;
@@ -621,6 +628,7 @@ classdef ClusterEditBackend < handle
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
+                        obj.savedState = localStateCopy;
                         return;
                     end
                     obj.statusRaw(selRowsIdx,1) = 2;
@@ -643,6 +651,7 @@ classdef ClusterEditBackend < handle
                         catch error
                             data = 'The configuration tag requested is invalid';
                             returnStat = 1;
+                            obj.savedState = localStateCopy;
                             return;
                         end
                     end
@@ -651,6 +660,7 @@ classdef ClusterEditBackend < handle
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
+                        obj.savedState = localStateCopy;
                         return;
                     end
                     
@@ -666,12 +676,16 @@ classdef ClusterEditBackend < handle
                         catch error
                             data = 'Spectral Clustering failed. Aborting. See Console and maybe try again?';
                             fprintf('%s\n',error.message);
-                            returnStat = 1; return;
+                            returnStat = 1;
+                            obj.savedState = localStateCopy;
+                            return;
                         end
                         % Check we do not go beyond 15 clusters
                         if obj.nClusters + numClusters - numel(selRowsIdx) > 15
                             data = 'Recluster is taking us beyond 15 clusters. Aborting.';
-                            returnStat = 1; return;
+                            returnStat = 1;
+                            obj.savedState = localStateCopy;
+                            return;
                         end
                         % Assign new IDs
                         if numClusters > numel(selRowsIdx) % More clusters than before
@@ -739,13 +753,16 @@ classdef ClusterEditBackend < handle
                     if numel(selRowsIdx) < numel(params{1})
                         data = 'Some requested IDs are invalid. Aborting edition.';
                         returnStat = 1;
+                        obj.savedState = localStateCopy;
                         return;
                     end
                     
                     % Check we do not go beyond 15 clusters
                     if obj.nClusters == 15
                         data = 'Shrinking (inc. outlier cluster) is taking us beyond 15 clusters. Aborting.';
-                        returnStat = 1; return;
+                        returnStat = 1;
+                        obj.savedState = localStateCopy;
+                        return;
                     end
                     % Process shrink
                     
@@ -799,6 +816,7 @@ classdef ClusterEditBackend < handle
                         obj.spikeTrains(selRowsIdx)};
                     
                 otherwise
+                    obj.savedState = localStateCopy;
                     throw(MException('','ClusterEditBackend:localApplyAction - Unhandled EditAction in switch statement.'));
             end
             returnStat = 0;
@@ -806,7 +824,6 @@ classdef ClusterEditBackend < handle
         
         % Destructor - close handles to java files
         function delete(obj)
-            2+2;
             if ~obj.typeIsSpectra
                 obj.prj.javafile.close();
                 obj.neurons.javafile.close();
@@ -826,6 +843,59 @@ classdef ClusterEditBackend < handle
             if numel(obj.globalsFile) > 0
                 obj.globalsFile.close();
             end
+        end
+        
+        % function saveLocalState
+        %   Handles saving of loaded state into a struct
+        %   for purpose of canceling the last action done
+        %   Input:
+        %       what: String 'clear', 'save' or 'restore'.
+        %   Return:
+        %       s: 0 if OK, 1 otherwise
+        %       msg: Error message for the GUI
+        function [s,msg] = saveLocalState(obj,what)
+            switch what
+                case 'clear'
+                    obj.savedState = [];
+                case 'save'
+                    obj.savedState.nClusters = obj.nClusters;
+                    obj.savedState.displayIDs = obj.displayIDs;
+                    obj.savedState.contaminationValues = obj.contaminationValues;
+                    obj.savedState.spikeCounts = obj.spikeCounts;
+                    obj.savedState.statusRaw = obj.statusRaw;
+                    obj.savedState.comment = obj.comment;
+                    
+                    obj.savedState.spikeTrains = obj.spikeTrains;
+                    obj.savedState.prjTrains = obj.prjTrains;
+                    obj.savedState.eisLoaded = obj.eisLoaded;
+                    obj.savedState.EIdistMatrix = obj.EIdistMatrix;
+                    obj.savedState.stasLoaded = obj.stasLoaded;
+                case 'restore'
+                    if numel(obj.savedState) == 0
+                        s = 1;
+                        msg = 'Nothing to restore.';
+                        return;
+                    else
+                        obj.nClusters = obj.savedState.nClusters;
+                        obj.displayIDs = obj.savedState.displayIDs;
+                        obj.contaminationValues = obj.savedState.contaminationValues;
+                        obj.spikeCounts = obj.savedState.spikeCounts;
+                        obj.statusRaw = obj.savedState.statusRaw;
+                        obj.comment = obj.savedState.comment;
+                        
+                        obj.spikeTrains = obj.savedState.spikeTrains;
+                        obj.prjTrains = obj.savedState.prjTrains;
+                        obj.eisLoaded = obj.savedState.eisLoaded;
+                        obj.EIdistMatrix = obj.savedState.EIdistMatrix;
+                        obj.stasLoaded = obj.savedState.stasLoaded;
+                        
+                        obj.savedState = [];
+                    end
+                otherwise
+                    throw(MException('',sprintf('ClusterEditBackend:saveLocalState - Call is not OK with arg %s',what)));
+            end
+            s = 0;
+            msg = '';
         end
     end % End of dynamic methods
     

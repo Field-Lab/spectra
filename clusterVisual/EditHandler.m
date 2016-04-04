@@ -249,6 +249,14 @@ classdef EditHandler < handle
             actionList = obj.newActions(obj.filter,:);
         end
         
+        % function removeLastAction
+        %   removes the last action in the current actionList
+        function removeLastAction(obj)
+            obj.editList = obj.editList(1:(end-1),:);
+            obj.displayList = obj.displayList(1:(end-1));
+            obj.updateGUITable();
+        end
+        
         % function clearLoad
         %   clears all actions stored by the EditHandler
         %   more of a backend function to flush the window

@@ -127,6 +127,11 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'TooltipString','Clear all edit actions on this electrode - including those stored in .edit.mat.',...
         'Interruptible','off','BusyAction','cancel',...
         'fontsize',9,'callback',@clearEditsCallback);
+    undoLastEditButton = uicontrol('Parent',editCol,'Style','pushbutton',...
+        'String','-UNDO-',...
+        'TooltipString','Undo latest action (from this session only) on this electrode.',...
+        'Interruptible','off','BusyAction','cancel',...
+        'fontsize',9,'callback',@undoLastEdit);
     uiextras.Empty('Parent',editCol,'background','g');
     actionButtons = cell(numel(editEnum),1);
     for actionNum = 1:numel(editEnum)
@@ -145,7 +150,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         end
     end
     uiextras.Empty('Parent',editCol,'background','g');
-    editCol.Sizes = [24 * (ones(1,5)), repmat(24,1,nnz(arrayfun(@(x) x.isManual,editEnum))),-1];
+    editCol.Sizes = [24 * (ones(1,6)), repmat(24,1,nnz(arrayfun(@(x) x.isManual,editEnum))),-1];
     
     graph3DBox.Sizes = [-1 75 0]; % Finish graph3DBox
     
@@ -1158,8 +1163,23 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
             set(clearEditActions,'Enable',bool2onoff(onOrOff));
             set(deleteEditActions,'Enable',bool2onoff(onOrOff));
             set(saveEditActions,'Enable',bool2onoff(onOrOff));
+            set(undoLastEditButton,'Enable',bool2onoff(onOrOff));
             cellfun(@(x) set(x,'Enable',bool2onoff(onOrOff)), actionButtons);
         end
+    end
+    
+    % function undoLastEdit
+    %   undo the last edit action
+    %   callback of the undoLastEditButton pushbutton
+    function undoLastEdit(~,~)
+        [s,msg] = backEndHandle.saveLocalState('restore');
+        if s ~= 0
+            statusBar.String = msg;
+            return;
+        end
+        editHandler.removeLastAction();
+        refreshView();
+        statusBar.String = 'Canceled latest action.';
     end
     
     %% FINISH GENERATING THE GUI %%
