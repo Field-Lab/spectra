@@ -18,7 +18,7 @@ classdef EditAction
         AUTO_MERGE   (0)
         AUTO_RM_DUP  (0)
         
-        ELEVATE      (1)
+        KEEP         (1)
         % Note: It is not a good idea to implement an "Unelevate" action,
         % as IDs may change during the manual edition process.
         DELETE       (1)
@@ -43,7 +43,7 @@ classdef EditAction
         %       msg: error message in case params is invalid.
         %
         % --- Detailed expected parameters ---
-        %   ELEVATE:        {nonempty row vector: neuron IDs}
+        %   KEEP:           {nonempty row vector: neuron IDs}
         %   DELETE:         {nonempty row vector: neuron IDs}
         %   MERGE:          {nonempty, nonsingleton row vector: neuron IDs}
         %   RECLUSTER:      {nonempty row vector: neuron IDs,
@@ -58,7 +58,7 @@ classdef EditAction
             unhandled = false;
             try
                 switch obj
-                    case EditAction.ELEVATE
+                    case EditAction.KEEP
                         validateattributes(params,{'cell'},{'size',[1 1]},'','parameter cell array');
                         validateattributes(params{1},{'numeric'},{'row','nonempty'},'','List of IDs to elevate',1);
                     case EditAction.DELETE
@@ -96,7 +96,7 @@ classdef EditAction
         
         function s = getTooltipString(obj)
             switch obj
-                case EditAction.ELEVATE
+                case EditAction.KEEP
                     s = 'Elevate the neurons statuses. They won''t be affected by duplicate removal or merges until another calculation is ran.';
                 case EditAction.DELETE
                     s = 'Unreservedly remove this neuron.';
@@ -146,7 +146,7 @@ classdef EditAction
                     case EditAction.AUTO_RM
                     case EditAction.AUTO_MERGE
                     case EditAction.AUTO_RM_DUP
-                    case EditAction.ELEVATE
+                    case EditAction.KEEP
                     case EditAction.MERGE
                     case EditAction.SHRINK
                     case EditAction.RECLUSTER

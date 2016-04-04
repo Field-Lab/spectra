@@ -203,7 +203,7 @@ classdef EditHandler < handle
             validateattributes(action,{'EditAction'},{});
             validateattributes(parameters,{'cell'},{});
             switch action
-                case EditAction.ELEVATE
+                case EditAction.KEEP
                     str = ['Elevated status for IDs ', prettyPrint(parameters{1})];
                 case EditAction.DELETE
                     str = ['Deletion for IDs ', prettyPrint(parameters{1})];

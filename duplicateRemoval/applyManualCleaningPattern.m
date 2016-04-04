@@ -31,7 +31,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
         switch action
             case EditAction.CONSOLIDATE
                 % Skip silently
-            case EditAction.ELEVATE
+            case EditAction.KEEP
                 % find the rows
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;

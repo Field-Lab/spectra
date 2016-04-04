@@ -1053,7 +1053,7 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         try
             exc = [];
             switch action
-                case EditAction.ELEVATE
+                case EditAction.KEEP
                     params = inputdlg({'List of IDs to elevate:'},'Input',[1 70],{s});
                     params{1} = str2num(params{1});
                 case EditAction.DELETE
