@@ -82,6 +82,9 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     % Panel for 3D box axes (always put a panel to encapsulate axes)
     supportPanel3D = uipanel('Parent',graph3DBox);
     
+    % PC ordering
+    PC = 1:5;
+    
     % 3D plot initialization %
     PC123Plots = {}; % handle to globalize 3D scatter plot access
     plot3D = axes(...
@@ -91,10 +94,10 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'XGrid','on','YGrid','on','ZGrid','on',...
         'DataAspectRatio',[1 1 1],...
         'XLimMode','manual','YLimMode','manual','ZLimMode','manual');
-    plot3D.Title.String = 'Principal Components 1-2-3';
-    plot3D.XLabel.String = 'PC 1';
-    plot3D.YLabel.String = 'PC 2';
-    plot3D.ZLabel.String = 'PC 3';
+    plot3D.Title.String = sprintf('Principal Components %u-%u-%u',PC(1),PC(2),PC(3));
+    plot3D.XLabel.String = sprintf('PC %u',PC(1));
+    plot3D.YLabel.String = sprintf('PC %u',PC(2));
+    plot3D.ZLabel.String = sprintf('PC %u',PC(3));
     axis(plot3D,'tight');
     % End 3D plot initialization
     
@@ -199,9 +202,9 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'XGrid','on','YGrid','on',...
         'OuterPosition',[0 0 1 1],...
         'XLimMode','manual','YLimMode','manual','ZLimMode','manual');
-    PC45Plot.Title.String = 'Principal Components 4-5';
-    PC45Plot.XLabel.String = 'PC 4';
-    PC45Plot.YLabel.String = 'PC 5';
+    PC45Plot.Title.String = sprintf('Principal Components %u-%u',PC(4),PC(5));
+    PC45Plot.XLabel.String = sprintf('PC %u',PC(4));
+    PC45Plot.YLabel.String = sprintf('PC %u',PC(5));
     axis(PC45Plot,'tight');
     % End PC45 Plot %
     
@@ -339,7 +342,14 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
         'TooltipString','Autoscale axes of 3D and PC 4-5 plots.',...
         'fontsize',10,...
         'callback',@autoScalePCPlots);
-    selectorRow.Sizes = [75 90 -1 75 95]; % finish selectorRow
+    switchPCOrderButton = uicontrol(...
+        'Parent',selectorRow,...
+        'Style', 'pushbutton',...
+        'String','Change PCs',...
+        'TooltipString','Change PC on axes of 3D and 2D PC plots.',...
+        'fontsize',10,...
+        'callback',@switchPC);
+    selectorRow.Sizes = [75 90 -1 75 95 80]; % finish selectorRow
     
     % Information row on selected electrode
     infoRow = uicontrol(...
@@ -644,16 +654,16 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
             
             % Plot the 3D scatter
             PC123Plots{c} = scatter3(plot3D,...
-                backEndHandle.prjTrains{c}(subsampleIndex,1),...
-                backEndHandle.prjTrains{c}(subsampleIndex,2),...
-                backEndHandle.prjTrains{c}(subsampleIndex,3),...
+                backEndHandle.prjTrains{c}(subsampleIndex,PC(1)),...
+                backEndHandle.prjTrains{c}(subsampleIndex,PC(2)),...
+                backEndHandle.prjTrains{c}(subsampleIndex,PC(3)),...
                 9,...
                 colorPlot,...
                 'Visible',bool2onoff(clustMgmt.Data{c,3}));
             % Plot the 2D scatter
             PC45Plots{c} = scatter(PC45Plot,...
-                backEndHandle.prjTrains{c}(subsampleIndex,4),...
-                backEndHandle.prjTrains{c}(subsampleIndex,5),...
+                backEndHandle.prjTrains{c}(subsampleIndex,PC(4)),...
+                backEndHandle.prjTrains{c}(subsampleIndex,PC(5)),...
                 9,...
                 colorPlot,...
                 'Visible',bool2onoff(clustMgmt.Data{c,3}));
@@ -677,6 +687,33 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
                 'LineWidth',1.5);
         end % for c = 1:backEndhandle.nClusters
     end % function refreshGraphics
+    
+    % function switchPC
+    %   Changes the PC dimension displayed on the 3D and 2D PC plots
+    %   callback to the switchPCOrderButton button
+    function switchPC(~,~)
+        params = inputdlg({'PCs for 3D plot ([X,Y,Z]):','PCs for 2D plot ([X,Y]):'},...
+            'Input',[1 35],{prettyPrint(PC(1:3)),prettyPrint(PC(4:5))});
+        try
+            x = [str2num(params{1}),str2num(params{2})];
+             catchvalidateattributes(x,{'numeric'},{'row','size',[1 5],'integer','>=',1,'<=',size(backEndHandle.prjTrains{1},2)},'','');
+       
+            statusBar.String = 'Invalid input - PC axes change aborted.';
+            return;
+        end
+        PC = x;
+        plot3D.Title.String = sprintf('Principal Components %u-%u-%u',PC(1),PC(2),PC(3));
+        plot3D.XLabel.String = sprintf('PC %u',PC(1));
+        plot3D.YLabel.String = sprintf('PC %u',PC(2));
+        plot3D.ZLabel.String = sprintf('PC %u',PC(3));
+        PC45Plot.Title.String = sprintf('Principal Components %u-%u',PC(4),PC(5));
+        PC45Plot.XLabel.String = sprintf('PC %u',PC(4));
+        PC45Plot.YLabel.String = sprintf('PC %u',PC(5));
+        if backEndHandle.isDataReady;
+            refreshView();
+        end
+        statusBar.String = 'PC Axes changed.';
+    end
     
     % function refreshLowLeftPanels
     %   refreshes the lower-left quarter
