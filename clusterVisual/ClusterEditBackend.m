@@ -787,8 +787,8 @@ classdef ClusterEditBackend < handle
                     
                     % Process local variables
                     obj.nClusters = obj.nClusters + 1;
-                    
-                    obj.displayIDs = [obj.displayIDs ; max(obj.displayIDs)+1];
+                    outlierID = max(obj.displayIDs)+1;
+                    obj.displayIDs = [obj.displayIDs ; outlierID];
                     obj.spikeTrains = [obj.spikeTrains; {outlierSpikeTrain}];
                     obj.prjTrains = [obj.prjTrains; {outlierPrjTrain}];
                     
@@ -820,7 +820,7 @@ classdef ClusterEditBackend < handle
                         nan(1,obj.nClusters)];
                     
                     data = {obj.spikeCounts(selRowsIdx)./storeSpikeCounts, obj.contaminationValues(selRowsIdx),...
-                        obj.spikeTrains(selRowsIdx)};
+                        obj.spikeTrains(selRowsIdx), outlierID, outlierSpikeTrain};
                     
                 otherwise
                     obj.savedState = localStateCopy;

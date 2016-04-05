@@ -151,8 +151,8 @@ classdef EditHandler < handle
                             obj.clearHard();
                             obj.expectedHardClear = false;
                         end
-                        obj.allActions = [obj.allActions ; obj.editList];
-                        obj.newActions = [obj.newActions ; obj.editList];
+                        obj.allActions = [obj.allActions ; obj.editList(obj.isUnsaved,:)];
+                        obj.newActions = [obj.newActions ; obj.editList(obj.isUnsaved,:)];
                         manualActions = obj.allActions;
                         save(obj.editFilePath,'manualActions','-v7.3');
                         obj.unsavedActions = false;

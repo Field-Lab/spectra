@@ -50,9 +50,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 % Find master ID
                 nSpikes = cellfun(@(x) numel(x),neuronSpikeTimes(r),'uni',true);
                 [~,b] = max(nSpikes);
+                masterID = params{1}(b);
                 rMaster = r(b);
                 r(b) = [];
                 toRemove(r) = true;
+                fastRows(setdiff(params{1},masterID)) = 0;
                 toRemove(rMaster) = false;
                 neuronSpikeTimes{rMaster} = sort(horzcat(neuronSpikeTimes{[rMaster;r]}),'ascend');
             case EditAction.SHRINK
@@ -60,6 +62,15 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 toRemove(r) = false;
                 neuronSpikeTimes(r) = data{3}; % Forwarded spike trains
                 elevatedStatus(r) = true;
+                % Add in the outlier cluster
+                fastRows(data{4}) = numel(allIDs) + 1;
+                allIDs = [allIDs ; data{4}];
+                [el, clust] = NeuronSaverM.getElClust(data{4});
+                neuronEls = [neuronEls; el];
+                neuronClusters = [neuronClusters; clust];
+                neuronSpikeTimes = [neuronSpikeTimes ; data{5}];
+                toRemove = [toRemove ; true];
+                elevatedStatus = [elevatedStatus ; true];
             case EditAction.RECLUSTER
                 r = fastRows(params{1});
                 toRemove(r) = true;
