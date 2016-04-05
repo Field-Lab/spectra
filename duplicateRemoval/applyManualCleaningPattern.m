@@ -12,7 +12,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
     validateattributes(elevatedStatus,{'logical'},{'size',[nNeurons, 1]},'','elevatedStatus');
     
     allIDs = NeuronSaverM.getIDs(neuronEls, neuronClusters);
-    fastRows = zeros(max(allIDs) + 15,1);
+    fastRows = zeros(max(allIDs) + 15,1); % fastRows(ID) = row # in neurons-based arrays
     % " + 15 ": new IDs may be added on the last electrode. Conservative.
     [~,~,positions] = intersect(1:max(allIDs),allIDs);
     fastRows(allIDs) = positions;

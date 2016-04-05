@@ -159,7 +159,8 @@ classdef ClusterEditBackend < handle
                     listElevatedRows = find(elevatedStatus);
                     
                     % Fast positional neuron access. fastRows(ID) = row #.
-                    fastRows = zeros(max(obj.neuronIDs) + 15,1); % + 15 safety in case manual actions add IDs
+                    fastRows = zeros(max(obj.neuronIDs) + 15,1);
+                    % + 15 safety in case manual actions add IDs
                     [~,~,positions] = intersect(1:max(obj.neuronIDs),obj.neuronIDs);
                     fastRows(obj.neuronIDs) = positions;
                     
@@ -631,16 +632,22 @@ classdef ClusterEditBackend < handle
                         obj.savedState = localStateCopy;
                         return;
                     end
-                    obj.statusRaw(selRowsIdx,1) = 2;
-                    bestNeuronIdx = find(obj.spikeCounts == max(obj.spikeCounts(selRowsIdx)),1);
-                    obj.statusRaw(selRowsIdx,2) = obj.displayIDs(bestNeuronIdx);
-                    obj.statusRaw(bestNeuronIdx,:) = [0 0];
-                    obj.comment(selRowsIdx) = cellfun(@(s,k) [s,' - Merged'],obj.comment(selRowsIdx),'uni',false);
+                    rMaster = find(obj.spikeCounts == max(obj.spikeCounts(selRowsIdx)),1); % row of final neuron in local space
+                    saveCom = obj.comment{rMaster};
                     mergedTrain = sort(horzcat(obj.spikeTrains{selRowsIdx}));
+                    % Use a reapply mode recluster action to process the merge.
+                    obj.localApplyAction(EditAction.RECLUSTER,[params{1};{1};{''}],...
+                        {obj.displayIDs(rMaster), {mergedTrain}});
+                    % rMaster is now invalid - RECLUSTER put row at the end.
+                    [~,rMaster,~] = intersect(obj.displayIDs,params{1});
+                    obj.comment{rMaster} = [saveCom,' - Merged']; 
+                    
                     contam = edu.ucsc.neurobiology.vision.anf.NeuronCleaning.getContam(mergedTrain,int32(obj.nSamples));
-                    data = {sum(obj.spikeCounts(selRowsIdx)),... % #Spikes
-                        sum(obj.spikeCounts(selRowsIdx)) * 20000./obj.nSamples,... % Spike rate
-                        contam}; % contamination value
+                    data = {numel(mergedTrain),... % #Spikes
+                        numel(mergedTrain) * 20000./obj.nSamples,... % Spike rate
+                        contam,...
+                        mergedTrain }; % contamination value
+                    
                 case EditAction.RECLUSTER
                     % Switch cases whether applying stored action or actually computing
                     if numel(varargin) == 0

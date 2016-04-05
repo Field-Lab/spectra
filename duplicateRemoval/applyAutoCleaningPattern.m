@@ -13,7 +13,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes] = ...
     listElevatedRows = find(elevatedStatus);
     
     allIDs = NeuronSaverM.getIDs(neuronEls, neuronClusters);
-    fastRows = zeros(max(allIDs) + 15,1);
+    fastRows = zeros(max(allIDs) + 15,1);  % fastRows(ID) = row # in neurons-based arrays
     [~,~,positions] = intersect(1:max(allIDs),allIDs);
     fastRows(allIDs) = positions;
     
