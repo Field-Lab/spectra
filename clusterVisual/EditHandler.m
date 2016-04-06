@@ -254,6 +254,7 @@ classdef EditHandler < handle
         function removeLastAction(obj)
             obj.editList = obj.editList(1:(end-1),:);
             obj.displayList = obj.displayList(1:(end-1));
+            obj.isUnsaved = obj.isUnsaved(1:(end-1));
             obj.updateGUITable();
         end
         

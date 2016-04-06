@@ -1172,14 +1172,21 @@ function varargout = ClusterEditGUI(datasetFolder,varargin)
     %   undo the last edit action
     %   callback of the undoLastEditButton pushbutton
     function undoLastEdit(~,~)
-        [s,msg] = backEndHandle.saveLocalState('restore');
-        if s ~= 0
-            statusBar.String = msg;
+        if size(editHandler.editList,1) == 0
+            statusBar.String = 'No action to remove';
+            return;
+        end
+        if ~editHandler.unsavedActions
+            statusBar.String = 'Cannot Remove saved actions this way. Please use -DEL ALL- then -SAVE-.';
             return;
         end
         editHandler.removeLastAction();
-        refreshView();
         statusBar.String = 'Canceled latest action.';
+        backEndHandle.reloadSameData();
+        for i = 1:size(editHandler.editList,1)
+            backEndHandle.localApplyAction(editHandler.editList{i,1}, editHandler.editList{i,2}, editHandler.editList{i,3});
+        end
+        refreshView();
     end
     
     %% FINISH GENERATING THE GUI %%

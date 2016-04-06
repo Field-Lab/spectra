@@ -21,7 +21,7 @@ classdef ClusterEditBackend < handle
         arrayID
         electrodeMap
         
-        savedState
+        savedState % For single step action undo or for error recovery while applying actions
     end
     
     properties(GetAccess = public,SetAccess = protected)
