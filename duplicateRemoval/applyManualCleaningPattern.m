@@ -1,6 +1,6 @@
-function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classification] = ...
         applyManualCleaningPattern(neuronEls, neuronClusters,...
-        neuronSpikeTimes, manualActions, elevatedStatus)
+        neuronSpikeTimes, manualActions, elevatedStatus, classification)
     
     nNeurons = size(neuronEls,1);
     
@@ -10,6 +10,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
     validateattributes(neuronSpikeTimes,{'cell'},{'size',[nNeurons, 1]},'','neuronSpikeTimes');
     validateattributes(manualActions,{'cell'},{'size',[nan, 3]},'','manualActions');
     validateattributes(elevatedStatus,{'logical'},{'size',[nNeurons, 1]},'','elevatedStatus');
+    validateattributes(classification,{'cell'},{'size',[nNeurons, 1]},'','elevatedStatus');
     
     allIDs = NeuronSaverM.getIDs(neuronEls, neuronClusters);
     fastRows = zeros(max(allIDs) + 15,1); % fastRows(ID) = row # in neurons-based arrays
@@ -36,10 +37,12 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
                 toRemove(r) = false;
+                classification{r} = 'Edited/';
             case EditAction.DELETE
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
                 toRemove(r) = true;
+                classification{r} = 'Edited/';
             case EditAction.MERGE
                 % Hard merge
                 % find the rows
@@ -52,14 +55,17 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 [~,b] = max(nSpikes);
                 masterID = params{1}(b);
                 rMaster = r(b);
+                classification{rMaster} = 'Edited/';
                 r(b) = [];
                 toRemove(r) = true;
+                classification{r} = 'CurrDelete/';
                 fastRows(setdiff(params{1},masterID)) = 0;
                 toRemove(rMaster) = false;
                 neuronSpikeTimes{rMaster} = sort(horzcat(neuronSpikeTimes{[rMaster;r]}),'ascend');
             case EditAction.SHRINK
                 r = fastRows(params{1});
                 toRemove(r) = false;
+                classification{r} = 'Edited/';
                 neuronSpikeTimes(r) = data{3}; % Forwarded spike trains
                 elevatedStatus(r) = true;
                 % Add in the outlier cluster
@@ -71,9 +77,11 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 neuronSpikeTimes = [neuronSpikeTimes ; data{5}];
                 toRemove = [toRemove ; true];
                 elevatedStatus = [elevatedStatus ; true];
+                classification = [classification ; {'Edited/'} ];
             case EditAction.RECLUSTER
                 r = fastRows(params{1});
                 toRemove(r) = true;
+                classification{r} = 'CurrDelete/';
                 newN = numel(data{1});
                 [el, clust] = NeuronSaverM.getElClust(data{1});
                 % Append, and update fastrows
@@ -84,6 +92,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
                 neuronSpikeTimes = [neuronSpikeTimes ; data{2}(:)];
                 toRemove = [toRemove ; false(newN, 1)];
                 elevatedStatus = [elevatedStatus ; true(newN, 1)];
+                classification = [classification ; cellfun(@(x) 'Edited/',cell(newN, 1),'uni',0) ];
         otherwise
                 throw(MException('','applyManualCleaningPattern - Unhandled EditAction in switch statement.'));
         end
@@ -95,6 +104,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
     neuronClusters(toRemove) = [];
     neuronSpikeTimes(toRemove) = [];
     elevatedStatus(toRemove) = [];
+    classification(toRemove) = [];
     
     % Re-sort
     [~, idx] = sort(allIDs);
@@ -102,6 +112,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
     neuronClusters = neuronClusters(idx);
     neuronSpikeTimes = neuronSpikeTimes(idx);
     elevatedStatus = elevatedStatus(idx);
-
+    classification = classification(idx);
+    
 end
 

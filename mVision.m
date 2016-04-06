@@ -404,14 +404,25 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             manualActionsNew = cell(0,3);
         end
         
+        % WIP: Tentatively find a classification file:
+        files = dir([saveFolder,filesep,'*.classification.txt']);
+        classification = cell(numel(neuronEls),1);
+        if numel(files) == 1
+            fid = fopen([saveFolder,filesep,files(1).name]);
+            classesRaw = textscan(fid, '%u All/%s', 'delimiter', '\n');
+            [~,pos,pos2] = intersect(NeuronSaverM.getIDs(neuronEls,neuronClusters),classesRaw{1});
+            classification(pos) = classesRaw{2}(pos2);
+            fclose(fid);
+        end
+        
         % Case: consolidate all actions
         if size(manualActions,1) > 0 && ...
                 ~(exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2)
             
             fprintf('    No incremental raw neurons file. Building one with all actions.\n');
-            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classification] = ...
                 applyManualCleaningPattern(neuronEls, neuronClusters,...
-                neuronSpikeTimes, manualActions, elevatedStatus);
+                neuronSpikeTimes, manualActions, elevatedStatus, classification);
             save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
                 'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','elevatedStatus','-v7.3');
             
@@ -423,9 +434,9 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
         elseif size(manualActionsNew,1) > 0 && ...
                 exist([saveFolder,filesep,datasetName,'-edited.neurons.mat'],'file') == 2
             fprintf('    An incremental raw neurons file was found. Applying new actions.\n');
-            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus] = ...
+            [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classification] = ...
                 applyManualCleaningPattern(neuronEls, neuronClusters,...
-                neuronSpikeTimes, manualActionsNew, elevatedStatus);
+                neuronSpikeTimes, manualActionsNew, elevatedStatus, classification);
             save([saveFolder,filesep,datasetName,'-edited.neurons.mat'],...
                 'neuronEls','neuronClusters','neuronSpikeTimes','nSamples','elevatedStatus','-v7.3');
             
@@ -435,6 +446,17 @@ function mVision(dataPath, saveFolder, timeCommand, movieXML, tryToDo, force, va
             
         else % Case: skip to automatic cleaning
             fprintf('    No (new) actions to apply, skipping to applying automatic pattern.\n');
+        end
+        
+        % rewrite classification only if there was an initial classification
+        if numel(files) == 1
+            fid = fopen([saveFolder,filesep,files(1).name],'w');
+            for i = 1:numel(neuronEls)
+                if numel(classification{i}) > 0
+                    fprintf(fid,'%u All/%s\n',NeuronSaverM.getIDs(neuronEls(i),neuronClusters(i)),classification{i});
+                end
+            end
+            fclose(fid);
         end
         
         % Automatic actions
