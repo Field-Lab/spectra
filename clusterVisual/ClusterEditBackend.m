@@ -832,8 +832,8 @@ classdef ClusterEditBackend < handle
         % Destructor - close handles to java files
         function delete(obj)
             if ~obj.typeIsSpectra
-                obj.prj.javafile.close();
-                obj.neurons.javafile.close();
+                obj.prj.javaFile.close();
+                obj.neurons.javaFile.close();
             end
             if numel(obj.eiFile) > 0
                 obj.eiFile.close();
