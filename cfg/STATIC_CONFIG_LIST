@@ -7,4 +7,12 @@
 DEFAULT::./cfg/rewriteDefault::Demo to show users how to write a custom config file
 VINCENT1::./cfg/vincent_custom::Just setting appropriate parallel threading
 LIGHT_CLUST::./cfg/light_clust::Lightweight spectral clustering parameters for not waiting forever
+VINCENT2::./cfg/vincent_custom_2::Custom + no STAs
+QT0.001::./cfg/qtsweep/vincent_custom_qt0.001::Quality threshold sweep at 0.001
+QT0.005::./cfg/qtsweep/vincent_custom_qt0.005::Quality threshold sweep at 0.005
+QT0.010::./cfg/qtsweep/vincent_custom_qt0.010::Quality threshold sweep at 0.010
+QT0.020::./cfg/qtsweep/vincent_custom_qt0.020::Quality threshold sweep at 0.020
+QT0.025::./cfg/qtsweep/vincent_custom_qt0.025::Quality threshold sweep at 0.025
+QT0.030::./cfg/qtsweep/vincent_custom_qt0.030::Quality threshold sweep at 0.030
+NO_WHITE::./cfg/nowhite::No whitening
 

@@ -1,0 +1,27 @@
+% rewriteDefault
+% Example file on how to override a mVisionConfig
+% This one only overrides default values with other default values
+%
+% You can put any number of lines such as
+% FIELD_NAME = value
+% where FIELD_NAME is a valid property identifier of class mVisionConfig
+% This type of script will be parsed during the execution of mVisionConfig
+% constructor, just by executing 'obj.FIELD_NAME = value'.
+%
+% Don't forget to reference your custom configuration in the static file
+% STATIC_CONFIG_LIST
+% Comments and empty lines allowed.
+
+nWorkers = 14
+
+bufferMaxSize = 32768
+
+maxClusteringTries = 3
+
+
+minSpikes = 500
+maxContamination = 0.1
+
+EInThreads = 14
+STAnThreads = 14
+paramsnThreads = 14
