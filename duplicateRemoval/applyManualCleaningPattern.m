@@ -37,12 +37,12 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classific
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
                 toRemove(r) = false;
-                classification{r} = 'Edited/';
+                classification(r) = {'Edited/'};
             case EditAction.DELETE
                 r = fastRows(params{1});
                 elevatedStatus(r) = true;
                 toRemove(r) = true;
-                classification{r} = 'Edited/';
+                classification(r) = {'Edited/'};
             case EditAction.MERGE
                 % Hard merge
                 % find the rows
@@ -55,17 +55,17 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classific
                 [~,b] = max(nSpikes);
                 masterID = params{1}(b);
                 rMaster = r(b);
-                classification{rMaster} = 'Edited/';
+                classification(rMaster) = {'Edited/'};
                 r(b) = [];
                 toRemove(r) = true;
-                classification{r} = 'CurrDelete/';
+                classification(r) = {'CurrDelete/'};
                 fastRows(setdiff(params{1},masterID)) = 0;
                 toRemove(rMaster) = false;
                 neuronSpikeTimes{rMaster} = sort(horzcat(neuronSpikeTimes{[rMaster;r]}),'ascend');
             case EditAction.SHRINK
                 r = fastRows(params{1});
                 toRemove(r) = false;
-                classification{r} = 'Edited/';
+                classification(r) = {'Edited/'};
                 neuronSpikeTimes(r) = data{3}; % Forwarded spike trains
                 elevatedStatus(r) = true;
                 % Add in the outlier cluster
@@ -81,7 +81,7 @@ function [neuronEls, neuronClusters, neuronSpikeTimes, elevatedStatus, classific
             case EditAction.RECLUSTER
                 r = fastRows(params{1});
                 toRemove(r) = true;
-                classification{r} = 'CurrDelete/';
+                classification(r) = {'CurrDelete/'};
                 newN = numel(data{1});
                 [el, clust] = NeuronSaverM.getElClust(data{1});
                 % Append, and update fastrows
